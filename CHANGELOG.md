@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.1] - 2026-11-10
+
+### Fixed
+- 修正 macOS/Linux 启动说明：推荐使用 `bash ./obsidian_manager.sh`，不再要求下载者运行 `chmod +x`。
+- 明确解释 GitHub ZIP 等下载方式可能不保留 Unix 可执行位，避免直接执行时出现 `Permission denied`。
+- 将“下载即运行”定义为无需手动修改文件权限；首次启动仍需通过 Bash、Python 或其他明确启动器调用。
+
+### Documentation
+- 在 README、SECURITY、CONTRIBUTING 中加入无需 chmod 的启动规范。
+- 明确 Bash 显式启动不会修改文件权限、不会提升权限，也不会改变系统设置。
+
 ## [0.4.0] - 2026-11-10
 
 ### Added
