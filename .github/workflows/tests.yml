@@ -19,6 +19,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Verify Bash launcher executable mode
+        run: python -c "import subprocess; s=subprocess.check_output(['git','ls-tree','HEAD','obsidian_manager.sh'], text=True); print(s.strip()); assert s.startswith('100755 '), 'obsidian_manager.sh must be committed as mode 100755'"
       - name: Compile Python
         run: python -m py_compile obsidian_manager.py
       - name: Run unit tests
