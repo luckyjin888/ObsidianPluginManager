@@ -1,0 +1,28 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  python-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Compile Python
+        run: python -m py_compile obsidian_manager.py
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v
+      - name: Check Bash launcher syntax
+        if: runner.os != 'Windows'
+        run: bash -n obsidian_manager.sh
