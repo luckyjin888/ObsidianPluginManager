@@ -48,7 +48,7 @@ python3 obsidian_manager.py
 powershell -ExecutionPolicy Bypass -File .\obsidian_manager.ps1
 ```
 
-如果系统策略不允许上述启动方式，可在 PowerShell 中直接运行：
+如果 PowerShell 执行策略阻止脚本运行，不要为了运行本工具而关闭或绕过系统策略；可直接运行 Python 核心：
 
 ```powershell
 py -3 .\obsidian_manager.py
