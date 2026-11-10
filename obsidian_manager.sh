@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ObsidianPluginManager v0.4.3 launcher for macOS/Linux
+# ObsidianPluginManager v0.5.0 launcher for macOS/Linux
 set -eu
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 if ! command -v python3 >/dev/null 2>&1; then
