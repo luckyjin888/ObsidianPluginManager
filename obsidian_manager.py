@@ -86,7 +86,7 @@ def explain_cli_registration(target, source, action):
 
 def register_cli(app, source):
     bindir = Path.home()/".local"/"bin"
-    target = bindir/"obsidian"
+    target = bindir/("obsidian.com" if platform.system() == "Windows" else "obsidian")
     if target.exists() or target.is_symlink():
         say(f"目标已存在，出于安全考虑不覆盖：{target}")
         return False
@@ -100,9 +100,12 @@ def register_cli(app, source):
             target.chmod(0o755)
         say(f"注册入口已创建：{target}")
         if str(bindir) not in os.environ.get("PATH","").split(os.pathsep):
-            say(f"注意：{bindir} 当前不在 PATH 中。请按下方提示将它加入 PATH 后重启终端。")
-            say("macOS/Linux：将以下内容加入你正在使用的 shell 配置文件（例如 ~/.zshrc 或 ~/.bashrc）：")
-            say('  export PATH="$HOME/.local/bin:$PATH"')
+            say(f"注意：{bindir} 当前不在 PATH 中。注册文件已创建，但终端可能仍找不到 obsidian。")
+            if platform.system() == "Windows":
+                say("Windows：请在“环境变量 → 用户变量 → Path”中手动添加上述目录，然后重新打开终端。")
+            else:
+                say("macOS/Linux：将以下内容加入你正在使用的 shell 配置文件（例如 ~/.zshrc 或 ~/.bashrc）：")
+                say('  export PATH="$HOME/.local/bin:$PATH"')
         return True
     except Exception as e:
         say(f"注册失败：{e}")
