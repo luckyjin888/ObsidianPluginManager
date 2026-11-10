@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.5.0] - 2026-11-10
+
+### Added
+- 新增优质开源 Obsidian 社区插件推荐库：QuickAdd、Tasks、Excalidraw、Linter、Advanced Tables、Templater。
+- 支持按插件 ID 多选或选择全部，逐个通过 Obsidian 官方 CLI 安装。
+- 安装前核验官方社区目录 ID、仓库来源、GitHub SPDX 开源许可证和归档状态。
+- 新插件只安装不自动启用；安装后逐个核验 manifest。
+
+### Safety
+- 批量安装前统一展示标准专业版与10岁儿童比喻版说明，并要求完整确认词 INSTALL。
+- 未知许可证、仓库不匹配、归档或核验失败时跳过安装。
+- 明确标记 Templater 可执行任意 JavaScript 和系统命令的高风险能力。
+- 安装不等于启用；不自动启用、更新或卸载插件。
+
 ## [0.4.3] - 2026-11-10
 
 ### Added
