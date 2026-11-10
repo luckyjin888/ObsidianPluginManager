@@ -103,22 +103,22 @@ py -3 .\\obsidian_manager.py
 
 程序内置以下第三方社区插件候选清单，可输入多个插件 ID 一次安装：
 
-| 插件 | ID | 用途 |
-|---|---|---|
-| QuickAdd | `quickadd` | 快速捕捉、创建笔记和自动化工作流 |
-| Tasks | `obsidian-tasks-plugin` | 待办、截止日期、重复任务 |
-| Excalidraw | `obsidian-excalidraw-plugin` | 绘图、关系图和白板 |
-| Linter | `obsidian-linter` | Markdown 格式整理 |
-| Advanced Tables | `table-editor-obsidian` | Markdown 表格编辑 |
-| Templater | `templater-obsidian` | 动态模板；可执行 JavaScript 和系统命令，属于高风险能力 |
+| 插件 | ID | GitHub 许可证（本次核对） | 用途 |
+|---|---|---|---|
+| QuickAdd | `quickadd` | MIT | 快速捕捉、创建笔记和自动化工作流 |
+| Tasks | `obsidian-tasks-plugin` | MIT | 待办、截止日期、重复任务 |
+| Excalidraw | `obsidian-excalidraw-plugin` | AGPL-3.0 | 绘图、关系图和白板 |
+| Linter | `obsidian-linter` | MIT | Markdown 格式整理 |
+| Advanced Tables | `table-editor-obsidian` | GPL-3.0 | Markdown 表格编辑；项目说明仍属实验性，可能有导致当前笔记数据丢失的缺陷 |
+| Templater | `templater-obsidian` | AGPL-3.0 | 动态模板；可执行 JavaScript 和系统命令，属于高风险能力 |
 
-安装前程序会逐项核验：
+表中许可证是本次 GitHub 仓库元数据核对结果；程序运行时仍会重新核验，第三方插件由 CLI 从社区目录单独获取，并未被打包进本项目仓库。\n\n安装前程序会逐项核验：
 1. 插件 ID 是否存在于 Obsidian 官方社区插件目录。
 2. 官方目录声明的 GitHub 仓库是否与内置推荐来源一致。
 3. GitHub API 是否能识别开源 SPDX 许可证。
 4. 仓库是否已归档。
 
-无法核验许可证、仓库来源不一致、仓库已归档或网络核验失败时，该插件会被跳过。通过核验不代表安全认证。Templater 的代码执行能力风险较高，建议初学者先不要安装或启用。
+无法核验许可证、仓库来源不一致、仓库已归档或网络核验失败时，该插件会被跳过。通过核验不代表安全认证。Templater 的代码执行能力风险较高，建议初学者先不要安装或启用。 Advanced Tables 的官方插件说明也提示其仍属实验性，可能存在影响当前笔记数据的缺陷，使用前应先备份。
 
 批量安装前会说明目标 Vault、权限、写入位置和风险，并要求输入完整的 `INSTALL`。安装后只核验文件，不自动启用；启用前请先审阅插件并备份 Vault。所有新安装插件保持未启用状态。 输入 `all` 时会自动排除具备任意 JavaScript/系统命令执行能力的 Templater；只有单独输入 `templater-obsidian` 才会把它加入待安装清单。
 
