@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# ObsidianPluginManager 0.4.0
+# ObsidianPluginManager 0.4.1
 # GPL-3.0-only
 """Cross-platform, consent-first Obsidian plugin inventory and heuristic audit."""
 from __future__ import annotations
@@ -7,7 +7,7 @@ import json, os, platform, re, shutil, subprocess, sys, urllib.request
 from pathlib import Path
 from datetime import datetime, timezone
 
-VERSION = "0.4.0"
+VERSION = "0.4.1"
 MIN_CLI = (1, 12, 7)
 REGISTRY_URL = "https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugins.json"
 NETWORK_TIMEOUT = 8
