@@ -70,6 +70,7 @@ CLI 注册使用独立的完整确认词 `YES`。这仅授权本次所展示的�
 - 安装后核验该 Vault 的 `.obsidian/plugins/obsidian-git/manifest.json`；核验失败不得自动启用。
 - 不自动启用、不自动卸载、不自动更新、不使用 sudo/管理员权限。
 - Obsidian CLI 要求 Obsidian 应用正在运行且 CLI 已启用并注册；不满足时停止并说明原因。
+- 社区插件安装受 Obsidian Restricted Mode 设置约束；程序不得自动关闭受限模式，若被阻止应停止并提示用户自行检查设置。
 
 **标准专业版：** 安装写入所选 Vault 的插件目录；启用允许 Obsidian 加载并运行第三方代码。命令以当前用户权限执行。插件可能访问 Vault 数据或调用 Git；用户应审阅插件权限与行为。可在 Obsidian 设置中禁用，卸载需另行确认。
 
