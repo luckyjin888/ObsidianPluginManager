@@ -88,7 +88,7 @@ py -3 .\\obsidian_manager.py
 - 插件 ID：`obsidian-git`
 - 官方 CLI 安装命令：`obsidian plugin:install id=obsidian-git`
 - 官方 CLI 启用命令：`obsidian plugin:enable id=obsidian-git`
-- CLI 需要 Obsidian 正在运行，并且已在设置中启用、注册 CLI。
+- CLI 需要 Obsidian 正在运行，并且已在设置中启用、注册 CLI；安装社区插件还需 Obsidian 允许社区插件（Restricted Mode 可能需要由用户在设置中关闭）。程序不会自动更改此安全设置。
 - 程序在所选 Vault 目录作为工作目录调用 CLI，以明确目标 Vault。
 - 安装和启用是两个独立动作；安装后先核验 `.obsidian/plugins/obsidian-git/manifest.json`，默认不自动启用。
 - 安装前要求输入 `INSTALL`；启用前另行要求输入 `ENABLE`。拒绝或取消即停止。
