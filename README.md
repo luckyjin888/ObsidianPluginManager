@@ -2,7 +2,7 @@
 
 一个以安全、透明、用户确认优先为原则的 Obsidian 插件盘点与初步审查工具。
 
-**版本：** 0.4.3  
+**版本：** 0.5.0  
 **核心：** Python 3  
 **启动入口：** macOS/Linux 使用 Bash；Windows 使用 PowerShell  
 **许可证：** GNU GPL-3.0-only
@@ -20,7 +20,10 @@
 - 对插件 JavaScript 做关键词静态初筛：网络通信、本地文件访问、系统命令/进程、动态代码执行、凭据/环境访问。
 - 输出发现的线索与无法确认项；不把“没有命中规则”说成“安全”。
 - CLI 未注册时，可尝试创建当前用户级命令入口；执行前展示双版本说明并要求输入完整的 `YES`。
-- 可选通过 Obsidian 官方 CLI 安装第三方社区插件 Obsidian Git（`obsidian-git`）；安装与启用分开确认，默认不自动启用。
+- 可选通过 Obsidian 官方 CLI 安装 Obsidian Git（`obsidian-git`）。
+- 新增优质开源插件推荐库：QuickAdd、Tasks、Excalidraw、Linter、Advanced Tables、Templater；可按 ID 多选或选择全部。
+- 安装前实时核对 Obsidian 官方社区目录、GitHub 源码仓库、SPDX 开源许可证和仓库归档状态；未通过核验的插件跳过。
+- 批量安装前统一展示双版本说明并要求输入 `INSTALL`；只安装、不自动启用。
 
 ## 环境要求
 
@@ -96,6 +99,29 @@ py -3 .\\obsidian_manager.py
 **标准专业版：** 安装会通过 Obsidian CLI 在所选 Vault 的 `.obsidian/plugins/obsidian-git` 写入第三方插件文件；启用会允许 Obsidian 加载并执行该插件代码。两步均以当前用户权限运行，不使用 sudo/管理员权限。可在 Obsidian 社区插件设置中禁用；卸载不由此流程执行。
 
 **10岁儿童比喻版：** 安装就像把一个第三方小工具放进你选定的笔记本工具箱；启用就像允许它开始工作、接触这本笔记本。两步都要分别点头，只用你自己的普通账户。它不是 Obsidian 自带工具，可能有风险；不想用时可以在设置里关掉。
+## 优质开源插件推荐库
+
+程序内置以下第三方社区插件候选清单，可输入多个插件 ID 一次安装：
+
+| 插件 | ID | 用途 |
+|---|---|---|
+| QuickAdd | `quickadd` | 快速捕捉、创建笔记和自动化工作流 |
+| Tasks | `obsidian-tasks-plugin` | 待办、截止日期、重复任务 |
+| Excalidraw | `obsidian-excalidraw-plugin` | 绘图、关系图和白板 |
+| Linter | `obsidian-linter` | Markdown 格式整理 |
+| Advanced Tables | `table-editor-obsidian` | Markdown 表格编辑 |
+| Templater | `templater-obsidian` | 动态模板；可执行 JavaScript 和系统命令，属于高风险能力 |
+
+安装前程序会逐项核验：
+1. 插件 ID 是否存在于 Obsidian 官方社区插件目录。
+2. 官方目录声明的 GitHub 仓库是否与内置推荐来源一致。
+3. GitHub API 是否能识别开源 SPDX 许可证。
+4. 仓库是否已归档。
+
+无法核验许可证、仓库来源不一致、仓库已归档或网络核验失败时，该插件会被跳过。通过核验不代表安全认证。Templater 的代码执行能力风险较高，建议初学者先不要安装或启用。
+
+批量安装前会说明目标 Vault、权限、写入位置和风险，并要求输入完整的 `INSTALL`。安装后只核验文件，不自动启用；启用前请先审阅插件并备份 Vault。所有新安装插件保持未启用状态。
+
 ## 全面审查的边界
 
 - 官方社区目录匹配只说明找到相同插件 ID，不代表官方安全认证。
