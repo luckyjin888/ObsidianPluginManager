@@ -2,12 +2,12 @@
 
 一个以安全、透明、用户确认优先为原则的 Obsidian 插件盘点与初步审查工具。
 
-**版本：** 0.4.0  
+**版本：** 0.4.1  
 **核心：** Python 3  
 **启动入口：** macOS/Linux 使用 Bash；Windows 使用 PowerShell  
 **许可证：** GNU GPL-3.0-only
 
-> 0.4.0 是跨平台首轮实现。macOS、Windows、Linux 的路径识别和 CLI 入口逻辑尚未在所有真实系统组合上完成验证。请把它视为早期测试版，不要将“支持入口”理解为所有发行版/安装方式均已兼容。
+> 0.4.1 修正启动说明：macOS/Linux 用户无需给脚本添加可执行权限，使用 Bash 显式启动即可。0.4.0 是跨平台首轮实现；macOS、Windows、Linux 的路径识别和 CLI 入口逻辑尚未在所有真实系统组合上完成验证。请把它视为早期测试版，不要将“支持入口”理解为所有发行版/安装方式均已兼容。
 
 ## 功能
 
@@ -29,18 +29,27 @@
 
 ## 运行
 
-### macOS / Linux
+### macOS / Linux（推荐）
+
+**不需要执行 `chmod +x`。** 在终端进入项目目录后运行：
 
 ```bash
-chmod +x obsidian_manager.sh
-./obsidian_manager.sh
+bash ./obsidian_manager.sh
 ```
 
-也可以直接运行：
+也可以直接指定脚本完整路径：
 
 ```bash
-python3 obsidian_manager.py
+bash "/你的项目目录/obsidian_manager.sh"
 ```
+
+或者直接运行 Python 核心：
+
+```bash
+python3 ./obsidian_manager.py
+```
+
+不要把 `./obsidian_manager.sh` 当作默认启动命令：如果下载工具包时没有保留 Unix 可执行位，直接执行会出现 `Permission denied`。通过 `bash` 启动不依赖该可执行位，也不需要修改文件权限。
 
 ### Windows PowerShell
 
