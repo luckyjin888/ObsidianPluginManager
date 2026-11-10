@@ -7,7 +7,7 @@ import json, os, platform, re, shutil, subprocess, sys, urllib.request
 from pathlib import Path
 from datetime import datetime, timezone
 
-VERSION = "0.4.3"
+VERSION = "0.5.0"
 MIN_CLI = (1, 12, 7)
 REGISTRY_URL = "https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugins.json"
 NETWORK_TIMEOUT = 8
@@ -113,7 +113,7 @@ def register_cli(app, source):
         return False
 
 def fetch_registry():
-    req = urllib.request.Request(REGISTRY_URL, headers={"User-Agent":"ObsidianPluginManager/0.4.3"})
+    req = urllib.request.Request(REGISTRY_URL, headers={"User-Agent":"ObsidianPluginManager/0.5.0"})
     with urllib.request.urlopen(req, timeout=NETWORK_TIMEOUT) as r:
         data = json.loads(r.read().decode("utf-8"))
     return {str(x.get("id","")):x for x in data if isinstance(x,dict) and x.get("id")}
@@ -274,6 +274,150 @@ def offer_obsidian_git(vault):
     else:
         say("保持未启用状态；未执行启用操作。")
 
+
+# Curated open-source community plugin catalogue.
+# IDs are checked against Obsidian's official community registry before installation.
+RECOMMENDED_PLUGINS = [
+    {"id":"quickadd", "name":"QuickAdd", "purpose":"快速捕捉内容、创建笔记、模板与自动化工作流",
+     "repo":"chhoumann/quickadd", "risk":"可配置自动化与脚本；只启用自己理解的工作流"},
+    {"id":"obsidian-tasks-plugin", "name":"Tasks", "purpose":"跨笔记管理待办、截止日期、重复任务和任务查询",
+     "repo":"obsidian-tasks-group/obsidian-tasks", "risk":"会读取并处理 Vault 中的任务标记"},
+    {"id":"obsidian-excalidraw-plugin", "name":"Excalidraw", "purpose":"在 Obsidian 中绘图、画关系图和白板",
+     "repo":"zsviczian/obsidian-excalidraw-plugin", "risk":"会在 Vault 中创建和修改绘图文件"},
+    {"id":"obsidian-linter", "name":"Linter", "purpose":"按规则整理 Markdown 格式、标题、空格和属性",
+     "repo":"platers/obsidian-linter", "risk":"运行整理规则时可能批量修改笔记；首次使用前先备份"},
+    {"id":"table-editor-obsidian", "name":"Advanced Tables", "purpose":"改善 Markdown 表格的编辑、对齐和导航",
+     "repo":"tgrosinger/advanced-tables-obsidian", "risk":"主要影响表格编辑体验"},
+    {"id":"templater-obsidian", "name":"Templater", "purpose":"动态模板，可运行 JavaScript 和系统命令",
+     "repo":"SilentVoid13/Templater", "risk":"高风险：可执行任意 JavaScript 和系统命令；仅建议高级用户使用"}
+]
+
+OPEN_SOURCE_LICENSES = {
+    "MIT", "Apache-2.0", "GPL-3.0", "GPL-3.0-only", "GPL-3.0-or-later",
+    "AGPL-3.0", "AGPL-3.0-only", "AGPL-3.0-or-later",
+    "BSD-2-Clause", "BSD-3-Clause", "MPL-2.0", "ISC"
+}
+
+def normalize_repo(repo):
+    value = re.sub(r"^https?://github.com/", "", str(repo or "").strip()).strip("/")
+    return re.sub(r"\.git$", "", value).lower()
+
+def offer_recommended_plugins(vault):
+    cli = shutil.which("obsidian")
+    if not cli:
+        say("\n未找到 Obsidian CLI；推荐插件库暂不可安装。请先在 Obsidian 设置中启用并注册 CLI。")
+        return
+    say("\n" + "="*58)
+    say("优质开源社区插件推荐库")
+    say("这些是第三方插件，不是 Obsidian 官方内置功能。")
+    say("推荐依据：常见使用场景、公开源代码仓库；安装前还会实时核验官方目录、GitHub 许可证及仓库归档状态。")
+    say("这不是安全认证；许可证开放不代表代码没有风险。")
+    say("-"*58)
+    for item in RECOMMENDED_PLUGINS:
+        state = "已安装" if (vault/".obsidian"/"plugins"/item["id"]/"manifest.json").is_file() else "未安装"
+        say(f'{item["id"]} | {item["name"]} | {state}')
+        say(f'  用途：{item["purpose"]}')
+        say(f'  风险提示：{item["risk"]}')
+        say(f'  源码仓库：https://github.com/{item["repo"]}')
+    say("\n输入要安装的插件 ID（多个用英文逗号分隔），输入 all 选择全部，直接回车跳过。")
+    selected_text = ask("选择：")
+    if not selected_text:
+        say("已跳过推荐插件安装。")
+        return
+    by_id = {x["id"]:x for x in RECOMMENDED_PLUGINS}
+    if selected_text.lower() == "all":
+        selected = [x for x in RECOMMENDED_PLUGINS]
+    else:
+        ids = [x.strip() for x in selected_text.split(",") if x.strip()]
+        unknown = [x for x in ids if x not in by_id]
+        if unknown:
+            say("存在不在推荐清单中的 ID，停止本次安装：" + ", ".join(unknown))
+            return
+        selected = [by_id[x] for x in dict.fromkeys(ids)]
+    selected = [x for x in selected if not (vault/".obsidian"/"plugins"/x["id"]/"manifest.json").is_file()]
+    if not selected:
+        say("所选插件均已安装，无需重复安装。")
+        return
+    say("\n开始安装前的来源与许可证核验（只读网络请求）：")
+    try:
+        registry = fetch_registry()
+    except Exception as e:
+        say(f"无法读取 Obsidian 官方社区插件目录，出于安全考虑停止安装：{e}")
+        return
+    verified = []
+    for item in selected:
+        entry = registry.get(item["id"])
+        if not entry:
+            say(f'跳过 {item["name"]}：官方社区插件目录中没有找到该 ID。')
+            continue
+        listed_repo = normalize_repo(entry.get("repo", ""))
+        expected_repo = normalize_repo(item["repo"])
+        if listed_repo != expected_repo:
+            say(f'跳过 {item["name"]}：官方目录仓库与内置推荐仓库不一致（{listed_repo or "未提供"}）。')
+            continue
+        try:
+            info = fetch_repo_status(item["repo"])
+        except Exception as e:
+            say(f'跳过 {item["name"]}：无法读取 GitHub 仓库许可证/状态（{e}）。')
+            continue
+        license_info = info.get("license") or {}
+        spdx = license_info.get("spdx_id") or ""
+        if spdx not in OPEN_SOURCE_LICENSES:
+            say(f'跳过 {item["name"]}：未能确认属于允许的开源许可证（GitHub SPDX：{spdx or "未知"}）。')
+            continue
+        if info.get("archived"):
+            say(f'跳过 {item["name"]}：GitHub 仓库已归档。')
+            continue
+        pushed = info.get("pushed_at") or "未知"
+        say(f'核验通过：{item["name"]} | SPDX：{spdx} | 最近推送：{pushed} | 仓库未归档')
+        verified.append(item)
+    if not verified:
+        say("没有通过来源、许可证和归档状态核验的插件；未执行安装。")
+        return
+    say("\n本次准备安装：")
+    for item in verified:
+        say(f'  - {item["name"]}（{item["id"]}）')
+        say(f'    用途：{item["purpose"]}')
+        say(f'    风险：{item["risk"]}')
+    say("\n【标准专业版】")
+    say(f"目标 Vault：{vault}")
+    say("将逐个调用 Obsidian 官方 CLI 的 plugin:install 命令，只安装上方通过核验且尚未安装的插件。")
+    say("权限：当前登录用户权限；不使用 sudo/管理员权限。")
+    say("影响：向该 Vault 的 .obsidian/plugins/<插件ID>/ 写入第三方插件文件；本流程不会启用插件，也不会修改笔记正文。")
+    say("风险：社区插件安装不等于安全认证；启用后插件代码可能读取或修改 Vault。Templater 还能执行任意 JavaScript 和系统命令。")
+    say("恢复：安装后可在 Obsidian 社区插件设置中禁用；卸载需另行操作并再次确认。建议先备份 Vault。")
+    say("\n【10岁儿童比喻版】")
+    say("我们要把上面列出的几个第三方小工具，逐个放进你选定的那本笔记本的工具箱。")
+    say("这一步只负责放进去，不会替你打开工具；打开以后，它们才可能开始读写笔记。")
+    say("有些工具能力很强，尤其 Templater 像一把能启动电脑命令的工具刀，不懂怎么用就先不要选。")
+    say("整个过程只用你自己的普通账户，不找管理员；最好先给笔记本做一份备份。")
+    if ask("\n确认安装以上全部已核验插件？请输入 INSTALL；其它输入均取消：") != "INSTALL":
+        say("未获明确同意，未执行安装。")
+        return
+    for item in verified:
+        command = [cli, "plugin:install", f'id={item["id"]}']
+        say(f'\n正在安装：{item["name"]}（{item["id"]}）')
+        try:
+            result = subprocess.run(command, cwd=str(vault), capture_output=True, text=True,
+                                    timeout=180, check=False)
+            if result.stdout.strip(): say(result.stdout.strip())
+            if result.stderr.strip(): say("CLI 提示：" + result.stderr.strip())
+            if result.returncode != 0:
+                say(f'安装失败，退出码 {result.returncode}；停止后续安装。')
+                return
+            manifest = vault/".obsidian"/"plugins"/item["id"]/"manifest.json"
+            if not manifest.is_file():
+                say("CLI 返回成功，但没有找到目标 manifest.json；停止后续安装，请在 Obsidian 中检查。")
+                return
+            say(f'已核验安装文件：{manifest}')
+        except subprocess.TimeoutExpired:
+            say("安装超时；请先在 Obsidian 中检查状态，不要立即重复运行。")
+            return
+        except Exception as e:
+            say(f"安装失败：{e}")
+            return
+    say("\n所选插件安装流程完成。所有新安装插件保持未启用状态，请先逐个审阅后再自行启用。")
+
 def main():
     say("="*58); say(f" ObsidianPluginManager v{VERSION}"); say(f" 平台：{platform_name()}"); say("="*58)
     if platform.system() not in ("Darwin","Windows","Linux"):
@@ -302,6 +446,7 @@ def main():
     say(f"Vault：{vault}")
     audit_plugins(vault)
     offer_obsidian_git(vault)
+    offer_recommended_plugins(vault)
     say("\n检查结束。除非用户对 Obsidian Git 的安装/启用步骤分别明确授权，否则本工具不会修改插件；本工具未读取笔记正文。")
     return 0
 
