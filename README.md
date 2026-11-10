@@ -31,36 +31,34 @@
 
 ### macOS / Linux（推荐）
 
-**不需要执行 `chmod +x`。** 在终端进入项目目录后运行：
+Git 克隆仓库后，启动脚本的可执行属性由 Git 保存，可以尝试直接运行：
+
+```bash
+./obsidian_manager.sh
+```
+
+如果你通过 GitHub 网页 ZIP、浏览器下载或其他不保留 Unix 权限的渠道获取文件，直接运行可能出现 `Permission denied`。此时使用下面的备用方式即可，无需修改权限：
 
 ```bash
 bash ./obsidian_manager.sh
 ```
 
-也可以直接指定脚本完整路径：
-
-```bash
-bash "/你的项目目录/obsidian_manager.sh"
-```
-
-或者直接运行 Python 核心：
+也可以直接运行 Python 核心：
 
 ```bash
 python3 ./obsidian_manager.py
 ```
 
-不要把 `./obsidian_manager.sh` 当作默认启动命令：如果下载工具包时没有保留 Unix 可执行位，直接执行会出现 `Permission denied`。通过 `bash` 启动不依赖该可执行位，也不需要修改文件权限。
-
 ### Windows PowerShell
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\obsidian_manager.ps1
+powershell -ExecutionPolicy Bypass -File .\\obsidian_manager.ps1
 ```
 
 如果 PowerShell 执行策略阻止脚本运行，不要为了运行本工具而关闭或绕过系统策略；可直接运行 Python 核心：
 
 ```powershell
-py -3 .\obsidian_manager.py
+py -3 .\\obsidian_manager.py
 ```
 
 ## CLI 注册行为
