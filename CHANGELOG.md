@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.3] - 2026-11-10
+
+### Added
+- 增加通过 Obsidian 官方 CLI 安装 Obsidian Git（`obsidian-git`）的可选流程。
+- 安装与启用分开确认；安装后核验目标 Vault 的插件 manifest，默认不自动启用。
+- 对目标 Vault 使用 CLI 工作目录定位，避免误操作其他活动 Vault。
+
+### Safety
+- CLI 安装要求输入 `INSTALL`；启用另行要求输入 `ENABLE`。
+- 不使用管理员权限，不自动卸载、更新或启用插件。
+
+
 ## [0.4.2] - 2026-11-10
 
 ### Fixed
