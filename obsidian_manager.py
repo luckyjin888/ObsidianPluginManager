@@ -113,7 +113,7 @@ def register_cli(app, source):
         return False
 
 def fetch_registry():
-    req = urllib.request.Request(REGISTRY_URL, headers={"User-Agent":"ObsidianPluginManager/0.4.0"})
+    req = urllib.request.Request(REGISTRY_URL, headers={"User-Agent":"ObsidianPluginManager/0.4.3"})
     with urllib.request.urlopen(req, timeout=NETWORK_TIMEOUT) as r:
         data = json.loads(r.read().decode("utf-8"))
     return {str(x.get("id","")):x for x in data if isinstance(x,dict) and x.get("id")}
@@ -219,10 +219,9 @@ def explain_plugin_action(vault, action, command):
     say("只用你自己的普通账户，不找管理员帮忙。这个小工具不是 Obsidian 官方内置的，可能有风险；如果不想用，可以以后在设置里关掉。")
     return ask("\n如果同意以上这一步，请输入 INSTALL 或 ENABLE；其它输入均取消：") == ("INSTALL" if action == "安装" else "ENABLE")
 
-def run_obsidian_cli_plugin(vault, cli, command_name, confirmation_word):
-    command = [cli, f"vault={vault.name}", command_name, "id=obsidian-git"]
-    # The official CLI targets a vault by name/id; running from the selected vault
-    # directory also makes the intended target explicit and avoids guessing.
+def run_obsidian_cli_plugin(vault, cli, command_name):
+    # Official CLI targets the vault from the current working directory.
+    # Run inside the selected Vault so another active Vault is not modified.
     command = [cli, command_name, "id=obsidian-git"]
     action = "安装" if command_name == "plugin:install" else "启用"
     if not explain_plugin_action(vault, action, " ".join(command)):
@@ -259,7 +258,7 @@ def offer_obsidian_git(vault):
         if ask("是否查看并考虑通过 Obsidian 官方 CLI 安装？[y/N] ").lower() != "y":
             say("跳过安装；未修改插件。")
             return
-        if not run_obsidian_cli_plugin(vault, cli, "plugin:install", "INSTALL"):
+        if not run_obsidian_cli_plugin(vault, cli, "plugin:install"):
             return
         if not manifest.is_file():
             say("CLI 返回成功，但未在所选 Vault 找到插件 manifest.json；请在 Obsidian 中核实，暂不自动启用。")
@@ -271,7 +270,7 @@ def offer_obsidian_git(vault):
         return
     say("插件目前未启用。启用会允许 Obsidian 加载并运行第三方插件代码。")
     if ask("是否单独启用 Obsidian Git？[y/N] ").lower() == "y":
-        run_obsidian_cli_plugin(vault, cli, "plugin:enable", "ENABLE")
+        run_obsidian_cli_plugin(vault, cli, "plugin:enable")
     else:
         say("保持未启用状态；未执行启用操作。")
 
@@ -303,7 +302,7 @@ def main():
     say(f"Vault：{vault}")
     audit_plugins(vault)
     offer_obsidian_git(vault)
-    say("\n检查结束。本工具未安装、卸载、启用、禁用或修改任何插件，也未读取笔记正文。")
+    say("\n检查结束。除非用户对 Obsidian Git 的安装/启用步骤分别明确授权，否则本工具不会修改插件；本工具未读取笔记正文。")
     return 0
 
 if __name__ == "__main__": raise SystemExit(main())
