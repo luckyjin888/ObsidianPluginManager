@@ -112,7 +112,9 @@ py -3 .\\obsidian_manager.py
 | Advanced Tables | `table-editor-obsidian` | GPL-3.0 | Markdown 表格编辑；项目说明仍属实验性，可能有导致当前笔记数据丢失的缺陷 |
 | Templater | `templater-obsidian` | AGPL-3.0 | 动态模板；可执行 JavaScript 和系统命令，属于高风险能力 |
 
-表中许可证是本次 GitHub 仓库元数据核对结果；程序运行时仍会重新核验，第三方插件由 CLI 从社区目录单独获取，并未被打包进本项目仓库。\n\n安装前程序会逐项核验：
+表中许可证是本次 GitHub 仓库元数据核对结果；程序运行时仍会重新核验，第三方插件由 CLI 从社区目录单独获取，并未被打包进本项目仓库。
+
+安装前程序会逐项核验：
 1. 插件 ID 是否存在于 Obsidian 官方社区插件目录。
 2. 官方目录声明的 GitHub 仓库是否与内置推荐来源一致。
 3. GitHub API 是否能识别开源 SPDX 许可证。
