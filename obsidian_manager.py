@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# ObsidianPluginManager 0.4.1
+# ObsidianPluginManager 0.4.3
 # GPL-3.0-only
 """Cross-platform, consent-first Obsidian plugin inventory and heuristic audit."""
 from __future__ import annotations
@@ -7,7 +7,7 @@ import json, os, platform, re, shutil, subprocess, sys, urllib.request
 from pathlib import Path
 from datetime import datetime, timezone
 
-VERSION = "0.4.1"
+VERSION = "0.4.3"
 MIN_CLI = (1, 12, 7)
 REGISTRY_URL = "https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugins.json"
 NETWORK_TIMEOUT = 8
@@ -203,6 +203,78 @@ def audit_plugins(vault):
     say("重要限制：这是基于 manifest、启用清单和关键词的静态初筛；不能证明插件安全，也不能完整理解混淆、动态加载或运行时行为。")
     say("“官方目录匹配”仅代表目录中存在对应 ID，不代表 Obsidian 或 GitHub 对插件作出安全背书。")
 
+
+def explain_plugin_action(vault, action, command):
+    say("\n【标准专业版】")
+    say(f"目标：在指定 Vault 安装/启用 Obsidian Git（插件 ID：obsidian-git）。")
+    say(f"Vault：{vault}")
+    say(f"将执行的官方 CLI 命令：{command}")
+    say("权限：以当前登录用户权限运行 Obsidian CLI；不使用 sudo 或管理员权限。")
+    say("影响：安装会在该 Vault 的 .obsidian/plugins/obsidian-git 写入第三方插件文件；启用会允许 Obsidian 加载并运行该插件代码。")
+    say("风险：社区插件是第三方代码；安装来源由 Obsidian 社区插件目录处理。安装本身不等于安全认证。")
+    say("恢复：可在 Obsidian 社区插件设置中禁用；卸载需另行确认，不会由本步骤自动执行。")
+    say("\n【10岁儿童比喻版】")
+    say(f"我们要在你选定的这一本笔记本（{vault}）里{action} Obsidian Git。")
+    say("安装就像把一个第三方小工具放进这本笔记本的工具箱；启用就像允许它开始工作、接触这本笔记本。")
+    say("只用你自己的普通账户，不找管理员帮忙。这个小工具不是 Obsidian 官方内置的，可能有风险；如果不想用，可以以后在设置里关掉。")
+    return ask("\n如果同意以上这一步，请输入 INSTALL 或 ENABLE；其它输入均取消：") == ("INSTALL" if action == "安装" else "ENABLE")
+
+def run_obsidian_cli_plugin(vault, cli, command_name, confirmation_word):
+    command = [cli, f"vault={vault.name}", command_name, "id=obsidian-git"]
+    # The official CLI targets a vault by name/id; running from the selected vault
+    # directory also makes the intended target explicit and avoids guessing.
+    command = [cli, command_name, "id=obsidian-git"]
+    action = "安装" if command_name == "plugin:install" else "启用"
+    if not explain_plugin_action(vault, action, " ".join(command)):
+        say("未获明确同意，未执行。")
+        return False
+    try:
+        result = subprocess.run(command, cwd=str(vault), capture_output=True, text=True,
+                                timeout=180, check=False)
+        if result.stdout.strip(): say(result.stdout.strip())
+        if result.stderr.strip(): say("CLI 提示：" + result.stderr.strip())
+        if result.returncode != 0:
+            say(f"CLI 执行失败，退出码：{result.returncode}。未继续后续步骤。")
+            return False
+        return True
+    except subprocess.TimeoutExpired:
+        say("CLI 执行超时；请在 Obsidian 中检查插件状态，不要重复安装。")
+    except Exception as e:
+        say(f"CLI 调用失败：{e}")
+    return False
+
+def offer_obsidian_git(vault):
+    cli = shutil.which("obsidian")
+    if not cli:
+        say("\n未在 PATH 中找到 Obsidian CLI，暂不能通过 CLI 安装插件。")
+        say("请先在 Obsidian 设置 → 常规 → 命令行界面启用并注册 CLI，然后重新打开终端。")
+        return
+    plugin_dir = vault/".obsidian"/"plugins"/"obsidian-git"
+    manifest = plugin_dir/"manifest.json"
+    if manifest.is_file():
+        say("\nObsidian Git 已安装。")
+    else:
+        say("\n发现可选插件：Obsidian Git（第三方社区插件，ID：obsidian-git）")
+        say("官方社区页面：https://community.obsidian.md/plugins/obsidian-git")
+        if ask("是否查看并考虑通过 Obsidian 官方 CLI 安装？[y/N] ").lower() != "y":
+            say("跳过安装；未修改插件。")
+            return
+        if not run_obsidian_cli_plugin(vault, cli, "plugin:install", "INSTALL"):
+            return
+        if not manifest.is_file():
+            say("CLI 返回成功，但未在所选 Vault 找到插件 manifest.json；请在 Obsidian 中核实，暂不自动启用。")
+            return
+        say("已检测到 Obsidian Git 安装文件。")
+    enabled = read_json(vault/".obsidian"/"community-plugins.json")
+    if isinstance(enabled, list) and "obsidian-git" in enabled:
+        say("Obsidian Git 当前已启用。")
+        return
+    say("插件目前未启用。启用会允许 Obsidian 加载并运行第三方插件代码。")
+    if ask("是否单独启用 Obsidian Git？[y/N] ").lower() == "y":
+        run_obsidian_cli_plugin(vault, cli, "plugin:enable", "ENABLE")
+    else:
+        say("保持未启用状态；未执行启用操作。")
+
 def main():
     say("="*58); say(f" ObsidianPluginManager v{VERSION}"); say(f" 平台：{platform_name()}"); say("="*58)
     if platform.system() not in ("Darwin","Windows","Linux"):
@@ -230,6 +302,7 @@ def main():
         say("该路径不存在，或没有 .obsidian 配置目录。"); return 1
     say(f"Vault：{vault}")
     audit_plugins(vault)
+    offer_obsidian_git(vault)
     say("\n检查结束。本工具未安装、卸载、启用、禁用或修改任何插件，也未读取笔记正文。")
     return 0
 
