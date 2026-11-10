@@ -6,6 +6,7 @@
 - 新增优质开源 Obsidian 社区插件推荐库：QuickAdd、Tasks、Excalidraw、Linter、Advanced Tables、Templater。
 - 支持按插件 ID 多选或选择全部，逐个通过 Obsidian 官方 CLI 安装。
 - 安装前核验官方社区目录 ID、仓库来源、GitHub SPDX 开源许可证和归档状态。
+- 在推荐文档中列出本次核对的各插件许可证，并强化 Advanced Tables 的实验性/数据丢失风险提示。
 - 新插件只安装不自动启用；安装后逐个核验 manifest。
 
 ### Safety
