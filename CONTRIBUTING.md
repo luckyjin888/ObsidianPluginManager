@@ -14,6 +14,13 @@
 
 必须先征求明确同意。拒绝或取消后立即停止。不得静默提权、覆盖未知文件或把未测试平台标为正式支持。
 
+## 启动入口规范
+
+- macOS/Linux 的用户文档必须使用 `bash ./obsidian_manager.sh`，不得要求下载者先运行 `chmod +x`。
+- 不得假设 ZIP 下载会保留 Git 的可执行位。
+- CI 至少检查 `bash -n obsidian_manager.sh`。
+- 若启动方式变更，必须同步更新 README、SECURITY 和 CHANGELOG。
+
 ## 开发与测试
 
 - Python 3.10+，核心代码尽量使用标准库。
