@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2] - 2026-11-10
+
+### Fixed
+- 在 Git 仓库中将 macOS/Linux 启动脚本 `obsidian_manager.sh` 记录为可执行文件模式 `100755`，Git 克隆后可直接运行（前提是目标文件系统支持 Unix 执行权限）。
+- 保留 GitHub ZIP、浏览器下载等不保留执行位时的 `bash ./obsidian_manager.sh` 备用方式。
+- 更新发布与贡献规范，要求持续检查 Git 文件模式，避免后续提交丢失可执行属性。
+
 ## [0.4.1] - 2026-11-10
 
 ### Fixed
