@@ -2,7 +2,7 @@
 
 一个以安全、透明、用户确认优先为原则的 Obsidian 插件盘点与初步审查工具。
 
-**版本：** 0.4.1  
+**版本：** 0.4.3  
 **核心：** Python 3  
 **启动入口：** macOS/Linux 使用 Bash；Windows 使用 PowerShell  
 **许可证：** GNU GPL-3.0-only
@@ -20,6 +20,7 @@
 - 对插件 JavaScript 做关键词静态初筛：网络通信、本地文件访问、系统命令/进程、动态代码执行、凭据/环境访问。
 - 输出发现的线索与无法确认项；不把“没有命中规则”说成“安全”。
 - CLI 未注册时，可尝试创建当前用户级命令入口；执行前展示双版本说明并要求输入完整的 `YES`。
+- 可选通过 Obsidian 官方 CLI 安装第三方社区插件 Obsidian Git（`obsidian-git`）；安装与启用分开确认，默认不自动启用。
 
 ## 环境要求
 
@@ -79,6 +80,22 @@ py -3 .\\obsidian_manager.py
 
 **10岁儿童比喻版：** 就像在自己的书桌抽屉里放一个 Obsidian 快捷按钮。只整理自己的抽屉，不进管理员办公室，也不碰你的笔记。如果抽屉里已经有同名按钮，就停下来不覆盖。抽屉不在电脑寻找按钮的路线里时，还要由你自己把它加入路线。
 
+## Obsidian Git 的 CLI 安装
+
+完成 Vault 插件盘点后，程序可提供可选的 Obsidian Git 安装流程。该插件是第三方社区插件，不是 Obsidian 内置插件。
+
+- 官方社区页面：[Obsidian Git](https://community.obsidian.md/plugins/obsidian-git)
+- 插件 ID：`obsidian-git`
+- 官方 CLI 安装命令：`obsidian plugin:install id=obsidian-git`
+- 官方 CLI 启用命令：`obsidian plugin:enable id=obsidian-git`
+- CLI 需要 Obsidian 正在运行，并且已在设置中启用、注册 CLI。
+- 程序在所选 Vault 目录作为工作目录调用 CLI，以明确目标 Vault。
+- 安装和启用是两个独立动作；安装后先核验 `.obsidian/plugins/obsidian-git/manifest.json`，默认不自动启用。
+- 安装前要求输入 `INSTALL`；启用前另行要求输入 `ENABLE`。拒绝或取消即停止。
+
+**标准专业版：** 安装会通过 Obsidian CLI 在所选 Vault 的 `.obsidian/plugins/obsidian-git` 写入第三方插件文件；启用会允许 Obsidian 加载并执行该插件代码。两步均以当前用户权限运行，不使用 sudo/管理员权限。可在 Obsidian 社区插件设置中禁用；卸载不由此流程执行。
+
+**10岁儿童比喻版：** 安装就像把一个第三方小工具放进你选定的笔记本工具箱；启用就像允许它开始工作、接触这本笔记本。两步都要分别点头，只用你自己的普通账户。它不是 Obsidian 自带工具，可能有风险；不想用时可以在设置里关掉。
 ## 全面审查的边界
 
 - 官方社区目录匹配只说明找到相同插件 ID，不代表官方安全认证。
