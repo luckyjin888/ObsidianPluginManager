@@ -14,10 +14,12 @@
 
 必须先征求明确同意。拒绝或取消后立即停止。不得静默提权、覆盖未知文件或把未测试平台标为正式支持。
 
-## 启动入口规范
+## 启动入口与发布权限规范
 
-- macOS/Linux 的用户文档必须使用 `bash ./obsidian_manager.sh`，不得要求下载者先运行 `chmod +x`。
-- 不得假设 ZIP 下载会保留 Git 的可执行位。
+- macOS/Linux 启动脚本 `obsidian_manager.sh` 必须在 Git 树中保存为模式 `100755`。
+- CI/发布检查必须验证该文件模式仍为 `100755`，避免后续提交意外丢失可执行属性。
+- 文档不得要求用户先运行 `chmod +x`。
+- Git 克隆通常保留可执行位；GitHub ZIP、浏览器下载和某些解压工具不保证保留 Unix 权限，必须同时提供 `bash ./obsidian_manager.sh` 备用启动方式。
 - CI 至少检查 `bash -n obsidian_manager.sh`。
 - 若启动方式变更，必须同步更新 README、SECURITY 和 CHANGELOG。
 
