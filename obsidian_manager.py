@@ -326,7 +326,8 @@ def offer_recommended_plugins(vault):
         return
     by_id = {x["id"]:x for x in RECOMMENDED_PLUGINS}
     if selected_text.lower() == "all":
-        selected = [x for x in RECOMMENDED_PLUGINS]
+        selected = [x for x in RECOMMENDED_PLUGINS if x["id"] != "templater-obsidian"]
+        say("安全提示：Templater 具备执行任意 JavaScript/系统命令的能力；输入 all 不会自动选中它。若确实需要，请单独输入 templater-obsidian。")
     else:
         ids = [x.strip() for x in selected_text.split(",") if x.strip()]
         unknown = [x for x in ids if x not in by_id]
