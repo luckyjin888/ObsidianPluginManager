@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# ObsidianPluginManager 0.4.3
+# ObsidianPluginManager 0.5.0
 # GPL-3.0-only
 """Cross-platform, consent-first Obsidian plugin inventory and heuristic audit."""
 from __future__ import annotations
@@ -123,7 +123,7 @@ def fetch_repo_status(repo):
     repo = re.sub(r"\.git$","",repo)
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo): return None
     url = "https://api.github.com/repos/"+repo
-    req = urllib.request.Request(url, headers={"User-Agent":"ObsidianPluginManager/0.4.0","Accept":"application/vnd.github+json"})
+    req = urllib.request.Request(url, headers={"User-Agent":"ObsidianPluginManager/0.5.0","Accept":"application/vnd.github+json"})
     with urllib.request.urlopen(req, timeout=NETWORK_TIMEOUT) as r: return json.loads(r.read().decode("utf-8"))
 
 PATTERNS = {
@@ -287,7 +287,7 @@ RECOMMENDED_PLUGINS = [
     {"id":"obsidian-linter", "name":"Linter", "purpose":"按规则整理 Markdown 格式、标题、空格和属性",
      "repo":"platers/obsidian-linter", "risk":"运行整理规则时可能批量修改笔记；首次使用前先备份"},
     {"id":"table-editor-obsidian", "name":"Advanced Tables", "purpose":"改善 Markdown 表格的编辑、对齐和导航",
-     "repo":"tgrosinger/advanced-tables-obsidian", "risk":"主要影响表格编辑体验"},
+     "repo":"tgrosinger/advanced-tables-obsidian", "risk":"官方说明该插件仍属实验性，可能存在导致当前笔记数据丢失的缺陷；先备份再使用"},
     {"id":"templater-obsidian", "name":"Templater", "purpose":"动态模板，可运行 JavaScript 和系统命令",
      "repo":"SilentVoid13/Templater", "risk":"高风险：可执行任意 JavaScript 和系统命令；仅建议高级用户使用"}
 ]
