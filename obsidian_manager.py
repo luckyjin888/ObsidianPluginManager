@@ -164,13 +164,39 @@ def windows_running_obsidian_paths():
 
 
 def is_obsidian_install(path):
-    """Accept an install folder or Obsidian.exe path only if the GUI executable exists."""
+    """Validate a platform-specific Obsidian application layout, not mere path existence."""
     try:
         candidate = Path(path).expanduser()
-        if candidate.is_file() and candidate.name.lower() == "obsidian.exe":
-            return candidate.parent
-        if candidate.is_dir() and (candidate / "Obsidian.exe").is_file():
-            return candidate
+        system = platform.system()
+        if system == "Windows":
+            if candidate.is_file() and candidate.name.lower() == "obsidian.exe":
+                return candidate.parent
+            if candidate.is_dir() and (candidate / "Obsidian.exe").is_file():
+                return candidate
+            return None
+        if system == "Darwin":
+            if candidate.suffix != ".app" or not candidate.is_dir():
+                return None
+            info = candidate / "Contents" / "Info.plist"
+            executable = candidate / "Contents" / "MacOS" / "Obsidian"
+            if info.is_file() and executable.is_file() and os.access(executable, os.X_OK):
+                return candidate
+            return None
+        if system == "Linux":
+            if candidate.is_file():
+                if not os.access(candidate, os.X_OK):
+                    return None
+                candidate = candidate.resolve().parent
+            if not candidate.is_dir():
+                return None
+            resources = candidate / "resources"
+            executable = next(
+                (p for p in (candidate / "obsidian", candidate / "Obsidian")
+                 if p.is_file() and os.access(p, os.X_OK)),
+                None,
+            )
+            if executable and (resources / "app.asar").is_file():
+                return candidate
     except (OSError, TypeError, ValueError):
         pass
     return None
@@ -215,15 +241,17 @@ def find_obsidian():
             if match:
                 return match
         return None
-    else:
+    elif system == "Linux":
         for name in ("obsidian", "Obsidian"):
             found = shutil.which(name)
             if found:
-                p = Path(found).resolve()
-                candidates.extend([p.parent, p.parent.parent])
+                executable = Path(found).resolve()
+                candidates.extend([executable, executable.parent, executable.parent.parent])
         candidates += [Path("/usr/share/obsidian"), Path("/opt/Obsidian"), Path.home()/".local/share/Obsidian"]
-    for p in candidates:
-        if p.exists(): return p
+    for candidate in candidates:
+        match = is_obsidian_install(candidate)
+        if match:
+            return match
     return None
 
 
@@ -269,6 +297,21 @@ def cli_candidates(app):
         return [app/"Obsidian.com"]
     return [app/"obsidian", app/"obsidian-cli", app/"resources/app.asar.unpacked/obsidian"]
 
+def is_valid_cli_source(app, source):
+    """Only register an executable located at a platform-specific bundled CLI path."""
+    try:
+        candidate = Path(source).expanduser().resolve(strict=True)
+        allowed = {p.resolve(strict=True) for p in cli_candidates(Path(app))
+                   if p.is_file()}
+        if candidate not in allowed or not candidate.is_file():
+            return False
+        if platform.system() in ("Darwin", "Linux"):
+            return os.access(candidate, os.X_OK)
+        return platform.system() == "Windows" and candidate.name.lower() == "obsidian.com"
+    except (OSError, TypeError, ValueError):
+        return False
+
+
 def explain_cli_registration(target, source, action):
     say("\n【标准专业版】")
     say(f"目的：让当前用户可以在终端输入 obsidian。将{action}：{target}")
@@ -284,6 +327,9 @@ def explain_cli_registration(target, source, action):
     return ask_yes_no("\n是否同意执行以上 CLI 注册？")
 
 def register_cli(app, source):
+    if not is_valid_cli_source(app, source):
+        say(f"CLI 来源验证失败：{source}；未注册任何命令入口。")
+        return False
     bindir = Path.home()/".local"/"bin"
     target = bindir/("obsidian.com" if platform.system() == "Windows" else "obsidian")
     if target.exists() or target.is_symlink():
@@ -450,19 +496,53 @@ PATTERNS = {
  "凭据/环境访问": (r"process\.env", r"keychain", r"credential", r"localStorage", r"sessionStorage")
 }
 
-def scan_source(plugin_dir):
+def scan_source(plugin_dir, *, max_files=500, max_file_size=2_000_000,
+                max_total_bytes=50_000_000):
+    """Scan JavaScript deterministically within explicit file-count and byte budgets.
+
+    Returns (findings, stats). Files skipped by a limit or filesystem error are
+    reported so a partial scan is never presented as a complete clean result.
+    """
     findings = []
-    files = list(plugin_dir.rglob("*.js"))
-    if len(files) > 500: files = files[:500]
-    for file in files:
+    stats = {
+        "discovered": 0, "scanned": 0, "skipped": 0,
+        "errors": [], "bytes_scanned": 0,
+        "max_files": max_files, "max_file_size": max_file_size,
+        "max_total_bytes": max_total_bytes,
+    }
+    try:
+        files = sorted(plugin_dir.rglob("*.js"), key=lambda p: p.as_posix().casefold())
+    except OSError as exc:
+        stats["errors"].append(f"无法枚举 JavaScript 文件：{exc}")
+        return findings, stats
+
+    stats["discovered"] = len(files)
+    for index, file in enumerate(files):
+        if index >= max_files:
+            stats["skipped"] += len(files) - index
+            break
         try:
-            if file.stat().st_size > 2_000_000: continue
+            size = file.stat().st_size
+            if size > max_file_size:
+                stats["skipped"] += 1
+                stats["errors"].append(f"超过单文件大小上限，已跳过：{file}")
+                continue
+            if stats["bytes_scanned"] + size > max_total_bytes:
+                stats["skipped"] += len(files) - index
+                stats["errors"].append("达到总读取字节上限；剩余文件未扫描。")
+                break
             source = file.read_text(encoding="utf-8", errors="replace")
-        except Exception: continue
+            stats["bytes_scanned"] += size
+            stats["scanned"] += 1
+        except OSError as exc:
+            stats["skipped"] += 1
+            stats["errors"].append(f"读取失败，已跳过 {file}：{exc}")
+            continue
         for category, patterns in PATTERNS.items():
-            hits = [p for p in patterns if re.search(p, source, re.I)]
-            if hits: findings.append((category, file.name, hits))
-    return findings
+            hits = [pattern for pattern in patterns if re.search(pattern, source, re.I)]
+            if hits:
+                findings.append((category, file.name, hits))
+    return findings, stats
 
 def ensure_vault_plugin_dirs(vault):
     """自动创建缺失的 Vault 基础目录；拒绝符号链接，避免写入 Vault 以外的位置。"""
@@ -510,12 +590,21 @@ def audit_plugins(vault):
     cfg = vault/".obsidian"
     plugin_root = cfg/"plugins"
     enabled = read_json(cfg/"community-plugins.json")
-    enabled_set = set(enabled) if isinstance(enabled,list) else None
+    enabled_set = (
+        {item for item in enabled if isinstance(item, str) and item}
+        if isinstance(enabled, list) else None
+    )
+    invalid_enabled_entries = (
+        [item for item in enabled if not isinstance(item, str) or not item]
+        if isinstance(enabled, list) else []
+    )
     if not plugin_root.is_dir():
         say("没有找到 .obsidian/plugins 目录。"); return
     dirs = sorted([p for p in plugin_root.iterdir() if p.is_dir()], key=lambda p:p.name.lower())
     say(f"\n发现插件目录：{len(dirs)} 个")
     say("启用状态来源：.obsidian/community-plugins.json（缺失或格式异常时标为未知）")
+    if invalid_enabled_entries:
+        say(f"启用列表含 {len(invalid_enabled_entries)} 条非字符串/空值；已忽略这些异常项，其余有效 ID 仍可正常盘点。")
     say("网络核验会向 Obsidian 官方 GitHub 社区插件目录及插件声明的 GitHub 仓库发送只读请求。不会上传 Vault 或笔记内容。")
     do_network = True
     say("自动进行在线来源与维护状态只读核验；不会上传 Vault 或笔记内容。")
@@ -549,7 +638,14 @@ def audit_plugins(vault):
                     say(f"GitHub：{info.get('full_name','')} | 最近推送：{pushed} | 归档：{info.get('archived',False)}")
                 else: say("GitHub：manifest 未提供可识别的仓库地址")
             except Exception as e: say(f"GitHub 状态：无法确认（{e}）")
-        findings = scan_source(p)
+        findings, scan_stats = scan_source(p)
+        say(
+            f"静态扫描范围：发现 {scan_stats['discovered']} 个 JS 文件，"
+            f"已扫描 {scan_stats['scanned']} 个，跳过 {scan_stats['skipped']} 个，"
+            f"读取 {scan_stats['bytes_scanned']} 字节。"
+        )
+        for scan_error in scan_stats["errors"]:
+            say(f"扫描限制/异常：{scan_error}")
         if findings:
             say("自动初筛发现的代码能力线索（不是恶意判定，无需用户逐条审代码）：")
             for category, filename, hits in findings:
