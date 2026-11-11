@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- 建立社区治理制度：开放 Issue/Pull Request 贡献、模块分工、核心审核与主分支保护建议。
+- 增加贡献者名单、积分等级及维护者晋升规则；明确积分不自动授予仓库权限。
+- 增加 GitHub Issue 与 Pull Request 模板，降低普通用户参与门槛。
+
+# Changelog
+
 ## [0.5.5] - 2026-11-11
 
 ### Added
