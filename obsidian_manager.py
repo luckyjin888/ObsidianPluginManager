@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# ObsidianPluginManager 0.5.2
+# ObsidianPluginManager 0.5.3
 # GPL-3.0-only
 """Cross-platform, consent-first Obsidian plugin inventory and heuristic audit."""
 from __future__ import annotations
@@ -7,7 +7,7 @@ import json, os, platform, re, shutil, subprocess, sys, urllib.request
 from pathlib import Path
 from datetime import datetime, timezone
 
-VERSION = "0.5.2"
+VERSION = "0.5.3"
 MIN_CLI = (1, 12, 7)
 REGISTRY_URL = "https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugins.json"
 NETWORK_TIMEOUT = 8
@@ -42,6 +42,91 @@ def windows_drive_roots():
         return [Path(f"{chr(65 + i)}:\\") for i in range(26)
                 if Path(f"{chr(65 + i)}:\\").is_dir()]
 
+
+
+def windows_registered_obsidian_paths():
+    """Read installer and App Paths registry entries; never write to registry."""
+    if platform.system() != "Windows":
+        return []
+    found = []
+    try:
+        import winreg
+        uninstall_keys = [
+            (winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Uninstall"),
+            (winreg.HKEY_LOCAL_MACHINE, r"Software\Microsoft\Windows\CurrentVersion\Uninstall"),
+            (winreg.HKEY_LOCAL_MACHINE, r"Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"),
+        ]
+        for hive, base in uninstall_keys:
+            try:
+                with winreg.OpenKey(hive, base) as root:
+                    for index in range(winreg.QueryInfoKey(root)[0]):
+                        try:
+                            with winreg.OpenKey(root, winreg.EnumKey(root, index)) as item:
+                                values = {}
+                                for name in ("DisplayName", "InstallLocation", "DisplayIcon"):
+                                    try:
+                                        values[name] = winreg.QueryValueEx(item, name)[0]
+                                    except OSError:
+                                        pass
+                            if "obsidian" not in str(values.get("DisplayName", "")).lower():
+                                continue
+                            location = str(values.get("InstallLocation", "")).strip().strip('"')
+                            if location:
+                                found.append(Path(os.path.expandvars(location)))
+                            icon = str(values.get("DisplayIcon", "")).strip().strip('"')
+                            if icon.lower().endswith("obsidian.exe"):
+                                found.append(Path(os.path.expandvars(icon)).parent)
+                        except OSError:
+                            continue
+            except OSError:
+                continue
+        app_paths = [
+            (winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\App Paths\Obsidian.exe"),
+            (winreg.HKEY_LOCAL_MACHINE, r"Software\Microsoft\Windows\CurrentVersion\App Paths\Obsidian.exe"),
+        ]
+        for hive, key in app_paths:
+            try:
+                with winreg.OpenKey(hive, key) as item:
+                    exe = winreg.QueryValueEx(item, None)[0]
+                    found.append(Path(os.path.expandvars(str(exe).strip('"'))).parent)
+            except OSError:
+                continue
+    except Exception:
+        pass
+    return found
+
+
+def windows_running_obsidian_paths():
+    """Read the executable path of a running Obsidian process using PowerShell."""
+    if platform.system() != "Windows":
+        return []
+    command = [
+        "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+        "$p = Get-Process -Name Obsidian -ErrorAction SilentlyContinue; "
+        "if ($p) { $p | ForEach-Object { $_.Path } }"
+    ]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True,
+                                encoding="utf-8", errors="replace", timeout=5, check=False)
+        if result.returncode == 0:
+            return [Path(line.strip()).parent for line in result.stdout.splitlines()
+                    if line.strip().lower().endswith("obsidian.exe")]
+    except Exception:
+        pass
+    return []
+
+
+def is_obsidian_install(path):
+    """Accept an install folder or Obsidian.exe path only if the GUI executable exists."""
+    try:
+        candidate = Path(path).expanduser()
+        if candidate.is_file() and candidate.name.lower() == "obsidian.exe":
+            return candidate.parent
+        if candidate.is_dir() and (candidate / "Obsidian.exe").is_file():
+            return candidate
+    except (OSError, TypeError, ValueError):
+        pass
+    return None
 
 def find_obsidian():
     system = platform.system()
@@ -152,7 +237,7 @@ def register_cli(app, source):
         return False
 
 def fetch_registry():
-    req = urllib.request.Request(REGISTRY_URL, headers={"User-Agent":"ObsidianPluginManager/0.5.1"})
+    req = urllib.request.Request(REGISTRY_URL, headers={"User-Agent":"ObsidianPluginManager/0.5.3"})
     with urllib.request.urlopen(req, timeout=NETWORK_TIMEOUT) as r:
         data = json.loads(r.read().decode("utf-8"))
     return {str(x.get("id","")):x for x in data if isinstance(x,dict) and x.get("id")}
@@ -162,7 +247,7 @@ def fetch_repo_status(repo):
     repo = re.sub(r"\.git$","",repo)
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo): return None
     url = "https://api.github.com/repos/"+repo
-    req = urllib.request.Request(url, headers={"User-Agent":"ObsidianPluginManager/0.5.1","Accept":"application/vnd.github+json"})
+    req = urllib.request.Request(url, headers={"User-Agent":"ObsidianPluginManager/0.5.3","Accept":"application/vnd.github+json"})
     with urllib.request.urlopen(req, timeout=NETWORK_TIMEOUT) as r: return json.loads(r.read().decode("utf-8"))
 
 PATTERNS = {
