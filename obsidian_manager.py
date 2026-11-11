@@ -295,14 +295,21 @@ def cli_candidates(app):
         # Obsidian.com is the CLI shim. Obsidian.exe is the GUI and must never
         # be copied/renamed as a command-line executable.
         return [app/"Obsidian.com"]
-    return [app/"obsidian", app/"obsidian-cli", app/"resources/app.asar.unpacked/obsidian"]
+    # The top-level "obsidian" binary is commonly the GUI launcher, not a CLI shim.
+    return [app/"obsidian-cli", app/"resources/app.asar.unpacked/obsidian"]
 
 def is_valid_cli_source(app, source):
     """Only register an executable located at a platform-specific bundled CLI path."""
     try:
-        candidate = Path(source).expanduser().resolve(strict=True)
+        app_root = Path(app).expanduser().resolve(strict=True)
+        source_path = Path(source).expanduser()
+        if source_path.is_symlink():
+            return False
+        candidate = source_path.resolve(strict=True)
+        if not candidate.is_relative_to(app_root):
+            return False
         allowed = {p.resolve(strict=True) for p in cli_candidates(Path(app))
-                   if p.is_file()}
+                   if p.is_file() and not p.is_symlink()}
         if candidate not in allowed or not candidate.is_file():
             return False
         if platform.system() in ("Darwin", "Linux"):
