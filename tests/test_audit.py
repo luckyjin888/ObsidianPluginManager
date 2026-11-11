@@ -1,4 +1,5 @@
 import json, tempfile, unittest
+from unittest.mock import patch
 from pathlib import Path
 import obsidian_manager as om
 
