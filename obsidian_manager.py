@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# ObsidianPluginManager 0.5.1
+# ObsidianPluginManager 0.5.2
 # GPL-3.0-only
 """Cross-platform, consent-first Obsidian plugin inventory and heuristic audit."""
 from __future__ import annotations
@@ -7,7 +7,7 @@ import json, os, platform, re, shutil, subprocess, sys, urllib.request
 from pathlib import Path
 from datetime import datetime, timezone
 
-VERSION = "0.5.1"
+VERSION = "0.5.2"
 MIN_CLI = (1, 12, 7)
 REGISTRY_URL = "https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugins.json"
 NETWORK_TIMEOUT = 8
@@ -29,6 +29,20 @@ def read_json(path):
 def platform_name():
     return {"Darwin":"macOS", "Windows":"Windows", "Linux":"Linux"}.get(platform.system(), platform.system())
 
+def windows_drive_roots():
+    """Return mounted Windows drive roots without recursively scanning disks."""
+    if platform.system() != "Windows":
+        return []
+    try:
+        import ctypes
+        mask = ctypes.windll.kernel32.GetLogicalDrives()
+        return [Path(f"{chr(65 + i)}:\\") for i in range(26) if mask & (1 << i)]
+    except Exception:
+        # Fallback for restricted environments: probe drive roots only.
+        return [Path(f"{chr(65 + i)}:\\") for i in range(26)
+                if Path(f"{chr(65 + i)}:\\").is_dir()]
+
+
 def find_obsidian():
     system = platform.system()
     candidates = []
@@ -41,13 +55,23 @@ def find_obsidian():
             os.environ.get("ProgramFiles(x86)", ""),
             os.environ.get("ProgramW6432", ""),
         ]
-        # Standard per-user Obsidian installation (Squirrel installer).
+        # Standard per-user and system-wide locations.
         if local_app_data:
             candidates.extend([
                 Path(local_app_data)/"Programs"/"Obsidian",
                 Path(local_app_data)/"Obsidian",
             ])
         candidates.extend(Path(root)/"Obsidian" for root in roots if root)
+        # Check common install folders on every mounted drive (C:, D:, E:...).
+        # This is bounded directory probing, not a recursive whole-disk search.
+        for drive in windows_drive_roots():
+            candidates.extend([
+                drive/"Program Files"/"Obsidian",
+                drive/"Program Files (x86)"/"Obsidian",
+                drive/"Obsidian",
+                drive/"Apps"/"Obsidian",
+                drive/"Applications"/"Obsidian",
+            ])
     else:
         for name in ("obsidian", "Obsidian"):
             found = shutil.which(name)
