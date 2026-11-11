@@ -195,3 +195,8 @@ Windows、macOS、Linux 的真实安装路径测试仍需在对应系统上完�
 ## 许可证
 
 GNU General Public License v3.0 only，见 [LICENSE](LICENSE)。
+
+
+## 参与社区建设
+
+欢迎所有人参与本项目：报告问题、测试不同平台、改善文档、翻译或提交代码都很有价值。普通贡献者无需仓库写入权限，可通过 Fork 和 Pull Request 提交修改。项目采用模块分工、核心审核、贡献者名单与积分认可制度。详情请阅读 [贡献指南](CONTRIBUTING.md)、[项目治理](GOVERNANCE.md) 和 [贡献者名单](CONTRIBUTORS.md)。
