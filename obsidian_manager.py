@@ -605,15 +605,15 @@ def run_obsidian_cli_plugin(vault, cli, command_name):
 def offer_obsidian_git(vault):
     cli = shutil.which("obsidian")
     if not cli:
-        say("\\n未在 PATH 中找到 Obsidian CLI，暂不能通过 CLI 安装插件。")
+        say("\n未在 PATH 中找到 Obsidian CLI，暂不能通过 CLI 安装插件。")
         say("请先在 Obsidian 设置 → 常规 → 命令行界面启用并注册 CLI，然后重新打开终端。")
         return
     plugin_dir = vault/".obsidian"/"plugins"/"obsidian-git"
     manifest = plugin_dir/"manifest.json"
     if manifest.is_file():
-        say("\\nObsidian Git 已安装。")
+        say("\nObsidian Git 已安装。")
     else:
-        say("\\n自动检查发现 Obsidian Git 尚未安装（第三方社区插件，ID：obsidian-git）。")
+        say("\n自动检查发现 Obsidian Git 尚未安装（第三方社区插件，ID：obsidian-git）。")
         say("官方社区页面：https://community.obsidian.md/plugins/obsidian-git")
         say("现在直接展示安装前说明；不会先重复询问。真正安装前仍需你明确确认。")
         if not run_obsidian_cli_plugin(vault, cli, "plugin:install"):
