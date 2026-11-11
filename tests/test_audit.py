@@ -16,6 +16,32 @@ class AuditTests(unittest.TestCase):
             self.assertEqual(json.loads((cfg/"community-plugins.json").read_text()), ["sample"])
             self.assertTrue((p/"manifest.json").is_file())
 
+
+    def test_non_object_manifest_does_not_crash_inventory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = Path(tmp)
+            plugin = vault / ".obsidian" / "plugins" / "broken"
+            plugin.mkdir(parents=True)
+            (plugin / "manifest.json").write_text(json.dumps(["not", "an", "object"]), encoding="utf-8")
+            (vault / ".obsidian" / "community-plugins.json").write_text("[]", encoding="utf-8")
+            from contextlib import redirect_stdout
+            import io
+            output = io.StringIO()
+            with patch.object(om, "fetch_registry", return_value={}), redirect_stdout(output):
+                om.audit_plugins(vault)
+            self.assertIn("manifest.json 不是有效的 JSON 对象", output.getvalue())
+
+    def test_scanner_enforces_total_byte_budget(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "a.js").write_text("x" * 8, encoding="utf-8")
+            (root / "b.js").write_text("y" * 8, encoding="utf-8")
+            findings, stats = om.scan_source(root, max_total_bytes=10)
+            self.assertEqual(stats["bytes_scanned"], 8)
+            self.assertEqual(stats["scanned"], 1)
+            self.assertEqual(stats["skipped"], 1)
+            self.assertTrue(any("总读取字节上限" in item for item in stats["errors"]))
+
 if __name__ == "__main__": unittest.main()
 
 def test_malformed_enabled_entries_do_not_crash_inventory(self):
