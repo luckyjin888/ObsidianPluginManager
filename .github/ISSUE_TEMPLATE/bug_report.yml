@@ -1,7 +1,7 @@
 name: Bug report / 问题报告
 description: 报告可复现的问题，帮助我们修复它
 title: "[Bug] "
-labels: ["bug", "needs-triage"]
+labels: ["bug"]
 body:
   - type: markdown
     attributes:
