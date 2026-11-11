@@ -13,18 +13,22 @@ class WindowsPlatformTests(unittest.TestCase):
             local = Path(tmp) / "LocalAppData"
             install = local / "Programs" / "Obsidian"
             install.mkdir(parents=True)
+            (install / "Obsidian.exe").write_bytes(b"test")
             with patch("obsidian_manager.platform.system", return_value="Windows"):
-                with patch.dict(os.environ, {"LOCALAPPDATA": str(local)}, clear=True):
-                    self.assertEqual(om.find_obsidian(), install)
+                with patch("obsidian_manager.windows_running_obsidian_paths", return_value=[]), patch("obsidian_manager.windows_registered_obsidian_paths", return_value=[]):
+                    with patch.dict(os.environ, {"LOCALAPPDATA": str(local)}, clear=True):
+                        self.assertEqual(om.find_obsidian(), install)
 
     def test_detects_program_files_install_location(self):
         with tempfile.TemporaryDirectory() as tmp:
             program_files = Path(tmp) / "Program Files"
             install = program_files / "Obsidian"
             install.mkdir(parents=True)
+            (install / "Obsidian.exe").write_bytes(b"test")
             with patch("obsidian_manager.platform.system", return_value="Windows"):
-                with patch.dict(os.environ, {"ProgramFiles": str(program_files)}, clear=True):
-                    self.assertEqual(om.find_obsidian(), install)
+                with patch("obsidian_manager.windows_running_obsidian_paths", return_value=[]), patch("obsidian_manager.windows_registered_obsidian_paths", return_value=[]):
+                    with patch.dict(os.environ, {"ProgramFiles": str(program_files)}, clear=True):
+                        self.assertEqual(om.find_obsidian(), install)
 
     def test_only_uses_obsidian_com_as_windows_cli(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -48,20 +52,46 @@ class WindowsPlatformTests(unittest.TestCase):
             drive_d = Path(tmp) / "D"
             install = drive_d / "Program Files" / "Obsidian"
             install.mkdir(parents=True)
+            (install / "Obsidian.exe").write_bytes(b"test")
             with patch("obsidian_manager.platform.system", return_value="Windows"):
-                with patch("obsidian_manager.windows_drive_roots", return_value=[drive_d]):
-                    with patch.dict(os.environ, {}, clear=True):
-                        self.assertEqual(om.find_obsidian(), install)
+                with patch("obsidian_manager.windows_running_obsidian_paths", return_value=[]), patch("obsidian_manager.windows_registered_obsidian_paths", return_value=[]):
+                    with patch("obsidian_manager.windows_drive_roots", return_value=[drive_d]):
+                        with patch.dict(os.environ, {}, clear=True):
+                            self.assertEqual(om.find_obsidian(), install)
 
     def test_checks_common_custom_folder_on_other_drive(self):
         with tempfile.TemporaryDirectory() as tmp:
             drive_e = Path(tmp) / "E"
             install = drive_e / "Apps" / "Obsidian"
             install.mkdir(parents=True)
+            (install / "Obsidian.exe").write_bytes(b"test")
             with patch("obsidian_manager.platform.system", return_value="Windows"):
-                with patch("obsidian_manager.windows_drive_roots", return_value=[drive_e]):
-                    with patch.dict(os.environ, {}, clear=True):
-                        self.assertEqual(om.find_obsidian(), install)
+                with patch("obsidian_manager.windows_running_obsidian_paths", return_value=[]), patch("obsidian_manager.windows_registered_obsidian_paths", return_value=[]):
+                    with patch("obsidian_manager.windows_drive_roots", return_value=[drive_e]):
+                        with patch.dict(os.environ, {}, clear=True):
+                            self.assertEqual(om.find_obsidian(), install)
+
+    def test_detects_custom_location_from_running_process(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            install = Path(tmp) / "PortableApps" / "Obsidian"
+            install.mkdir(parents=True)
+            (install / "Obsidian.exe").write_bytes(b"test")
+            with patch("obsidian_manager.platform.system", return_value="Windows"):
+                with patch("obsidian_manager.windows_running_obsidian_paths", return_value=[install]):
+                    with patch("obsidian_manager.windows_registered_obsidian_paths", return_value=[]):
+                        with patch("obsidian_manager.windows_drive_roots", return_value=[]):
+                            with patch.dict(os.environ, {}, clear=True):
+                                self.assertEqual(om.find_obsidian(), install)
+
+    def test_manual_path_accepts_exe_or_install_folder(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            install = Path(tmp) / "MyApps" / "Obsidian"
+            install.mkdir(parents=True)
+            exe = install / "Obsidian.exe"
+            exe.write_bytes(b"test")
+            with patch("obsidian_manager.platform.system", return_value="Windows"):
+                with patch("builtins.input", return_value=str(exe)):
+                    self.assertEqual(om.prompt_manual_obsidian_path(None), install)
 
 
 if __name__ == "__main__":
