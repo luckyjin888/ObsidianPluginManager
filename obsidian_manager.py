@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# ObsidianPluginManager 0.5.5
+# ObsidianPluginManager 0.5.6
 # GPL-3.0-only
 """Cross-platform, consent-first Obsidian plugin inventory and heuristic audit."""
 from __future__ import annotations
@@ -7,7 +7,7 @@ import json, os, platform, re, shutil, subprocess, sys, ssl, urllib.error, urlli
 from pathlib import Path
 from datetime import datetime, timezone
 
-VERSION = "0.5.5"
+VERSION = "0.5.6"
 MIN_CLI = (1, 12, 7)
 REGISTRY_URL = "https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugins.json"
 NETWORK_TIMEOUT = 8
@@ -413,7 +413,7 @@ def scan_source(plugin_dir):
     return findings
 
 def ensure_vault_plugin_dirs(vault):
-    """Create missing Obsidian config/plugin directories only after separate consent."""
+    """Automatically create missing Obsidian config/plugin directories without overwriting."""
     vault = Path(vault)
     if not vault.is_dir():
         say(f"Vault 路径不存在或不是文件夹：{vault}")
@@ -421,62 +421,31 @@ def ensure_vault_plugin_dirs(vault):
 
     config_dir = vault / ".obsidian"
     plugin_dir = config_dir / "plugins"
-
-    if not config_dir.exists():
-        say("\n检测到该文件夹尚未初始化为 Obsidian Vault。")
-        say(f"准备创建配置目录：{config_dir}")
-        say("\n【标准专业版】")
-        say("目的：在用户明确指定的 Vault 根目录下创建 Obsidian 配置目录 .obsidian。")
-        say("权限：仅使用当前用户对该 Vault 的普通文件夹写入权限，不申请管理员权限。")
-        say("影响：只创建目录，不创建或覆盖配置文件，不修改笔记正文、插件或系统设置。")
-        say("风险：这会在所选文件夹中留下 Obsidian 配置目录；如果选错 Vault，请取消。")
-        say("\n【10岁儿童比喻版】")
-        say("这本笔记本还没有 Obsidian 的管理柜。我们想在你指定的书房里放一个空柜子。")
-        say("只放空柜子，不搬动笔记，也不拿走任何东西；如果地方选错了，就先不要放。")
-        if ask("确认创建 .obsidian 配置目录？请输入 YES；其它输入均取消：") != "YES":
-            say("未获明确同意；没有创建 .obsidian，也不会继续插件相关操作。")
-            return False
-        try:
-            config_dir.mkdir()
-            say(f"已创建配置目录：{config_dir}")
-        except FileExistsError:
-            if not config_dir.is_dir():
-                say("创建失败：目标路径已存在，但不是文件夹。")
+    for directory, label in (
+        (config_dir, ".obsidian 配置目录"),
+        (plugin_dir, ".obsidian/plugins 插件目录"),
+    ):
+        if directory.exists() or directory.is_symlink():
+            if not directory.is_dir():
+                say(f"初始化失败：{label}路径已存在但不是文件夹：{directory}")
                 return False
-        except OSError as exc:
-            say(f"创建 .obsidian 失败：{exc}")
-            return False
-    elif not config_dir.is_dir():
-        say(f"配置路径存在但不是文件夹：{config_dir}")
-        return False
-
-    if not plugin_dir.exists():
-        say(f"\n尚未找到社区插件目录：{plugin_dir}")
-        say("\n【标准专业版】")
-        say("目的：在当前 Vault 的 .obsidian 配置目录内创建 plugins 文件夹。")
-        say("权限：仅使用当前用户对该 Vault 的普通文件夹写入权限，不申请管理员权限。")
-        say("影响：只创建空目录；不会下载、安装、启用或执行任何插件。")
-        say("风险：目录会出现在该 Vault 中；不创建任何插件文件，也不改变现有设置。")
-        say("\n【10岁儿童比喻版】")
-        say("管理柜已经有了，但里面还没有放插件的抽屉。我们想加一个空抽屉。")
-        say("空抽屉不会自己装进工具，也不会让任何插件开始工作；要不要放，由你决定。")
-        if ask("确认创建 .obsidian\\plugins 目录？请输入 YES；其它输入均取消：") != "YES":
-            say("未获明确同意；未创建 plugins 目录，已跳过所有插件相关操作。")
-            return False
+            say(f"已存在，保留不变：{directory}")
+            continue
         try:
-            plugin_dir.mkdir()
-            say(f"已创建插件目录：{plugin_dir}")
+            directory.mkdir()
+            say(f"已自动创建{label}：{directory}")
         except FileExistsError:
-            if not plugin_dir.is_dir():
-                say("创建失败：目标路径已存在，但不是文件夹。")
+            if not directory.is_dir():
+                say(f"初始化失败：目标路径已存在但不是文件夹：{directory}")
                 return False
+            say(f"目录已由其他进程创建，保留不变：{directory}")
         except OSError as exc:
-            say(f"创建 plugins 目录失败：{exc}")
+            say(f"创建{label}失败：{exc}")
             return False
-    elif not plugin_dir.is_dir():
-        say(f"插件路径存在但不是文件夹：{plugin_dir}")
-        return False
 
+    say("【标准专业版】缺失的 Vault 基础目录已自动补齐；已有目录和文件均保留。")
+    say("【10岁儿童比喻版】工具柜或抽屉没有就自动搭一个；里面原有的东西不会动。")
+    say("本步骤只创建空目录，不安装、启用、删除或上传任何插件/笔记。")
     return True
 
 
@@ -491,7 +460,8 @@ def audit_plugins(vault):
     say(f"\n发现插件目录：{len(dirs)} 个")
     say("启用状态来源：.obsidian/community-plugins.json（缺失或格式异常时标为未知）")
     say("网络核验会向 Obsidian 官方 GitHub 社区插件目录及插件声明的 GitHub 仓库发送只读请求。不会上传 Vault 或笔记内容。")
-    do_network = ask("是否进行在线来源与维护状态核验？[y/N] ").lower() == "y"
+    do_network = True
+    say("自动进行在线来源与维护状态只读核验；不会上传 Vault 或笔记内容。")
     registry = None
     if do_network:
         try: registry = fetch_registry(); say(f"已读取官方社区插件目录：{len(registry)} 条记录")
@@ -586,11 +556,9 @@ def offer_obsidian_git(vault):
     if manifest.is_file():
         say("\nObsidian Git 已安装。")
     else:
-        say("\n发现可选插件：Obsidian Git（第三方社区插件，ID：obsidian-git）")
+        say("\n自动检查发现 Obsidian Git 尚未安装（第三方社区插件，ID：obsidian-git）。")
         say("官方社区页面：https://community.obsidian.md/plugins/obsidian-git")
-        if ask("是否查看并考虑通过 Obsidian 官方 CLI 安装？[y/N] ").lower() != "y":
-            say("跳过安装；未修改插件。")
-            return
+        say("来源与安装目标已自动确认；安装第三方代码仍需你明确授权。")
         if not run_obsidian_cli_plugin(vault, cli, "plugin:install"):
             return
         if not manifest.is_file():
@@ -601,11 +569,8 @@ def offer_obsidian_git(vault):
     if isinstance(enabled, list) and "obsidian-git" in enabled:
         say("Obsidian Git 当前已启用。")
         return
-    say("插件目前未启用。启用会允许 Obsidian 加载并运行第三方插件代码。")
-    if ask("是否单独启用 Obsidian Git？[y/N] ").lower() == "y":
-        run_obsidian_cli_plugin(vault, cli, "plugin:enable")
-    else:
-        say("保持未启用状态；未执行启用操作。")
+    say("插件目前未启用。默认保持禁用；只有明确输入 ENABLE 才会允许 Obsidian 加载并运行第三方插件代码。")
+    run_obsidian_cli_plugin(vault, cli, "plugin:enable")
 
 
 # Curated open-source community plugin catalogue.
