@@ -635,7 +635,9 @@ def audit_plugins(vault):
         except Exception as e: say(f"官方目录读取失败：{e}")
     counts = {"启用":0,"禁用":0,"未知":0}
     for p in dirs:
-        manifest = read_json(p/"manifest.json") or {}
+        manifest_path = p / "manifest.json"
+        manifest_data = read_json(manifest_path)
+        manifest = manifest_data if isinstance(manifest_data, dict) else {}
         pid = str(manifest.get("id") or p.name)
         name = manifest.get("name", p.name)
         if enabled_set is None: state = "未知"
@@ -645,7 +647,10 @@ def audit_plugins(vault):
         say(f"{name}  [{pid}]")
         say(f"版本：{manifest.get('version','未知')} | 作者：{manifest.get('author','未知')} | 状态：{state}")
         say(f"最低 Obsidian 版本：{manifest.get('minAppVersion','未声明')}")
-        if not (p/"manifest.json").is_file(): say("插件信息不完整：未找到 manifest.json，无法确认插件名称和版本")
+        if not manifest_path.is_file():
+            say("插件信息不完整：未找到 manifest.json，无法确认插件名称和版本")
+        elif not isinstance(manifest_data, dict):
+            say("插件信息异常：manifest.json 不是有效的 JSON 对象，插件元数据无法确认")
         if registry is not None:
             if pid in registry: say("官方目录：找到匹配记录（不等于安全认证）")
             else: say("官方目录：未找到匹配 ID（可能是非官方、已下架或 ID 不一致）")
