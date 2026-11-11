@@ -12,7 +12,29 @@ MIN_CLI = (1, 12, 7)
 REGISTRY_URL = "https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugins.json"
 NETWORK_TIMEOUT = 8
 
-def say(s=""): print(s)
+def say(s=""):
+    """跨平台安全输出；终端编码不支持中文时回退到 UTF-8 字节流。"""
+    message = str(s)
+    try:
+        print(message)
+        return
+    except UnicodeEncodeError:
+        # Windows CI / 重定向终端有时使用 cp1252 等不支持中文的编码。
+        # 优先向底层字节流写 UTF-8，避免中文输出导致程序和测试中断。
+        stream = sys.stdout
+        payload = (message + "\\n").encode("utf-8", errors="backslashreplace")
+        try:
+            buffer = getattr(stream, "buffer", None)
+            if buffer is not None:
+                buffer.write(payload)
+                buffer.flush()
+                return
+        except (OSError, ValueError, AttributeError):
+            pass
+        # 对没有 buffer 的测试替身或特殊终端，使用当前编码的安全替代字符。
+        encoding = getattr(stream, "encoding", None) or "ascii"
+        safe_message = message.encode(encoding, errors="backslashreplace").decode(encoding, errors="replace")
+        print(safe_message)
 def ask(prompt):
     try: return input(prompt).strip()
     except (EOFError, KeyboardInterrupt): say("\n已取消。"); return ""
