@@ -2,7 +2,7 @@
 
 一个以安全、透明、用户确认优先为原则的 Obsidian 插件盘点与初步审查工具。
 
-**版本：** 0.5.4  
+**版本：** 0.5.5  
 **核心：** Python 3  
 **启动入口：** macOS/Linux 使用 Bash；Windows 使用 PowerShell  
 **许可证：** GNU GPL-3.0-only
@@ -75,6 +75,36 @@ python .\\obsidian_manager.py
 ```
 
 要求 Python 3.10 或更高版本。程序会尝试通过正在运行的 Obsidian 进程路径、Windows 软件注册表（只读）、常见安装目录，以及所有已挂载磁盘上的有限常见目录定位应用。自定义安装目录若已登记或 Obsidian 正在运行，通常也可自动识别；不会递归扫描整个硬盘。自动识别失败时，可在启动时输入安装目录或 `Obsidian.exe` 完整路径。
+
+## 跨平台 HTTPS 证书处理
+
+联网核验统一使用 Python HTTPS 请求层，适用于 macOS、Windows、Linux，以及常见 Conda/Python 环境：
+
+1. 如果安装了可选的 `truststore`，优先使用操作系统可信证书库。
+2. 使用 Python 默认可信证书库作为通用路径。
+3. 如果前面的证书来源无法验证服务器证书，再尝试可选的 `certifi` CA 证书包。
+4. 只有证书验证错误才会切换到下一个可信证书来源；普通网络错误不会被掩盖，也不会无限重试。
+
+所有路径都强制要求证书链验证（`CERT_REQUIRED`）和主机名验证（`check_hostname=True`）。**本项目不会关闭 TLS 验证，不会接受未知证书，也不会使用不安全的 SSL 上下文。** 所有可信来源都验证失败时，联网核验立即停止，并显示证书来源、Python/OpenSSL CA 路径及修复建议；插件安装不会继续。
+
+基础运行不强制安装额外依赖。希望增强跨平台证书兼容性的用户，可在当前 Python 环境安装可选组件：
+
+macOS / Linux：
+```bash
+python3 -m pip install -r requirements-ssl.txt
+```
+
+Windows PowerShell：
+```powershell
+py -3 -m pip install -r requirements-ssl.txt
+```
+
+Conda 用户也可以优先通过当前环境的 Conda 更新证书组件：
+```bash
+conda install ca-certificates certifi openssl
+```
+
+安装可选组件不会关闭或绕过系统证书验证。若设备使用企业代理或自定义根证书，应由用户/系统管理员将合法根证书正确安装到操作系统可信证书库；不要下载来历不明的证书，也不要关闭验证。
 
 ## Vault 目录初始化
 
