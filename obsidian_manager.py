@@ -12,10 +12,57 @@ MIN_CLI = (1, 12, 7)
 REGISTRY_URL = "https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugins.json"
 NETWORK_TIMEOUT = 8
 
-def say(s=""): print(s)
+def say(s=""):
+    """跨平台安全输出；终端编码不支持中文时回退到 UTF-8 字节流。"""
+    message = str(s)
+    try:
+        print(message)
+        return
+    except UnicodeEncodeError:
+        # Windows CI / 重定向终端有时使用 cp1252 等不支持中文的编码。
+        # 优先向底层字节流写 UTF-8，避免中文输出导致程序和测试中断。
+        stream = sys.stdout
+        payload = (message + "\n").encode("utf-8", errors="backslashreplace")
+        try:
+            buffer = getattr(stream, "buffer", None)
+            if buffer is not None:
+                buffer.write(payload)
+                buffer.flush()
+                return
+        except (OSError, ValueError, AttributeError):
+            pass
+        # 对没有 buffer 的测试替身或特殊终端，使用当前编码的安全替代字符。
+        encoding = getattr(stream, "encoding", None) or "ascii"
+        safe_message = message.encode(encoding, errors="backslashreplace").decode(encoding, errors="replace")
+        print(safe_message)
 def ask(prompt):
     try: return input(prompt).strip()
     except (EOFError, KeyboardInterrupt): say("\n已取消。"); return ""
+
+def ask_yes_no(prompt):
+    """统一二选一：1=是/继续，2=否/跳过；空输入按否处理。"""
+    while True:
+        answer = ask(prompt + "（1=是 / 2=否）：")
+        if answer == "1": return True
+        if answer in ("2", ""): return False
+        say("请输入 1 或 2。")
+
+def select_numbered(items):
+    """编号选择：all=全部，逗号分隔数字=部分，回车=跳过。"""
+    for i, item in enumerate(items, 1):
+        say(f'{i}. {item["name"]}（{item["id"]}）')
+        say(f'   用途：{item.get("purpose","")}')
+        say(f'   风险：{item.get("risk","")}')
+    raw = ask("输入 all 选择全部，或输入序号（例如 1,2）选择部分；直接回车跳过：")
+    if not raw: return []
+    if raw.lower() in ("all", "全部"): return list(items)
+    try:
+        indexes = list(dict.fromkeys(int(x.strip()) for x in raw.split(",") if x.strip()))
+    except ValueError:
+        say("输入格式不正确，已跳过。"); return []
+    if not indexes or any(i < 1 or i > len(items) for i in indexes):
+        say(f"序号无效，请输入 1 到 {len(items)} 之间的编号；本次已跳过。"); return []
+    return [items[i-1] for i in indexes]
 
 def version_tuple(s):
     nums = re.findall(r"\d+", str(s or ""))
@@ -234,7 +281,7 @@ def explain_cli_registration(target, source, action):
     say("就像在你自己的书桌抽屉里放一个快捷按钮，让你更容易叫出 Obsidian。")
     say("只动自己的抽屉，不进管理员办公室；如果抽屉里已有同名东西，我们就停下来不碰它。")
     say("这个按钮不会改你的笔记，但按下去时 Obsidian 可能会启动。")
-    return ask("\n你是否明确同意执行以上 CLI 注册？请输入 YES 同意，其它输入均取消：") == "YES"
+    return ask_yes_no("\n是否同意执行以上 CLI 注册？")
 
 def register_cli(app, source):
     bindir = Path.home()/".local"/"bin"
@@ -418,7 +465,7 @@ def scan_source(plugin_dir):
     return findings
 
 def ensure_vault_plugin_dirs(vault):
-    """Automatically create missing Obsidian config/plugin directories without overwriting."""
+    """自动创建缺失的 Vault 基础目录；拒绝符号链接，避免写入 Vault 以外的位置。"""
     vault = Path(vault)
     if not vault.is_dir():
         say(f"Vault 路径不存在或不是文件夹：{vault}")
@@ -428,20 +475,25 @@ def ensure_vault_plugin_dirs(vault):
     plugin_dir = config_dir / "plugins"
     for directory, label in (
         (config_dir, ".obsidian 配置目录"),
-        (plugin_dir, ".obsidian/plugins 插件目录"),
+        (plugin_dir, "plugins 插件目录"),
     ):
-        if directory.exists() or directory.is_symlink():
+        # 即使是指向文件夹的符号链接也拒绝，防止写入 Vault 根目录之外。
+        # is_symlink() 同时可以识别目标已失效的 broken symlink。
+        if directory.is_symlink():
+            say(f"初始化失败：{label}不能是符号链接：{directory}")
+            return False
+        if directory.exists():
             if not directory.is_dir():
-                say(f"初始化失败：{label}路径已存在但不是文件夹：{directory}")
+                say(f"初始化失败：{label}路径存在但不是文件夹：{directory}")
                 return False
             say(f"已存在，保留不变：{directory}")
             continue
         try:
             directory.mkdir()
-            say(f"已自动创建{label}：{directory}")
+            say(f"已自动创建缺失目录：{directory}")
         except FileExistsError:
-            if not directory.is_dir():
-                say(f"初始化失败：目标路径已存在但不是文件夹：{directory}")
+            if directory.is_symlink() or not directory.is_dir():
+                say(f"初始化失败：目标路径已存在但不是安全的普通文件夹：{directory}")
                 return False
             say(f"目录已由其他进程创建，保留不变：{directory}")
         except OSError as exc:
@@ -483,7 +535,7 @@ def audit_plugins(vault):
         say(f"{name}  [{pid}]")
         say(f"版本：{manifest.get('version','未知')} | 作者：{manifest.get('author','未知')} | 状态：{state}")
         say(f"最低 Obsidian 版本：{manifest.get('minAppVersion','未声明')}")
-        if not (p/"manifest.json").is_file(): say("来源/完整性：未找到 manifest.json，需人工检查")
+        if not (p/"manifest.json").is_file(): say("插件信息不完整：未找到 manifest.json，无法确认插件名称和版本")
         if registry is not None:
             if pid in registry: say("官方目录：找到匹配记录（不等于安全认证）")
             else: say("官方目录：未找到匹配 ID（可能是非官方、已下架或 ID 不一致）")
@@ -499,15 +551,15 @@ def audit_plugins(vault):
             except Exception as e: say(f"GitHub 状态：无法确认（{e}）")
         findings = scan_source(p)
         if findings:
-            say("静态代码线索（不是恶意判定）：")
+            say("自动初筛发现的代码能力线索（不是恶意判定，无需用户逐条审代码）：")
             for category, filename, hits in findings:
                 say(f"  - {category}：{filename}（命中 {', '.join(hits)}）")
         else: say("静态代码线索：未命中本工具的规则（不代表没有风险）")
-        risk = "需人工复核" if findings or state=="未知" or not (p/"manifest.json").is_file() else "未发现规则命中（不代表安全）"
+        risk = "发现需要留意的风险线索" if findings or state=="未知" or not (p/"manifest.json").is_file() else "初筛未发现规则命中（不代表绝对安全）"
         say(f"初步结论：{risk}")
     say("\n" + "="*58)
     say(f"插件统计：总数 {len(dirs)} | 启用 {counts['启用']} | 禁用 {counts['禁用']} | 未知 {counts['未知']}")
-    say("重要限制：这是基于 manifest、启用清单和关键词的静态初筛；不能证明插件安全，也不能完整理解混淆、动态加载或运行时行为。")
+    say("自动初筛仅提供风险提示，不要求普通用户自行审查源代码；它不能证明插件绝对安全，也不能完整理解混淆、动态加载或运行时行为。是否启用由用户根据用途和风险提示决定。")
     say("“官方目录匹配”仅代表目录中存在对应 ID，不代表 Obsidian 或 GitHub 对插件作出安全背书。")
 
 
@@ -524,7 +576,7 @@ def explain_plugin_action(vault, action, command):
     say(f"我们要在你选定的这一本笔记本（{vault}）里{action} Obsidian Git。")
     say("安装就像把一个第三方小工具放进这本笔记本的工具箱；启用就像允许它开始工作、接触这本笔记本。")
     say("只用你自己的普通账户，不找管理员帮忙。这个小工具不是 Obsidian 官方内置的，可能有风险；如果不想用，可以以后在设置里关掉。")
-    return ask("\n如果同意以上这一步，请输入 INSTALL 或 ENABLE；其它输入均取消：") == ("INSTALL" if action == "安装" else "ENABLE")
+    return ask_yes_no("\n是否同意执行以上这一步？")
 
 def run_obsidian_cli_plugin(vault, cli, command_name):
     # Official CLI targets the vault from the current working directory.
@@ -553,17 +605,17 @@ def run_obsidian_cli_plugin(vault, cli, command_name):
 def offer_obsidian_git(vault):
     cli = shutil.which("obsidian")
     if not cli:
-        say("\n未在 PATH 中找到 Obsidian CLI，暂不能通过 CLI 安装插件。")
+        say("\\n未在 PATH 中找到 Obsidian CLI，暂不能通过 CLI 安装插件。")
         say("请先在 Obsidian 设置 → 常规 → 命令行界面启用并注册 CLI，然后重新打开终端。")
         return
     plugin_dir = vault/".obsidian"/"plugins"/"obsidian-git"
     manifest = plugin_dir/"manifest.json"
     if manifest.is_file():
-        say("\nObsidian Git 已安装。")
+        say("\\nObsidian Git 已安装。")
     else:
-        say("\n自动检查发现 Obsidian Git 尚未安装（第三方社区插件，ID：obsidian-git）。")
+        say("\\n自动检查发现 Obsidian Git 尚未安装（第三方社区插件，ID：obsidian-git）。")
         say("官方社区页面：https://community.obsidian.md/plugins/obsidian-git")
-        say("来源与安装目标已自动确认；安装第三方代码仍需你明确授权。")
+        say("现在直接展示安装前说明；不会先重复询问。真正安装前仍需你明确确认。")
         if not run_obsidian_cli_plugin(vault, cli, "plugin:install"):
             return
         if not manifest.is_file():
@@ -574,7 +626,7 @@ def offer_obsidian_git(vault):
     if isinstance(enabled, list) and "obsidian-git" in enabled:
         say("Obsidian Git 当前已启用。")
         return
-    say("插件目前未启用。默认保持禁用；只有明确输入 ENABLE 才会允许 Obsidian 加载并运行第三方插件代码。")
+    say("插件目前未启用。默认保持禁用；如需启用，会单独展示说明并再次征求明确同意。")
     run_obsidian_cli_plugin(vault, cli, "plugin:enable")
 
 
@@ -608,120 +660,116 @@ def normalize_repo(repo):
 def offer_recommended_plugins(vault):
     cli = shutil.which("obsidian")
     if not cli:
-        say("\n未找到 Obsidian CLI；推荐插件库暂不可安装。请先在 Obsidian 设置中启用并注册 CLI。")
+        say("\n未找到 Obsidian CLI；推荐插件暂不可安装。请先在 Obsidian 设置中启用并注册 CLI。")
         return
+    plugin_root = vault/".obsidian"/"plugins"
+    available = [x for x in RECOMMENDED_PLUGINS
+                 if not (plugin_root/x["id"]/"manifest.json").is_file()]
     say("\n" + "="*58)
     say("优质开源社区插件推荐库")
-    say("这些是第三方插件，不是 Obsidian 官方内置功能。")
-    say("推荐依据：常见使用场景、公开源代码仓库；安装前还会实时核验官方目录、GitHub 许可证及仓库归档状态。")
-    say("这不是安全认证；许可证开放不代表代码没有风险。")
+    say("第三方插件不是 Obsidian 官方内置功能；程序会先核验官方目录、GitHub 许可证及仓库归档状态。")
+    say("来源核验和静态初筛不能证明插件绝对安全；风险说明供你决定是否安装、启用。")
     say("-"*58)
-    for item in RECOMMENDED_PLUGINS:
-        state = "已安装" if (vault/".obsidian"/"plugins"/item["id"]/"manifest.json").is_file() else "未安装"
-        say(f'{item["id"]} | {item["name"]} | {state}')
-        say(f'  用途：{item["purpose"]}')
-        say(f'  风险提示：{item["risk"]}')
-        say(f'  源码仓库：https://github.com/{item["repo"]}')
-    say("\n输入要安装的插件 ID（多个用英文逗号分隔），输入 all 选择全部，直接回车跳过。")
-    selected_text = ask("选择：")
-    if not selected_text:
-        say("已跳过推荐插件安装。")
-        return
-    by_id = {x["id"]:x for x in RECOMMENDED_PLUGINS}
-    if selected_text.lower() == "all":
-        selected = [x for x in RECOMMENDED_PLUGINS if x["id"] != "templater-obsidian"]
-        say("安全提示：Templater 具备执行任意 JavaScript/系统命令的能力；输入 all 不会自动选中它。若确实需要，请单独输入 templater-obsidian。")
+    if not available:
+        say("推荐清单中的插件均已安装。")
     else:
-        ids = [x.strip() for x in selected_text.split(",") if x.strip()]
-        unknown = [x for x in ids if x not in by_id]
-        if unknown:
-            say("存在不在推荐清单中的 ID，停止本次安装：" + ", ".join(unknown))
-            return
-        selected = [by_id[x] for x in dict.fromkeys(ids)]
-    selected = [x for x in selected if not (vault/".obsidian"/"plugins"/x["id"]/"manifest.json").is_file()]
-    if not selected:
-        say("所选插件均已安装，无需重复安装。")
+        say(f"发现 {len(available)} 个尚未安装的推荐插件：")
+        selected = select_numbered(available)
+        if selected:
+            say("\n开始安装前的来源与许可证核验（只读网络请求）：")
+            try:
+                registry = fetch_registry()
+            except Exception as e:
+                say(f"无法读取 Obsidian 官方社区插件目录，出于安全考虑停止安装：{e}")
+                registry = {}
+            verified = []
+            for item in selected:
+                entry = registry.get(item["id"])
+                if not entry:
+                    say(f'跳过 {item["name"]}：官方社区插件目录中没有找到该 ID。')
+                    continue
+                if normalize_repo(entry.get("repo", "")) != normalize_repo(item["repo"]):
+                    say(f'跳过 {item["name"]}：官方目录仓库与推荐仓库不一致。')
+                    continue
+                try:
+                    info = fetch_repo_status(item["repo"])
+                except Exception as e:
+                    say(f'跳过 {item["name"]}：无法读取 GitHub 仓库状态（{e}）。')
+                    continue
+                spdx = (info.get("license") or {}).get("spdx_id") or ""
+                if spdx not in OPEN_SOURCE_LICENSES:
+                    say(f'跳过 {item["name"]}：未能确认允许的开源许可证（{spdx or "未知"}）。')
+                    continue
+                if info.get("archived"):
+                    say(f'跳过 {item["name"]}：GitHub 仓库已归档。')
+                    continue
+                say(f'核验通过：{item["name"]} | 许可证：{spdx} | 最近推送：{info.get("pushed_at") or "未知"}')
+                verified.append(item)
+            if verified:
+                say("\n准备安装以下插件（安装后默认不启用）：")
+                for item in verified:
+                    say(f'  {item["name"]}：{item["purpose"]}')
+                    say(f'  风险提示：{item["risk"]}')
+                say(f"目标 Vault：{vault}")
+                say("权限：当前登录用户；不使用 sudo/管理员权限。")
+                say("影响：只向 .obsidian/plugins/ 写入插件文件；不会修改笔记正文，也不会自动启用。")
+                if ask_yes_no("是否安装以上通过核验的插件？"):
+                    for item in verified:
+                        say(f'\n正在安装：{item["name"]}')
+                        try:
+                            result = subprocess.run(
+                                [cli, "plugin:install", f'id={item["id"]}'],
+                                cwd=str(vault), capture_output=True, text=True,
+                                encoding="utf-8", errors="replace", timeout=180, check=False
+                            )
+                            if result.stdout.strip(): say(result.stdout.strip())
+                            if result.stderr.strip(): say("CLI 提示：" + result.stderr.strip())
+                            manifest = plugin_root/item["id"]/"manifest.json"
+                            if result.returncode != 0 or not manifest.is_file():
+                                say(f'安装未能确认成功：{item["name"]}；停止后续安装。')
+                                break
+                            say(f'安装成功：{item["name"]}')
+                        except Exception as e:
+                            say(f'安装失败：{item["name"]}（{e}）；停止后续安装。')
+                            break
+                else:
+                    say("已跳过安装；没有写入插件文件。")
+            else:
+                say("没有插件通过来源与许可证核验；未执行安装。")
+
+    # 安装与启用分开；对已安装且未启用的推荐插件提供相同的编号选择。
+    enabled = read_json(vault/".obsidian"/"community-plugins.json")
+    enabled_set = set(enabled) if isinstance(enabled, list) else set()
+    disabled = [x for x in RECOMMENDED_PLUGINS
+                if (plugin_root/x["id"]/"manifest.json").is_file()
+                and x["id"] not in enabled_set]
+    if not disabled:
+        say("\n没有待启用的推荐插件。")
         return
-    say("\n开始安装前的来源与许可证核验（只读网络请求）：")
-    try:
-        registry = fetch_registry()
-    except Exception as e:
-        say(f"无法读取 Obsidian 官方社区插件目录，出于安全考虑停止安装：{e}")
+    say("\n以下插件已安装但尚未启用：")
+    selected_to_enable = select_numbered(disabled)
+    if not selected_to_enable:
+        say("已跳过启用；插件保持当前状态。")
         return
-    verified = []
-    for item in selected:
-        entry = registry.get(item["id"])
-        if not entry:
-            say(f'跳过 {item["name"]}：官方社区插件目录中没有找到该 ID。')
-            continue
-        listed_repo = normalize_repo(entry.get("repo", ""))
-        expected_repo = normalize_repo(item["repo"])
-        if listed_repo != expected_repo:
-            say(f'跳过 {item["name"]}：官方目录仓库与内置推荐仓库不一致（{listed_repo or "未提供"}）。')
-            continue
+    say("\n启用后，所选第三方插件代码会在这个 Vault 中运行，可能读取或修改 Vault 内容。")
+    say("QuickAdd 的自动化/脚本功能、Templater 的 JavaScript 与系统命令能力尤其需要谨慎配置。")
+    if not ask_yes_no("是否启用刚才选择的插件？"):
+        say("已跳过启用；插件保持未启用状态。")
+        return
+    for item in selected_to_enable:
         try:
-            info = fetch_repo_status(item["repo"])
-        except Exception as e:
-            say(f'跳过 {item["name"]}：无法读取 GitHub 仓库许可证/状态（{e}）。')
-            continue
-        license_info = info.get("license") or {}
-        spdx = license_info.get("spdx_id") or ""
-        if spdx not in OPEN_SOURCE_LICENSES:
-            say(f'跳过 {item["name"]}：未能确认属于允许的开源许可证（GitHub SPDX：{spdx or "未知"}）。')
-            continue
-        if info.get("archived"):
-            say(f'跳过 {item["name"]}：GitHub 仓库已归档。')
-            continue
-        pushed = info.get("pushed_at") or "未知"
-        say(f'核验通过：{item["name"]} | SPDX：{spdx} | 最近推送：{pushed} | 仓库未归档')
-        verified.append(item)
-    if not verified:
-        say("没有通过来源、许可证和归档状态核验的插件；未执行安装。")
-        return
-    say("\n本次准备安装：")
-    for item in verified:
-        say(f'  - {item["name"]}（{item["id"]}）')
-        say(f'    用途：{item["purpose"]}')
-        say(f'    风险：{item["risk"]}')
-    say("\n【标准专业版】")
-    say(f"目标 Vault：{vault}")
-    say("将逐个调用 Obsidian 官方 CLI 的 plugin:install 命令，只安装上方通过核验且尚未安装的插件。")
-    say("权限：当前登录用户权限；不使用 sudo/管理员权限。")
-    say("影响：向该 Vault 的 .obsidian/plugins/<插件ID>/ 写入第三方插件文件；本流程不会启用插件，也不会修改笔记正文。")
-    say("风险：社区插件安装不等于安全认证；启用后插件代码可能读取或修改 Vault。Templater 还能执行任意 JavaScript 和系统命令。")
-    say("恢复：安装后可在 Obsidian 社区插件设置中禁用；卸载需另行操作并再次确认。建议先备份 Vault。")
-    say("\n【10岁儿童比喻版】")
-    say("我们要把上面列出的几个第三方小工具，逐个放进你选定的那本笔记本的工具箱。")
-    say("这一步只负责放进去，不会替你打开工具；打开以后，它们才可能开始读写笔记。")
-    say("有些工具能力很强，尤其 Templater 像一把能启动电脑命令的工具刀，不懂怎么用就先不要选。")
-    say("整个过程只用你自己的普通账户，不找管理员；最好先给笔记本做一份备份。")
-    if ask("\n确认安装以上全部已核验插件？请输入 INSTALL；其它输入均取消：") != "INSTALL":
-        say("未获明确同意，未执行安装。")
-        return
-    for item in verified:
-        command = [cli, "plugin:install", f'id={item["id"]}']
-        say(f'\n正在安装：{item["name"]}（{item["id"]}）')
-        try:
-            result = subprocess.run(command, cwd=str(vault), capture_output=True, text=True,
-                                    encoding="utf-8", errors="replace",
-                                    timeout=180, check=False)
+            result = subprocess.run(
+                [cli, "plugin:enable", f'id={item["id"]}'],
+                cwd=str(vault), capture_output=True, text=True,
+                encoding="utf-8", errors="replace", timeout=120, check=False
+            )
             if result.stdout.strip(): say(result.stdout.strip())
             if result.stderr.strip(): say("CLI 提示：" + result.stderr.strip())
-            if result.returncode != 0:
-                say(f'安装失败，退出码 {result.returncode}；停止后续安装。')
-                return
-            manifest = vault/".obsidian"/"plugins"/item["id"]/"manifest.json"
-            if not manifest.is_file():
-                say("CLI 返回成功，但没有找到目标 manifest.json；停止后续安装，请在 Obsidian 中检查。")
-                return
-            say(f'已核验安装文件：{manifest}')
-        except subprocess.TimeoutExpired:
-            say("安装超时；请先在 Obsidian 中检查状态，不要立即重复运行。")
-            return
+            if result.returncode == 0: say(f'已启用：{item["name"]}')
+            else: say(f'启用失败：{item["name"]}（退出码 {result.returncode}）')
         except Exception as e:
-            say(f"安装失败：{e}")
-            return
-    say("\n所选插件安装流程完成。所有新安装插件保持未启用状态，请先逐个审阅后再自行启用。")
+            say(f'启用失败：{item["name"]}（{e}）')
+
 
 def main():
     if sys.version_info < (3, 10):
@@ -754,7 +802,7 @@ def main():
         if source:
             say(f"发现可能的内置 CLI：{source}")
             say("CLI 命令尚未注册。官方 CLI 功能仍需先在 Obsidian 设置 → 常规 → 命令行界面中启用。")
-            if ask("是否查看并尝试进行当前用户级 CLI 注册？[y/N] ").lower() == "y":
+            if ask_yes_no("是否进行当前用户级 CLI 注册？"):
                 register_cli(app, source)
         else: say("未找到可识别的内置 CLI 文件；不会下载或替换程序。")
     else: say("未定位应用，无法自动注册 CLI。")
