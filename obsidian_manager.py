@@ -348,9 +348,14 @@ def is_certificate_verification_error(exc):
         if isinstance(current, ssl.SSLError) and "CERTIFICATE_VERIFY_FAILED" in str(current):
             return True
         if isinstance(current, urllib.error.URLError):
-            current = current.reason
-        else:
+            reason = current.reason
+            # URLError.reason may be an exception (e.g. certificate failure)
+            # or a plain string (e.g. "timeout"/"network unavailable").
+            current = reason if isinstance(reason, BaseException) else None
+        elif isinstance(current, BaseException):
             current = current.__cause__ or current.__context__
+        else:
+            current = None
     return False
 
 
