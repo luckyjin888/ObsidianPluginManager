@@ -380,7 +380,7 @@ def fetch_registry():
 
 def fetch_repo_status(repo):
     repo = re.sub(r"^https?://github.com/","",str(repo or "").strip()).strip("/")
-    repo = re.sub(r"\\.git$","",repo)
+    repo = re.sub(r"\.git$","",repo)
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo): return None
     url = "https://api.github.com/repos/"+repo
     req = urllib.request.Request(
