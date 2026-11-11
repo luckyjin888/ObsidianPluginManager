@@ -2,7 +2,7 @@
 
 一个以安全、透明、用户确认优先为原则的 Obsidian 插件盘点与初步审查工具。
 
-**版本：** 0.5.0  
+**版本：** 0.5.1  
 **核心：** Python 3  
 **启动入口：** macOS/Linux 使用 Bash；Windows 使用 PowerShell  
 **许可证：** GNU GPL-3.0-only
@@ -53,17 +53,27 @@ bash ./obsidian_manager.sh
 python3 ./obsidian_manager.py
 ```
 
-### Windows PowerShell
+### Windows 10 / 11（PowerShell）
+
+在仓库文件夹中打开 PowerShell：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\\obsidian_manager.ps1
+.\\obsidian_manager.ps1
 ```
 
-如果 PowerShell 执行策略阻止脚本运行，不要为了运行本工具而关闭或绕过系统策略；可直接运行 Python 核心：
+如果系统执行策略阻止启动器，不要为了运行本工具而关闭或绕过系统策略；可直接运行 Python 核心：
 
 ```powershell
 py -3 .\\obsidian_manager.py
 ```
+
+也可以使用已安装的 Python：
+
+```powershell
+python .\\obsidian_manager.py
+```
+
+要求 Python 3.10 或更高版本。程序会尝试识别常见安装位置，包括 `%LOCALAPPDATA%\\Programs\\Obsidian` 和 `%ProgramFiles%\\Obsidian`。如果使用便携版或自定义安装目录，可能需要手动确认应用位置。
 
 ## CLI 注册行为
 
@@ -71,9 +81,9 @@ py -3 .\\obsidian_manager.py
 
 - macOS：在 `~/.local/bin/obsidian` 创建指向应用内置 CLI 的符号链接。
 - Linux：将检测到的 CLI 文件复制到 `~/.local/bin/obsidian`。
-- Windows：将 `Obsidian.com` 复制为用户目录下的 `~/.local/bin/obsidian.com`。
+- Windows：只将 Obsidian CLI 启动器 `Obsidian.com` 复制为用户目录下的 `~/.local/bin/obsidian.com`；不会把图形界面程序 `Obsidian.exe` 冒充成 CLI。
 
-不会自动使用 sudo、不会申请管理员权限、不会覆盖已有同名目标，也不会自动修改 PATH。若目录不在 PATH 中，程序只给出人工配置指引。Windows 用户需在“环境变量 → 用户变量 → Path”中自行添加该目录。
+不会自动使用 sudo、不会申请管理员权限、不会覆盖已有同名目标，也不会自动修改 PATH。若目录不在 PATH 中，程序只给出人工配置指引。Windows 用户需在“环境变量 → 用户变量 → Path”中自行添加该目录。Windows CLI 仅识别 `Obsidian.com`；如果安装目录中没有该文件，程序会停止，不会复制 `Obsidian.exe` 代替。
 
 **重要：** 仅创建命令入口不代表 CLI 已成功启用。必须先在 Obsidian 设置中打开官方 CLI 开关。不同安装渠道、版本和系统发行版可能有不同布局；无法识别时程序会停止，不会下载或替换二进制文件。
 
