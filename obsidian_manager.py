@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# ObsidianPluginManager 0.5.0
+# ObsidianPluginManager 0.5.1
 # GPL-3.0-only
 """Cross-platform, consent-first Obsidian plugin inventory and heuristic audit."""
 from __future__ import annotations
@@ -7,7 +7,7 @@ import json, os, platform, re, shutil, subprocess, sys, urllib.request
 from pathlib import Path
 from datetime import datetime, timezone
 
-VERSION = "0.5.0"
+VERSION = "0.5.1"
 MIN_CLI = (1, 12, 7)
 REGISTRY_URL = "https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugins.json"
 NETWORK_TIMEOUT = 8
@@ -35,8 +35,19 @@ def find_obsidian():
     if system == "Darwin":
         candidates = [Path("/Applications/Obsidian.app"), Path.home()/"Applications/Obsidian.app"]
     elif system == "Windows":
-        roots = [os.environ.get("LOCALAPPDATA",""), os.environ.get("ProgramFiles",""), os.environ.get("ProgramFiles(x86)","")]
-        candidates = [Path(x)/"Obsidian" for x in roots if x]
+        local_app_data = os.environ.get("LOCALAPPDATA", "")
+        roots = [
+            os.environ.get("ProgramFiles", ""),
+            os.environ.get("ProgramFiles(x86)", ""),
+            os.environ.get("ProgramW6432", ""),
+        ]
+        # Standard per-user Obsidian installation (Squirrel installer).
+        if local_app_data:
+            candidates.extend([
+                Path(local_app_data)/"Programs"/"Obsidian",
+                Path(local_app_data)/"Obsidian",
+            ])
+        candidates.extend(Path(root)/"Obsidian" for root in roots if root)
     else:
         for name in ("obsidian", "Obsidian"):
             found = shutil.which(name)
@@ -67,7 +78,10 @@ def app_version(app):
 def cli_candidates(app):
     system = platform.system()
     if system == "Darwin": return [app/"Contents/MacOS/obsidian-cli"]
-    if system == "Windows": return [app/"Obsidian.com", app/"Obsidian.exe"]
+    if system == "Windows":
+        # Obsidian.com is the CLI shim. Obsidian.exe is the GUI and must never
+        # be copied/renamed as a command-line executable.
+        return [app/"Obsidian.com"]
     return [app/"obsidian", app/"obsidian-cli", app/"resources/app.asar.unpacked/obsidian"]
 
 def explain_cli_registration(target, source, action):
@@ -97,7 +111,8 @@ def register_cli(app, source):
         if platform.system() == "Darwin": target.symlink_to(source)
         else:
             shutil.copy2(source, target)
-            target.chmod(0o755)
+            if platform.system() != "Windows":
+                target.chmod(0o755)
         say(f"注册入口已创建：{target}")
         if str(bindir) not in os.environ.get("PATH","").split(os.pathsep):
             say(f"注意：{bindir} 当前不在 PATH 中。注册文件已创建，但终端可能仍找不到 obsidian。")
@@ -113,7 +128,7 @@ def register_cli(app, source):
         return False
 
 def fetch_registry():
-    req = urllib.request.Request(REGISTRY_URL, headers={"User-Agent":"ObsidianPluginManager/0.5.0"})
+    req = urllib.request.Request(REGISTRY_URL, headers={"User-Agent":"ObsidianPluginManager/0.5.1"})
     with urllib.request.urlopen(req, timeout=NETWORK_TIMEOUT) as r:
         data = json.loads(r.read().decode("utf-8"))
     return {str(x.get("id","")):x for x in data if isinstance(x,dict) and x.get("id")}
@@ -123,7 +138,7 @@ def fetch_repo_status(repo):
     repo = re.sub(r"\.git$","",repo)
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo): return None
     url = "https://api.github.com/repos/"+repo
-    req = urllib.request.Request(url, headers={"User-Agent":"ObsidianPluginManager/0.5.0","Accept":"application/vnd.github+json"})
+    req = urllib.request.Request(url, headers={"User-Agent":"ObsidianPluginManager/0.5.1","Accept":"application/vnd.github+json"})
     with urllib.request.urlopen(req, timeout=NETWORK_TIMEOUT) as r: return json.loads(r.read().decode("utf-8"))
 
 PATTERNS = {
@@ -229,6 +244,7 @@ def run_obsidian_cli_plugin(vault, cli, command_name):
         return False
     try:
         result = subprocess.run(command, cwd=str(vault), capture_output=True, text=True,
+                                encoding="utf-8", errors="replace",
                                 timeout=180, check=False)
         if result.stdout.strip(): say(result.stdout.strip())
         if result.stderr.strip(): say("CLI 提示：" + result.stderr.strip())
@@ -400,6 +416,7 @@ def offer_recommended_plugins(vault):
         say(f'\n正在安装：{item["name"]}（{item["id"]}）')
         try:
             result = subprocess.run(command, cwd=str(vault), capture_output=True, text=True,
+                                    encoding="utf-8", errors="replace",
                                     timeout=180, check=False)
             if result.stdout.strip(): say(result.stdout.strip())
             if result.stderr.strip(): say("CLI 提示：" + result.stderr.strip())
@@ -420,6 +437,16 @@ def offer_recommended_plugins(vault):
     say("\n所选插件安装流程完成。所有新安装插件保持未启用状态，请先逐个审阅后再自行启用。")
 
 def main():
+    if sys.version_info < (3, 10):
+        say("需要 Python 3.10 或更高版本。")
+        say(f"当前 Python：{sys.version.split()[0]}")
+        return 2
+    # Keep Chinese diagnostics readable in Windows PowerShell/Terminal.
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure:
+            try: reconfigure(encoding="utf-8", errors="replace")
+            except Exception: pass
     say("="*58); say(f" ObsidianPluginManager v{VERSION}"); say(f" 平台：{platform_name()}"); say("="*58)
     if platform.system() not in ("Darwin","Windows","Linux"):
         say("暂不支持此操作系统。"); return 2
@@ -441,6 +468,8 @@ def main():
     else: say("未定位应用，无法自动注册 CLI。")
     vault_input = ask("\n请输入 Vault 文件夹路径（留空退出）：")
     if not vault_input: return 0
+    # Windows Explorer often copies paths with surrounding quotation marks.
+    vault_input = vault_input.strip().strip('"').strip("'")
     vault = Path(os.path.expandvars(os.path.expanduser(vault_input))).resolve()
     if not vault.is_dir() or not (vault/".obsidian").is_dir():
         say("该路径不存在，或没有 .obsidian 配置目录。"); return 1
