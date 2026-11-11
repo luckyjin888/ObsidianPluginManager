@@ -93,11 +93,7 @@ class WindowsPlatformTests(unittest.TestCase):
                 with patch("builtins.input", return_value=str(exe)):
                     self.assertEqual(om.prompt_manual_obsidian_path(None), install)
 
-
-if __name__ == "__main__":
-    unittest.main()
-
-def test_macos_install_requires_valid_app_bundle_layout(self):
+    def test_macos_install_requires_valid_app_bundle_layout(self):
         with tempfile.TemporaryDirectory() as tmp:
             app = Path(tmp) / "Obsidian.app"
             contents = app / "Contents"
@@ -136,3 +132,6 @@ def test_macos_install_requires_valid_app_bundle_layout(self):
             with patch("obsidian_manager.platform.system", return_value="Darwin"):
                 self.assertTrue(om.is_valid_cli_source(app, source))
                 self.assertFalse(om.is_valid_cli_source(app, unrelated))
+
+if __name__ == "__main__":
+    unittest.main()
