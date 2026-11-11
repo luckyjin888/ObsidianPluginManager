@@ -41,7 +41,7 @@ CLI 注册使用独立的完整确认词 `YES`。这仅授权本次所展示的�
 
 - macOS：在用户家目录的 `~/.local/bin` 创建符号链接。
 - Linux：在用户家目录的 `~/.local/bin` 复制检测到的 CLI 文件。
-- Windows：在用户家目录的 `~/.local/bin` 复制检测到的 `Obsidian.com`。
+- Windows：在用户家目录的 `~/.local/bin` 复制检测到的 `Obsidian.com`；不得把图形界面程序 `Obsidian.exe` 当作 CLI 复制或改名。
 - 不覆盖已有目标；目标存在时停止。
 - 不调用 sudo，不请求管理员权限。
 - 不自动修改 shell 配置文件或 Windows PATH。
