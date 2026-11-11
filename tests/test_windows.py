@@ -30,9 +30,8 @@ class WindowsPlatformTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             app = Path(tmp)
             (app / "Obsidian.exe").write_bytes(b"GUI executable placeholder")
-            candidates = om.cli_candidates_for_test if hasattr(om, "cli_candidates_for_test") else om.cli_candidates
             with patch("obsidian_manager.platform.system", return_value="Windows"):
-                result = candidates(app)
+                result = om.cli_candidates(app)
             self.assertEqual(result, [app / "Obsidian.com"])
             self.assertNotIn(app / "Obsidian.exe", result)
 
