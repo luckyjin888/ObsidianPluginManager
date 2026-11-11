@@ -1,0 +1,47 @@
+name: Feature request / 功能建议
+description: 提出新功能或改进建议
+title: "[Feature] "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 你希望解决什么问题？
+      placeholder: 描述当前遇到的困难。
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 你建议怎样改进？
+      placeholder: 描述理想的功能或工作流程。
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: 涉及模块
+      options:
+        - macOS
+        - Windows
+        - Linux
+        - 安全与证书
+        - 插件核验与安装
+        - Vault 与文件操作
+        - 文档与翻译
+        - 测试与 CI
+        - 不确定
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: 可能的权限、隐私或安全影响
+      description: 如果不确定，可以写“不确定”，维护者会一起评估。
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我理解功能建议需要讨论和审核，不代表一定会被实现。
+          required: true
