@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.5.1] - 2026-11-11
+
+### Windows compatibility
+- 修正常见 Windows 用户级安装目录识别：增加 `%LOCALAPPDATA%\\Programs\\Obsidian`。
+- Windows CLI 只识别 `Obsidian.com`，不再错误地将图形界面 `Obsidian.exe` 作为命令行工具候选。
+- Windows CLI 注册时不再对复制文件执行 Unix 权限位设置。
+- Obsidian CLI 子进程输出固定按 UTF-8 解码，降低 Windows 中文终端乱码/解码失败风险。
+- 支持直接粘贴带外围引号的 Vault 路径；启动时检查 Python 3.10 最低版本。
+- 新增 Windows 安装路径和 CLI 候选回归测试；CI 已配置 Windows runner。
+
+### Documentation
+- Windows 启动说明不再推荐 `ExecutionPolicy Bypass`，优先使用 PowerShell 启动器，受策略阻止时可直接运行 Python 核心。
+
+
 ## [0.5.0] - 2026-11-10
 
 ### Added
