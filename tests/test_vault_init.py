@@ -7,31 +7,23 @@ import obsidian_manager as om
 
 
 class VaultDirectoryInitializationTests(unittest.TestCase):
-    def test_creates_both_missing_directories_after_two_confirmations(self):
+    def test_automatically_creates_both_missing_directories_without_prompt(self):
         with tempfile.TemporaryDirectory() as tmp:
             vault = Path(tmp) / "Company-Hub"
             vault.mkdir()
-            with patch("builtins.input", side_effect=["YES", "YES"]):
+            with patch("builtins.input", side_effect=AssertionError("unexpected prompt")):
                 self.assertTrue(om.ensure_vault_plugin_dirs(vault))
             self.assertTrue((vault / ".obsidian").is_dir())
             self.assertTrue((vault / ".obsidian" / "plugins").is_dir())
             self.assertEqual(list((vault / ".obsidian" / "plugins").iterdir()), [])
 
-    def test_declining_config_directory_creates_nothing(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            vault = Path(tmp)
-            with patch("builtins.input", return_value="no"):
-                self.assertFalse(om.ensure_vault_plugin_dirs(vault))
-            self.assertFalse((vault / ".obsidian").exists())
-
-    def test_declining_plugins_keeps_existing_config_but_creates_no_plugins(self):
+    def test_automatically_creates_plugins_inside_existing_config(self):
         with tempfile.TemporaryDirectory() as tmp:
             vault = Path(tmp)
             (vault / ".obsidian").mkdir()
-            with patch("builtins.input", return_value="no"):
-                self.assertFalse(om.ensure_vault_plugin_dirs(vault))
-            self.assertTrue((vault / ".obsidian").is_dir())
-            self.assertFalse((vault / ".obsidian" / "plugins").exists())
+            with patch("builtins.input", side_effect=AssertionError("unexpected prompt")):
+                self.assertTrue(om.ensure_vault_plugin_dirs(vault))
+            self.assertTrue((vault / ".obsidian" / "plugins").is_dir())
 
     def test_existing_directories_need_no_confirmation_and_are_preserved(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -49,6 +41,13 @@ class VaultDirectoryInitializationTests(unittest.TestCase):
             vault = Path(tmp) / "not-a-folder"
             vault.write_text("x", encoding="utf-8")
             self.assertFalse(om.ensure_vault_plugin_dirs(vault))
+
+    def test_rejects_config_path_that_is_a_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = Path(tmp)
+            (vault / ".obsidian").write_text("keep", encoding="utf-8")
+            self.assertFalse(om.ensure_vault_plugin_dirs(vault))
+            self.assertEqual((vault / ".obsidian").read_text(encoding="utf-8"), "keep")
 
 
 if __name__ == "__main__":
