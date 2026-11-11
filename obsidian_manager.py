@@ -522,17 +522,30 @@ def scan_source(plugin_dir, *, max_files=500, max_file_size=2_000_000,
             stats["skipped"] += len(files) - index
             break
         try:
+            if file.is_symlink():
+                stats["skipped"] += 1
+                stats["errors"].append(f"符号链接文件不纳入扫描：{file}")
+                continue
             size = file.stat().st_size
             if size > max_file_size:
                 stats["skipped"] += 1
                 stats["errors"].append(f"超过单文件大小上限，已跳过：{file}")
                 continue
-            if stats["bytes_scanned"] + size > max_total_bytes:
+            remaining = max_total_bytes - stats["bytes_scanned"]
+            # Read at most one byte beyond the remaining budget, so a file
+            # that grows after stat() cannot exceed the configured memory budget.
+            with file.open("rb") as handle:
+                raw = handle.read(min(max_file_size, remaining) + 1)
+            if len(raw) > max_file_size:
+                stats["skipped"] += 1
+                stats["errors"].append(f"读取期间文件超过单文件大小上限，已跳过：{file}")
+                continue
+            if len(raw) > remaining:
                 stats["skipped"] += len(files) - index
                 stats["errors"].append("达到总读取字节上限；剩余文件未扫描。")
                 break
-            source = file.read_text(encoding="utf-8", errors="replace")
-            stats["bytes_scanned"] += size
+            source = raw.decode("utf-8", errors="replace")
+            stats["bytes_scanned"] += len(raw)
             stats["scanned"] += 1
         except OSError as exc:
             stats["skipped"] += 1
