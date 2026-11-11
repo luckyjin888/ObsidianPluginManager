@@ -2,7 +2,7 @@
 
 一个以安全、透明、用户确认优先为原则的 Obsidian 插件盘点与初步审查工具。
 
-**版本：** 0.5.3  
+**版本：** 0.5.4  
 **核心：** Python 3  
 **启动入口：** macOS/Linux 使用 Bash；Windows 使用 PowerShell  
 **许可证：** GNU GPL-3.0-only
@@ -12,7 +12,7 @@
 ## 功能
 
 - 运行时识别 macOS、Windows、Linux。
-- 由用户输入 Vault 路径，不硬编码个人路径。
+- 由用户输入 Vault 路径，不硬编码个人路径。\n- Vault 缺少 `.obsidian` 或 `.obsidian/plugins` 时，分别说明用途、权限、影响与风险，并要求输入 `YES` 后才创建空目录；拒绝后跳过插件相关流程。
 - 读取插件 manifest，统计插件目录总数。
 - 读取 `.obsidian/community-plugins.json`，统计启用、禁用、未知数量。
 - 可选联网核对 Obsidian 官方社区插件目录。
@@ -75,7 +75,7 @@ python .\\obsidian_manager.py
 
 要求 Python 3.10 或更高版本。程序会尝试通过正在运行的 Obsidian 进程路径、Windows 软件注册表（只读）、常见安装目录，以及所有已挂载磁盘上的有限常见目录定位应用。自定义安装目录若已登记或 Obsidian 正在运行，通常也可自动识别；不会递归扫描整个硬盘。自动识别失败时，可在启动时输入安装目录或 `Obsidian.exe` 完整路径。
 
-## CLI 注册行为
+## Vault 目录初始化\n\n输入有效的 Vault 根目录后，程序会检查 `.obsidian` 和 `.obsidian/plugins`。缺少时分别展示「标准专业版」与「10岁儿童比喻版」说明，并要求对每个目录单独输入完整的 `YES`。创建动作仅建立空目录，不创建配置文件、不安装或启用插件、不读取或修改笔记正文；拒绝任一步骤都会跳过所有插件盘点、安装和启用流程。已有目录不会被覆盖，也不要求重复确认。\n\n## CLI 注册行为
 
 程序先检查 `obsidian` 是否已在 PATH 中。若未找到，会尝试定位可能的 Obsidian CLI 文件，并询问是否进行用户级注册。
 
