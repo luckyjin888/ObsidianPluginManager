@@ -545,7 +545,7 @@ def scan_source(plugin_dir, *, max_files=500, max_file_size=2_000_000,
     return findings, stats
 
 def ensure_vault_plugin_dirs(vault):
-    """自动创建缺失的 Vault 基础目录；拒绝符号链接，避免写入 Vault 以外的位置。"""
+    """创建 Vault 基础目录；失败时尽力回滚本次新建且仍为空的目录。"""
     vault = Path(vault)
     if not vault.is_dir():
         say(f"Vault 路径不存在或不是文件夹：{vault}")
@@ -553,35 +553,43 @@ def ensure_vault_plugin_dirs(vault):
 
     config_dir = vault / ".obsidian"
     plugin_dir = config_dir / "plugins"
-    for directory, label in (
+    targets = (
         (config_dir, ".obsidian 配置目录"),
         (plugin_dir, "plugins 插件目录"),
-    ):
-        # 即使是指向文件夹的符号链接也拒绝，防止写入 Vault 根目录之外。
-        # is_symlink() 同时可以识别目标已失效的 broken symlink。
-        if directory.is_symlink():
-            say(f"初始化失败：{label}不能是符号链接：{directory}")
-            return False
-        if directory.exists():
-            if not directory.is_dir():
-                say(f"初始化失败：{label}路径存在但不是文件夹：{directory}")
-                return False
-            say(f"已存在，保留不变：{directory}")
-            continue
-        try:
-            directory.mkdir()
-            say(f"已自动创建缺失目录：{directory}")
-        except FileExistsError:
-            if directory.is_symlink() or not directory.is_dir():
-                say(f"初始化失败：目标路径已存在但不是安全的普通文件夹：{directory}")
-                return False
-            say(f"目录已由其他进程创建，保留不变：{directory}")
-        except OSError as exc:
-            say(f"创建{label}失败：{exc}")
-            return False
+    )
+    created = []
+    try:
+        for directory, label in targets:
+            # 拒绝普通链接和失效链接，避免把写入引导到 Vault 以外。
+            if directory.is_symlink():
+                raise ValueError(f"{label}不能是符号链接：{directory}")
+            if directory.exists():
+                if not directory.is_dir():
+                    raise ValueError(f"{label}路径存在但不是文件夹：{directory}")
+                say(f"已存在，保留不变：{directory}")
+                continue
+            try:
+                directory.mkdir()
+                created.append(directory)
+                say(f"已自动创建缺失目录：{directory}")
+            except FileExistsError:
+                # 允许并发创建者先完成同一路径，但必须重新验证对象类型。
+                if directory.is_symlink() or not directory.is_dir():
+                    raise ValueError(f"目标路径已存在但不是安全的普通文件夹：{directory}")
+                say(f"目录已由其他进程创建，保留不变：{directory}")
+    except (OSError, ValueError) as exc:
+        say(f"初始化失败：{exc}")
+        # 仅删除本次创建、且仍为空的目录；任何已有内容都不会被删除。
+        for directory in reversed(created):
+            try:
+                directory.rmdir()
+                say(f"已回滚本次创建的空目录：{directory}")
+            except OSError:
+                say(f"未能回滚（目录可能已有其他内容），请人工检查：{directory}")
+        return False
 
-    say("【标准专业版】缺失的 Vault 基础目录已自动补齐；已有目录和文件均保留。")
-    say("【10岁儿童比喻版】工具柜或抽屉没有就自动搭一个；里面原有的东西不会动。")
+    say("【标准专业版】缺失的 Vault 基础目录已补齐；若中途失败，会尝试移除本次创建且仍为空的目录。已有内容不会删除。")
+    say("【10岁儿童比喻版】搭工具柜时如果第二步失败，会尝试拆掉刚搭好且空空的第一层；如果里面已经有东西，就不会拆。")
     say("本步骤只创建空目录，不安装、启用、删除或上传任何插件/笔记。")
     return True
 
