@@ -84,11 +84,7 @@ class VaultDirectoryInitializationTests(unittest.TestCase):
             self.assertFalse(om.ensure_vault_plugin_dirs(vault))
             self.assertEqual((vault / ".obsidian").read_text(encoding="utf-8"), "keep")
 
-
-if __name__ == "__main__":
-    unittest.main()
-
-def test_rolls_back_new_config_directory_when_plugins_creation_fails(self):
+    def test_rolls_back_new_config_directory_when_plugins_creation_fails(self):
         with tempfile.TemporaryDirectory() as tmp:
             vault = Path(tmp)
             original_mkdir = Path.mkdir
@@ -101,3 +97,6 @@ def test_rolls_back_new_config_directory_when_plugins_creation_fails(self):
             with patch.object(Path, "mkdir", autospec=True, side_effect=fail_plugins):
                 self.assertFalse(om.ensure_vault_plugin_dirs(vault))
             self.assertFalse((vault / ".obsidian").exists())
+
+if __name__ == "__main__":
+    unittest.main()
