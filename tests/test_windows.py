@@ -43,6 +43,26 @@ class WindowsPlatformTests(unittest.TestCase):
                 source = next((p for p in om.cli_candidates(app) if p.is_file()), None)
             self.assertIsNone(source)
 
+    def test_detects_install_on_non_c_drive(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            drive_d = Path(tmp) / "D"
+            install = drive_d / "Program Files" / "Obsidian"
+            install.mkdir(parents=True)
+            with patch("obsidian_manager.platform.system", return_value="Windows"):
+                with patch("obsidian_manager.windows_drive_roots", return_value=[drive_d]):
+                    with patch.dict(os.environ, {}, clear=True):
+                        self.assertEqual(om.find_obsidian(), install)
+
+    def test_checks_common_custom_folder_on_other_drive(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            drive_e = Path(tmp) / "E"
+            install = drive_e / "Apps" / "Obsidian"
+            install.mkdir(parents=True)
+            with patch("obsidian_manager.platform.system", return_value="Windows"):
+                with patch("obsidian_manager.windows_drive_roots", return_value=[drive_e]):
+                    with patch.dict(os.environ, {}, clear=True):
+                        self.assertEqual(om.find_obsidian(), install)
+
 
 if __name__ == "__main__":
     unittest.main()
