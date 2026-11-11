@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.2] - 2026-11-11
+
+### Windows discovery
+- 在所有已挂载 Windows 磁盘上检查有限的常见 Obsidian 安装目录，包括 D:、E: 等非系统盘。
+- 使用 Windows 逻辑磁盘列表枚举盘符；不递归扫描整个硬盘。
+- 增加非 C 盘安装路径回归测试。
+
+
 ## [0.5.1] - 2026-11-11
 
 ### Windows compatibility
