@@ -2,7 +2,7 @@
 
 一个以安全、透明、用户确认优先为原则的 Obsidian 插件盘点与初步审查工具。
 
-**版本：** 0.5.1  
+**版本：** 0.5.2  
 **核心：** Python 3  
 **启动入口：** macOS/Linux 使用 Bash；Windows 使用 PowerShell  
 **许可证：** GNU GPL-3.0-only
@@ -73,7 +73,7 @@ py -3 .\\obsidian_manager.py
 python .\\obsidian_manager.py
 ```
 
-要求 Python 3.10 或更高版本。程序会尝试识别常见安装位置，包括 `%LOCALAPPDATA%\\Programs\\Obsidian` 和 `%ProgramFiles%\\Obsidian`。如果使用便携版或自定义安装目录，可能需要手动确认应用位置。
+要求 Python 3.10 或更高版本。程序会尝试识别常见安装位置，包括 `%LOCALAPPDATA%\\Programs\\Obsidian`、`%ProgramFiles%\\Obsidian`，并检查所有已挂载磁盘（例如 D:、E:）上的 `Program Files\\Obsidian`、`Obsidian`、`Apps\\Obsidian` 和 `Applications\\Obsidian` 等有限常见目录。不会递归扫描整个硬盘。如果使用其他自定义目录或便携版，可能仍需手动确认应用位置。
 
 ## CLI 注册行为
 
