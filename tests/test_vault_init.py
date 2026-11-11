@@ -42,6 +42,41 @@ class VaultDirectoryInitializationTests(unittest.TestCase):
             vault.write_text("x", encoding="utf-8")
             self.assertFalse(om.ensure_vault_plugin_dirs(vault))
 
+    def test_rejects_plugins_path_that_is_a_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = Path(tmp)
+            plugins = vault / ".obsidian" / "plugins"
+            plugins.parent.mkdir(parents=True)
+            plugins.write_text("keep", encoding="utf-8")
+            self.assertFalse(om.ensure_vault_plugin_dirs(vault))
+            self.assertEqual(plugins.read_text(encoding="utf-8"), "keep")
+
+    def test_rejects_symlinked_config_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            vault = root / "vault"
+            outside = root / "outside"
+            vault.mkdir()
+            outside.mkdir()
+            try:
+                (vault / ".obsidian").symlink_to(outside, target_is_directory=True)
+            except (OSError, NotImplementedError) as exc:
+                self.skipTest(f"当前系统不支持创建目录符号链接：{exc}")
+            self.assertFalse(om.ensure_vault_plugin_dirs(vault))
+            self.assertFalse((outside / "plugins").exists())
+
+    def test_rejects_broken_symlinked_plugins_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = Path(tmp)
+            config = vault / ".obsidian"
+            config.mkdir()
+            missing_target = vault / "missing-target"
+            try:
+                (config / "plugins").symlink_to(missing_target, target_is_directory=True)
+            except (OSError, NotImplementedError) as exc:
+                self.skipTest(f"当前系统不支持创建目录符号链接：{exc}")
+            self.assertFalse(om.ensure_vault_plugin_dirs(vault))
+
     def test_rejects_config_path_that_is_a_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             vault = Path(tmp)

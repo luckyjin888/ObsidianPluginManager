@@ -465,25 +465,44 @@ def scan_source(plugin_dir):
     return findings
 
 def ensure_vault_plugin_dirs(vault):
-    """自动创建缺失的 Vault 配置与插件基础目录，不覆盖任何已有内容。"""
+    """自动创建缺失的 Vault 基础目录；拒绝符号链接，避免写入 Vault 以外的位置。"""
     vault = Path(vault)
     if not vault.is_dir():
         say(f"Vault 路径不存在或不是文件夹：{vault}")
         return False
+
     config_dir = vault / ".obsidian"
     plugin_dir = config_dir / "plugins"
-    for directory, label in ((config_dir, ".obsidian 配置目录"), (plugin_dir, "plugins 插件目录")):
+    for directory, label in (
+        (config_dir, ".obsidian 配置目录"),
+        (plugin_dir, "plugins 插件目录"),
+    ):
+        # 即使是指向文件夹的符号链接也拒绝，防止写入 Vault 根目录之外。
+        # is_symlink() 同时可以识别目标已失效的 broken symlink。
+        if directory.is_symlink():
+            say(f"初始化失败：{label}不能是符号链接：{directory}")
+            return False
         if directory.exists():
             if not directory.is_dir():
                 say(f"初始化失败：{label}路径存在但不是文件夹：{directory}")
                 return False
+            say(f"已存在，保留不变：{directory}")
             continue
         try:
-            directory.mkdir(parents=True, exist_ok=True)
-            say(f"已自动创建基础目录：{directory}")
+            directory.mkdir()
+            say(f"已自动创建缺失目录：{directory}")
+        except FileExistsError:
+            if directory.is_symlink() or not directory.is_dir():
+                say(f"初始化失败：目标路径已存在但不是安全的普通文件夹：{directory}")
+                return False
+            say(f"目录已由其他进程创建，保留不变：{directory}")
         except OSError as exc:
             say(f"创建{label}失败：{exc}")
             return False
+
+    say("【标准专业版】缺失的 Vault 基础目录已自动补齐；已有目录和文件均保留。")
+    say("【10岁儿童比喻版】工具柜或抽屉没有就自动搭一个；里面原有的东西不会动。")
+    say("本步骤只创建空目录，不安装、启用、删除或上传任何插件/笔记。")
     return True
 
 
@@ -498,7 +517,8 @@ def audit_plugins(vault):
     say(f"\n发现插件目录：{len(dirs)} 个")
     say("启用状态来源：.obsidian/community-plugins.json（缺失或格式异常时标为未知）")
     say("网络核验会向 Obsidian 官方 GitHub 社区插件目录及插件声明的 GitHub 仓库发送只读请求。不会上传 Vault 或笔记内容。")
-    do_network = ask_yes_no("是否进行在线来源与维护状态核验？")
+    do_network = True
+    say("自动进行在线来源与维护状态只读核验；不会上传 Vault 或笔记内容。")
     registry = None
     if do_network:
         try: registry = fetch_registry(); say(f"已读取官方社区插件目录：{len(registry)} 条记录")
@@ -593,11 +613,9 @@ def offer_obsidian_git(vault):
     if manifest.is_file():
         say("\nObsidian Git 已安装。")
     else:
-        say("\n发现可选插件：Obsidian Git（第三方社区插件，ID：obsidian-git）")
+        say("\n自动检查发现 Obsidian Git 尚未安装（第三方社区插件，ID：obsidian-git）。")
         say("官方社区页面：https://community.obsidian.md/plugins/obsidian-git")
-        if not ask_yes_no("是否安装 Obsidian Git？"):
-            say("跳过安装；未修改插件。")
-            return
+        say("现在直接展示安装前说明；不会先重复询问。真正安装前仍需你明确确认。")
         if not run_obsidian_cli_plugin(vault, cli, "plugin:install"):
             return
         if not manifest.is_file():
@@ -608,11 +626,8 @@ def offer_obsidian_git(vault):
     if isinstance(enabled, list) and "obsidian-git" in enabled:
         say("Obsidian Git 当前已启用。")
         return
-    say("插件目前未启用。启用会允许 Obsidian 加载并运行第三方插件代码。")
-    if ask_yes_no("是否启用 Obsidian Git？"):
-        run_obsidian_cli_plugin(vault, cli, "plugin:enable")
-    else:
-        say("保持未启用状态；未执行启用操作。")
+    say("插件目前未启用。默认保持禁用；如需启用，会单独展示说明并再次征求明确同意。")
+    run_obsidian_cli_plugin(vault, cli, "plugin:enable")
 
 
 # Curated open-source community plugin catalogue.
