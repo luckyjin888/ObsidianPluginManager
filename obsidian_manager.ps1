@@ -1,4 +1,4 @@
-# ObsidianPluginManager 0.5.1 launcher (Windows PowerShell)
+# ObsidianPluginManager 0.5.3 launcher (Windows PowerShell)
 $ErrorActionPreference = "Stop"
 $Python = Get-Command py -ErrorAction SilentlyContinue
 if ($Python) {
