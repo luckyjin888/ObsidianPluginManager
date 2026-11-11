@@ -42,9 +42,7 @@ class AuditTests(unittest.TestCase):
             self.assertEqual(stats["skipped"], 1)
             self.assertTrue(any("总读取字节上限" in item for item in stats["errors"]))
 
-if __name__ == "__main__": unittest.main()
-
-def test_malformed_enabled_entries_do_not_crash_inventory(self):
+    def test_malformed_enabled_entries_do_not_crash_inventory(self):
         with tempfile.TemporaryDirectory() as tmp:
             vault = Path(tmp)
             cfg = vault / ".obsidian"
@@ -107,3 +105,5 @@ def test_malformed_enabled_entries_do_not_crash_inventory(self):
             self.assertEqual(stats["scanned"], 0)
             self.assertEqual(stats["skipped"], 1)
             self.assertTrue(any("超过单文件大小上限" in item for item in stats["errors"]))
+
+if __name__ == "__main__": unittest.main()
