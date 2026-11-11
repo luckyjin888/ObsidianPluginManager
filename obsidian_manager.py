@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-# ObsidianPluginManager 0.5.4
+# ObsidianPluginManager 0.5.5
 # GPL-3.0-only
 """Cross-platform, consent-first Obsidian plugin inventory and heuristic audit."""
 from __future__ import annotations
-import json, os, platform, re, shutil, subprocess, sys, urllib.request
+import json, os, platform, re, shutil, subprocess, sys, ssl, urllib.error, urllib.request
 from pathlib import Path
 from datetime import datetime, timezone
 
-VERSION = "0.5.4"
+VERSION = "0.5.5"
 MIN_CLI = (1, 12, 7)
 REGISTRY_URL = "https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugins.json"
 NETWORK_TIMEOUT = 8
@@ -265,19 +265,130 @@ def register_cli(app, source):
         say("未尝试提权或绕过系统安全机制。")
         return False
 
+def ssl_context_candidates():
+    """Build verified HTTPS contexts using native and portable CA sources.
+
+    No context disables certificate validation. Optional truststore uses the OS
+    trust store; Python's default context is retained; certifi is a fallback.
+    """
+    candidates = []
+    errors = []
+
+    try:
+        import truststore
+        context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.verify_mode = ssl.CERT_REQUIRED
+        context.check_hostname = True
+        candidates.append(("操作系统证书库（truststore）", context))
+    except ImportError:
+        errors.append("truststore 未安装（可选）")
+    except Exception as exc:
+        errors.append(f"truststore 不可用：{exc}")
+
+    try:
+        context = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
+        context.verify_mode = ssl.CERT_REQUIRED
+        context.check_hostname = True
+        candidates.append(("Python 默认可信证书库", context))
+    except Exception as exc:
+        errors.append(f"Python 默认证书库不可用：{exc}")
+
+    try:
+        import certifi
+        context = ssl.create_default_context(
+            purpose=ssl.Purpose.SERVER_AUTH, cafile=certifi.where()
+        )
+        context.verify_mode = ssl.CERT_REQUIRED
+        context.check_hostname = True
+        candidates.append(("certifi CA 证书包", context))
+    except ImportError:
+        errors.append("certifi 未安装（可选）")
+    except Exception as exc:
+        errors.append(f"certifi 证书包不可用：{exc}")
+
+    if not candidates:
+        details = "；".join(errors) or "没有可用证书来源"
+        raise RuntimeError("无法建立经过验证的 HTTPS 证书上下文：" + details)
+    return candidates
+
+
+def is_certificate_verification_error(exc):
+    """Recognize certificate-validation failures wrapped by urllib."""
+    seen = set()
+    current = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if isinstance(current, ssl.SSLCertVerificationError):
+            return True
+        if isinstance(current, ssl.SSLError) and "CERTIFICATE_VERIFY_FAILED" in str(current):
+            return True
+        if isinstance(current, urllib.error.URLError):
+            current = current.reason
+        else:
+            current = current.__cause__ or current.__context__
+    return False
+
+
+def open_verified_https(request):
+    """Open HTTPS using verified contexts; retry only certificate-source failures."""
+    candidates = ssl_context_candidates()
+    failures = []
+    for label, context in candidates:
+        # Defensive invariant: every attempted context must validate both chain
+        # and hostname. Never weaken TLS to make a request succeed.
+        if context.verify_mode != ssl.CERT_REQUIRED or not context.check_hostname:
+            raise RuntimeError(f"安全检查失败：{label} 未启用完整证书与主机名验证；已停止联网。")
+        try:
+            return urllib.request.urlopen(
+                request, timeout=NETWORK_TIMEOUT, context=context
+            )
+        except Exception as exc:
+            if not is_certificate_verification_error(exc):
+                raise
+            failures.append(f"{label}：{exc}")
+
+    paths = ssl.get_default_verify_paths()
+    path_info = (
+        f"OpenSSL 默认 CA 文件={paths.cafile or '未设置'}；"
+        f"CA 目录={paths.capath or '未设置'}"
+    )
+    attempted = "；".join(failures) if failures else "没有成功建立可用证书上下文"
+    raise ssl.SSLCertVerificationError(
+        "HTTPS 证书验证失败，已尝试所有可用的可信证书来源。"
+        + attempted
+        + "。"
+        + path_info
+        + "。未关闭证书验证，已停止本次联网核验。"
+        + "建议更新操作系统根证书；Conda 环境可更新 ca-certificates、certifi、openssl；"
+        + "也可在当前 Python 环境安装/更新可选组件：python -m pip install -U truststore certifi。"
+    )
+
+
+def fetch_json_https(request):
+    with open_verified_https(request) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
 def fetch_registry():
-    req = urllib.request.Request(REGISTRY_URL, headers={"User-Agent":"ObsidianPluginManager/0.5.4"})
-    with urllib.request.urlopen(req, timeout=NETWORK_TIMEOUT) as r:
-        data = json.loads(r.read().decode("utf-8"))
+    req = urllib.request.Request(
+        REGISTRY_URL,
+        headers={"User-Agent": f"ObsidianPluginManager/{VERSION}"}
+    )
+    data = fetch_json_https(req)
     return {str(x.get("id","")):x for x in data if isinstance(x,dict) and x.get("id")}
+
 
 def fetch_repo_status(repo):
     repo = re.sub(r"^https?://github.com/","",str(repo or "").strip()).strip("/")
-    repo = re.sub(r"\.git$","",repo)
+    repo = re.sub(r"\\.git$","",repo)
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo): return None
     url = "https://api.github.com/repos/"+repo
-    req = urllib.request.Request(url, headers={"User-Agent":"ObsidianPluginManager/0.5.4","Accept":"application/vnd.github+json"})
-    with urllib.request.urlopen(req, timeout=NETWORK_TIMEOUT) as r: return json.loads(r.read().decode("utf-8"))
+    req = urllib.request.Request(
+        url,
+        headers={"User-Agent": f"ObsidianPluginManager/{VERSION}",
+                 "Accept":"application/vnd.github+json"}
+    )
+    return fetch_json_https(req)
 
 PATTERNS = {
  "网络通信": (r"\bfetch\s*\(", r"XMLHttpRequest", r"\bWebSocket\s*\(", r"\bhttps?\.request\s*\(", r"\baxios\b"),
