@@ -82,6 +82,21 @@ class SSLHandlingTests(unittest.TestCase):
                     om.open_verified_https(Request("https://example.com"))
         mocked.assert_not_called()
 
+    def test_context_factory_only_returns_verified_contexts(self):
+        candidates = om.ssl_context_candidates()
+        self.assertTrue(candidates)
+        for label, context in candidates:
+            with self.subTest(source=label):
+                self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
+                self.assertTrue(context.check_hostname)
+
+    def test_fetch_repo_status_accepts_git_suffix(self):
+        with patch.object(om, "fetch_json_https", return_value={"full_name": "owner/repo"}) as mocked:
+            result = om.fetch_repo_status("https://github.com/owner/repo.git")
+        self.assertEqual(result, {"full_name": "owner/repo"})
+        request = mocked.call_args.args[0]
+        self.assertEqual(request.full_url, "https://api.github.com/repos/owner/repo")
+
     def test_wrapped_certificate_error_is_recognized(self):
         error = URLError(ssl.SSLCertVerificationError("certificate verify failed"))
         self.assertTrue(om.is_certificate_verification_error(error))
