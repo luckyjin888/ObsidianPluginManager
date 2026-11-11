@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.3] - 2026-11-11
+
+### Windows discovery
+- 自动识别增加读取正在运行的 Obsidian 进程路径及 Windows 卸载/App Paths 注册表信息（只读）。
+- 验证候选目录必须实际包含 `Obsidian.exe`，避免把普通目录误认为应用目录。
+- 自动识别失败时，允许用户输入自定义安装目录或 `Obsidian.exe` 完整路径；不扫描整个硬盘。
+- 增加自定义路径与手动路径测试。
+
+
 ## [0.5.2] - 2026-11-11
 
 ### Windows discovery
