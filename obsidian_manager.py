@@ -488,7 +488,7 @@ def audit_plugins(vault):
         say(f"{name}  [{pid}]")
         say(f"版本：{manifest.get('version','未知')} | 作者：{manifest.get('author','未知')} | 状态：{state}")
         say(f"最低 Obsidian 版本：{manifest.get('minAppVersion','未声明')}")
-        if not (p/"manifest.json").is_file(): say("来源/完整性：未找到 manifest.json，需人工检查")
+        if not (p/"manifest.json").is_file(): say("插件信息不完整：未找到 manifest.json，无法确认插件名称和版本")
         if registry is not None:
             if pid in registry: say("官方目录：找到匹配记录（不等于安全认证）")
             else: say("官方目录：未找到匹配 ID（可能是非官方、已下架或 ID 不一致）")
@@ -504,15 +504,15 @@ def audit_plugins(vault):
             except Exception as e: say(f"GitHub 状态：无法确认（{e}）")
         findings = scan_source(p)
         if findings:
-            say("静态代码线索（不是恶意判定）：")
+            say("自动初筛发现的代码能力线索（不是恶意判定，无需用户逐条审代码）：")
             for category, filename, hits in findings:
                 say(f"  - {category}：{filename}（命中 {', '.join(hits)}）")
         else: say("静态代码线索：未命中本工具的规则（不代表没有风险）")
-        risk = "需人工复核" if findings or state=="未知" or not (p/"manifest.json").is_file() else "未发现规则命中（不代表安全）"
+        risk = "发现需要留意的风险线索" if findings or state=="未知" or not (p/"manifest.json").is_file() else "初筛未发现规则命中（不代表绝对安全）"
         say(f"初步结论：{risk}")
     say("\n" + "="*58)
     say(f"插件统计：总数 {len(dirs)} | 启用 {counts['启用']} | 禁用 {counts['禁用']} | 未知 {counts['未知']}")
-    say("重要限制：这是基于 manifest、启用清单和关键词的静态初筛；不能证明插件安全，也不能完整理解混淆、动态加载或运行时行为。")
+    say("自动初筛仅提供风险提示，不要求普通用户自行审查源代码；它不能证明插件绝对安全，也不能完整理解混淆、动态加载或运行时行为。是否启用由用户根据用途和风险提示决定。")
     say("“官方目录匹配”仅代表目录中存在对应 ID，不代表 Obsidian 或 GitHub 对插件作出安全背书。")
 
 
@@ -760,7 +760,7 @@ def main():
         if source:
             say(f"发现可能的内置 CLI：{source}")
             say("CLI 命令尚未注册。官方 CLI 功能仍需先在 Obsidian 设置 → 常规 → 命令行界面中启用。")
-            if ask("是否查看并尝试进行当前用户级 CLI 注册？[y/N] ").lower() == "y":
+            if ask_yes_no("是否进行当前用户级 CLI 注册？"):
                 register_cli(app, source)
         else: say("未找到可识别的内置 CLI 文件；不会下载或替换程序。")
     else: say("未定位应用，无法自动注册 CLI。")
