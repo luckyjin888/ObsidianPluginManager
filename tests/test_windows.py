@@ -96,3 +96,43 @@ class WindowsPlatformTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+def test_macos_install_requires_valid_app_bundle_layout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = Path(tmp) / "Obsidian.app"
+            contents = app / "Contents"
+            (contents / "MacOS").mkdir(parents=True)
+            (contents / "Info.plist").write_text("plist", encoding="utf-8")
+            executable = contents / "MacOS" / "Obsidian"
+            executable.write_text("#!/bin/sh\n", encoding="utf-8")
+            executable.chmod(0o755)
+            with patch("obsidian_manager.platform.system", return_value="Darwin"):
+                self.assertEqual(om.is_obsidian_install(app), app)
+                self.assertIsNone(om.is_obsidian_install(Path(tmp)))
+
+    def test_linux_install_requires_resources_and_executable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = Path(tmp) / "Obsidian"
+            resources = app / "resources"
+            resources.mkdir(parents=True)
+            (resources / "app.asar").write_bytes(b"placeholder")
+            executable = app / "obsidian"
+            executable.write_text("#!/bin/sh\n", encoding="utf-8")
+            executable.chmod(0o755)
+            with patch("obsidian_manager.platform.system", return_value="Linux"):
+                self.assertEqual(om.is_obsidian_install(app), app)
+                self.assertIsNone(om.is_obsidian_install(Path(tmp)))
+
+    def test_cli_registration_rejects_unrelated_executable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = Path(tmp) / "Obsidian.app"
+            (app / "Contents" / "MacOS").mkdir(parents=True)
+            source = app / "Contents" / "MacOS" / "obsidian-cli"
+            source.write_text("#!/bin/sh\n", encoding="utf-8")
+            source.chmod(0o755)
+            unrelated = Path(tmp) / "obsidian-cli"
+            unrelated.write_text("#!/bin/sh\n", encoding="utf-8")
+            unrelated.chmod(0o755)
+            with patch("obsidian_manager.platform.system", return_value="Darwin"):
+                self.assertTrue(om.is_valid_cli_source(app, source))
+                self.assertFalse(om.is_valid_cli_source(app, unrelated))
