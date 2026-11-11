@@ -87,3 +87,17 @@ class VaultDirectoryInitializationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+def test_rolls_back_new_config_directory_when_plugins_creation_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = Path(tmp)
+            original_mkdir = Path.mkdir
+
+            def fail_plugins(path, *args, **kwargs):
+                if path.name == "plugins":
+                    raise PermissionError("simulated permission failure")
+                return original_mkdir(path, *args, **kwargs)
+
+            with patch.object(Path, "mkdir", autospec=True, side_effect=fail_plugins):
+                self.assertFalse(om.ensure_vault_plugin_dirs(vault))
+            self.assertFalse((vault / ".obsidian").exists())
