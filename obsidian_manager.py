@@ -22,7 +22,7 @@ def say(s=""):
         # Windows CI / 重定向终端有时使用 cp1252 等不支持中文的编码。
         # 优先向底层字节流写 UTF-8，避免中文输出导致程序和测试中断。
         stream = sys.stdout
-        payload = (message + "\\n").encode("utf-8", errors="backslashreplace")
+        payload = (message + "\n").encode("utf-8", errors="backslashreplace")
         try:
             buffer = getattr(stream, "buffer", None)
             if buffer is not None:
