@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# ObsidianPluginManager 0.5.3
+# ObsidianPluginManager 0.5.4
 # GPL-3.0-only
 """Cross-platform, consent-first Obsidian plugin inventory and heuristic audit."""
 from __future__ import annotations
@@ -7,7 +7,7 @@ import json, os, platform, re, shutil, subprocess, sys, urllib.request
 from pathlib import Path
 from datetime import datetime, timezone
 
-VERSION = "0.5.3"
+VERSION = "0.5.4"
 MIN_CLI = (1, 12, 7)
 REGISTRY_URL = "https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugins.json"
 NETWORK_TIMEOUT = 8
@@ -266,7 +266,7 @@ def register_cli(app, source):
         return False
 
 def fetch_registry():
-    req = urllib.request.Request(REGISTRY_URL, headers={"User-Agent":"ObsidianPluginManager/0.5.3"})
+    req = urllib.request.Request(REGISTRY_URL, headers={"User-Agent":"ObsidianPluginManager/0.5.4"})
     with urllib.request.urlopen(req, timeout=NETWORK_TIMEOUT) as r:
         data = json.loads(r.read().decode("utf-8"))
     return {str(x.get("id","")):x for x in data if isinstance(x,dict) and x.get("id")}
@@ -276,7 +276,7 @@ def fetch_repo_status(repo):
     repo = re.sub(r"\.git$","",repo)
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo): return None
     url = "https://api.github.com/repos/"+repo
-    req = urllib.request.Request(url, headers={"User-Agent":"ObsidianPluginManager/0.5.3","Accept":"application/vnd.github+json"})
+    req = urllib.request.Request(url, headers={"User-Agent":"ObsidianPluginManager/0.5.4","Accept":"application/vnd.github+json"})
     with urllib.request.urlopen(req, timeout=NETWORK_TIMEOUT) as r: return json.loads(r.read().decode("utf-8"))
 
 PATTERNS = {
@@ -300,6 +300,74 @@ def scan_source(plugin_dir):
             hits = [p for p in patterns if re.search(p, source, re.I)]
             if hits: findings.append((category, file.name, hits))
     return findings
+
+def ensure_vault_plugin_dirs(vault):
+    """Create missing Obsidian config/plugin directories only after separate consent."""
+    vault = Path(vault)
+    if not vault.is_dir():
+        say(f"Vault 路径不存在或不是文件夹：{vault}")
+        return False
+
+    config_dir = vault / ".obsidian"
+    plugin_dir = config_dir / "plugins"
+
+    if not config_dir.exists():
+        say("\n检测到该文件夹尚未初始化为 Obsidian Vault。")
+        say(f"准备创建配置目录：{config_dir}")
+        say("\n【标准专业版】")
+        say("目的：在用户明确指定的 Vault 根目录下创建 Obsidian 配置目录 .obsidian。")
+        say("权限：仅使用当前用户对该 Vault 的普通文件夹写入权限，不申请管理员权限。")
+        say("影响：只创建目录，不创建或覆盖配置文件，不修改笔记正文、插件或系统设置。")
+        say("风险：这会在所选文件夹中留下 Obsidian 配置目录；如果选错 Vault，请取消。")
+        say("\n【10岁儿童比喻版】")
+        say("这本笔记本还没有 Obsidian 的管理柜。我们想在你指定的书房里放一个空柜子。")
+        say("只放空柜子，不搬动笔记，也不拿走任何东西；如果地方选错了，就先不要放。")
+        if ask("确认创建 .obsidian 配置目录？请输入 YES；其它输入均取消：") != "YES":
+            say("未获明确同意；没有创建 .obsidian，也不会继续插件相关操作。")
+            return False
+        try:
+            config_dir.mkdir()
+            say(f"已创建配置目录：{config_dir}")
+        except FileExistsError:
+            if not config_dir.is_dir():
+                say("创建失败：目标路径已存在，但不是文件夹。")
+                return False
+        except OSError as exc:
+            say(f"创建 .obsidian 失败：{exc}")
+            return False
+    elif not config_dir.is_dir():
+        say(f"配置路径存在但不是文件夹：{config_dir}")
+        return False
+
+    if not plugin_dir.exists():
+        say(f"\n尚未找到社区插件目录：{plugin_dir}")
+        say("\n【标准专业版】")
+        say("目的：在当前 Vault 的 .obsidian 配置目录内创建 plugins 文件夹。")
+        say("权限：仅使用当前用户对该 Vault 的普通文件夹写入权限，不申请管理员权限。")
+        say("影响：只创建空目录；不会下载、安装、启用或执行任何插件。")
+        say("风险：目录会出现在该 Vault 中；不创建任何插件文件，也不改变现有设置。")
+        say("\n【10岁儿童比喻版】")
+        say("管理柜已经有了，但里面还没有放插件的抽屉。我们想加一个空抽屉。")
+        say("空抽屉不会自己装进工具，也不会让任何插件开始工作；要不要放，由你决定。")
+        if ask("确认创建 .obsidian\\plugins 目录？请输入 YES；其它输入均取消：") != "YES":
+            say("未获明确同意；未创建 plugins 目录，已跳过所有插件相关操作。")
+            return False
+        try:
+            plugin_dir.mkdir()
+            say(f"已创建插件目录：{plugin_dir}")
+        except FileExistsError:
+            if not plugin_dir.is_dir():
+                say("创建失败：目标路径已存在，但不是文件夹。")
+                return False
+        except OSError as exc:
+            say(f"创建 plugins 目录失败：{exc}")
+            return False
+    elif not plugin_dir.is_dir():
+        say(f"插件路径存在但不是文件夹：{plugin_dir}")
+        return False
+
+    return True
+
 
 def audit_plugins(vault):
     cfg = vault/".obsidian"
@@ -614,9 +682,13 @@ def main():
     # Windows Explorer often copies paths with surrounding quotation marks.
     vault_input = vault_input.strip().strip('"').strip("'")
     vault = Path(os.path.expandvars(os.path.expanduser(vault_input))).resolve()
-    if not vault.is_dir() or not (vault/".obsidian").is_dir():
-        say("该路径不存在，或没有 .obsidian 配置目录。"); return 1
+    if not vault.is_dir():
+        say("该 Vault 文件夹不存在或不是文件夹。"); return 1
     say(f"Vault：{vault}")
+    if not ensure_vault_plugin_dirs(vault):
+        say("目录初始化未完成；已跳过插件盘点、安装与启用流程。")
+        say("检查结束。本工具未读取笔记正文。")
+        return 0
     audit_plugins(vault)
     offer_obsidian_git(vault)
     offer_recommended_plugins(vault)
