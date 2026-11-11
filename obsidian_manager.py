@@ -140,15 +140,16 @@ def find_obsidian():
             os.environ.get("ProgramFiles(x86)", ""),
             os.environ.get("ProgramW6432", ""),
         ]
-        # Standard per-user and system-wide locations.
         if local_app_data:
             candidates.extend([
                 Path(local_app_data)/"Programs"/"Obsidian",
                 Path(local_app_data)/"Obsidian",
             ])
         candidates.extend(Path(root)/"Obsidian" for root in roots if root)
-        # Check common install folders on every mounted drive (C:, D:, E:...).
-        # This is bounded directory probing, not a recursive whole-disk search.
+        # Registry and running-process discovery cover many custom install paths.
+        candidates.extend(windows_running_obsidian_paths())
+        candidates.extend(windows_registered_obsidian_paths())
+        # Also probe common locations on every mounted drive, without recursive scanning.
         for drive in windows_drive_roots():
             candidates.extend([
                 drive/"Program Files"/"Obsidian",
@@ -157,6 +158,16 @@ def find_obsidian():
                 drive/"Apps"/"Obsidian",
                 drive/"Applications"/"Obsidian",
             ])
+        seen = set()
+        for candidate in candidates:
+            key = str(candidate).lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            match = is_obsidian_install(candidate)
+            if match:
+                return match
+        return None
     else:
         for name in ("obsidian", "Obsidian"):
             found = shutil.which(name)
@@ -166,6 +177,24 @@ def find_obsidian():
         candidates += [Path("/usr/share/obsidian"), Path("/opt/Obsidian"), Path.home()/".local/share/Obsidian"]
     for p in candidates:
         if p.exists(): return p
+    return None
+
+
+def prompt_manual_obsidian_path(app):
+    """Offer a manual install path when Windows auto-discovery fails."""
+    if platform.system() != "Windows" or app:
+        return app
+    say("自动定位未成功。你可以输入 Obsidian 安装目录，或 Obsidian.exe 的完整路径。")
+    say("此步骤只检查路径和文件是否存在，不会修改应用或系统设置。")
+    raw = ask("Obsidian 安装目录（留空跳过）：")
+    if not raw:
+        return None
+    raw = os.path.expandvars(os.path.expanduser(raw.strip().strip('"').strip("'")))
+    match = is_obsidian_install(raw)
+    if match:
+        say(f"已确认 Obsidian 应用位置：{match}")
+        return match
+    say("该路径中未找到 Obsidian.exe；请检查路径后重试。")
     return None
 
 def app_version(app):
@@ -560,8 +589,13 @@ def main():
     if platform.system() not in ("Darwin","Windows","Linux"):
         say("暂不支持此操作系统。"); return 2
     app = find_obsidian()
-    if app: say(f"发现 Obsidian 位置：{app}")
-    else: say("未能自动定位 Obsidian 安装目录；仍可尝试输入 Vault 路径。")
+    if app:
+        say(f"发现 Obsidian 位置：{app}")
+    else:
+        say("未能自动定位 Obsidian 安装目录。")
+        app = prompt_manual_obsidian_path(app)
+        if not app:
+            say("未提供有效安装目录；仍可继续输入 Vault 路径，但无法自动注册 CLI。")
     ver = app_version(app) if app else "未知"
     say(f"Obsidian 版本：{ver}")
     cli = shutil.which("obsidian")
