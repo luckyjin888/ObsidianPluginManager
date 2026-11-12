@@ -580,7 +580,7 @@ def explain_plugin_action(vault, action, command):
 
 def is_cli_not_enabled(result):
     """Recognize Obsidian's explicit CLI-disabled response without masking other errors."""
-    output = "\\n".join((
+    output = "\n".join((
         str(getattr(result, "stdout", "") or ""),
         str(getattr(result, "stderr", "") or ""),
     )).casefold()
@@ -597,14 +597,14 @@ def is_cli_not_enabled(result):
 
 def explain_cli_not_enabled():
     """Guide the user to enable the official Obsidian CLI switch; do not change settings."""
-    say("\\n" + "="*58)
+    say("\n" + "="*58)
     say("【标准专业版】")
     say("原因：Obsidian CLI 命令已被调用，但 Obsidian 应用内的“命令行界面”开关尚未启用。")
     say("处理：打开 Obsidian → Settings（设置）→ General（通用）→ Advanced（高级）→")
     say("开启 Command line interface（命令行界面）。如果 Obsidian 显示注册 CLI 命令的提示，请按应用内说明完成。")
     say("权限与影响：这只是 Obsidian 应用内的功能开关；本工具不会代替你修改设置，不需要 sudo 或管理员权限。")
     say("安全处理：已停止当前插件安装/启用流程，不会继续批量操作。开启后请重新运行检查，并先核对插件文件是否已部分写入。")
-    say("\\n【10岁儿童比喻版】")
+    say("\n【10岁儿童比喻版】")
     say("脚本已经找到 Obsidian 的遥控器，但 Obsidian 还没打开“允许遥控”的开关。")
     say("请打开 Obsidian，按“设置 → 通用 → 高级”，找到“命令行界面”并打开。")
     say("我们不会偷偷替你按开关；开关打开前，先暂停安装，避免重复放东西。")
