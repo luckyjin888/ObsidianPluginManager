@@ -7,7 +7,7 @@ import json, os, platform, re, shutil, subprocess, sys, ssl, urllib.error, urlli
 from pathlib import Path
 from datetime import datetime, timezone
 
-VERSION = "0.5.6"
+VERSION = "0.5.7"
 MIN_CLI = (1, 12, 7)
 REGISTRY_URL = "https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugins.json"
 NETWORK_TIMEOUT = 8
@@ -578,6 +578,55 @@ def explain_plugin_action(vault, action, command):
     say("只用你自己的普通账户，不找管理员帮忙。这个小工具不是 Obsidian 官方内置的，可能有风险；如果不想用，可以以后在设置里关掉。")
     return ask_yes_no("\n是否同意执行以上这一步？")
 
+def is_cli_not_enabled(result):
+    """Recognize Obsidian's explicit CLI-disabled response without masking other errors."""
+    output = "\n".join((
+        str(getattr(result, "stdout", "") or ""),
+        str(getattr(result, "stderr", "") or ""),
+    )).casefold()
+    markers = (
+        "command line interface is not enabled",
+        "command-line interface is not enabled",
+        "command line interface isn't enabled",
+        "command-line interface isn't enabled",
+        "command line interface has not been enabled",
+        "please turn it on in settings > general > advanced",
+    )
+    return any(marker in output for marker in markers)
+
+
+def explain_cli_not_enabled():
+    """Guide the user to enable the official Obsidian CLI switch; do not change settings."""
+    say("\n" + "="*58)
+    say("【标准专业版】")
+    say("原因：Obsidian CLI 命令已被调用，但 Obsidian 应用内的“命令行界面”开关尚未启用。")
+    say("处理：打开 Obsidian → Settings（设置）→ General（通用）→ Advanced（高级）→")
+    say("开启 Command line interface（命令行界面）。如果 Obsidian 显示注册 CLI 命令的提示，请按应用内说明完成。")
+    say("权限与影响：这只是 Obsidian 应用内的功能开关；本工具不会代替你修改设置，不需要 sudo 或管理员权限。")
+    say("安全处理：已停止当前插件安装/启用流程，不会继续批量操作。开启后请重新运行检查，并先核对插件文件是否已部分写入。")
+    say("\n【10岁儿童比喻版】")
+    say("脚本已经找到 Obsidian 的遥控器，但 Obsidian 还没打开“允许遥控”的开关。")
+    say("请打开 Obsidian，按“设置 → 通用 → 高级”，找到“命令行界面”并打开。")
+    say("我们不会偷偷替你按开关；开关打开前，先暂停安装，避免重复放东西。")
+    image_path = Path(__file__).resolve().parent / "docs" / "images" / "enable-obsidian-cli.svg"
+    if image_path.is_file():
+        say(f"设置位置示意图：{image_path}")
+        if ask_yes_no("是否打开这张设置示意图？"):
+            try:
+                system = platform.system()
+                if system == "Darwin":
+                    subprocess.Popen(["open", str(image_path)])
+                elif system == "Windows":
+                    os.startfile(str(image_path))
+                else:
+                    subprocess.Popen(["xdg-open", str(image_path)])
+                say("已请求系统使用默认图片/浏览器查看器打开示意图。")
+            except Exception as exc:
+                say(f"无法自动打开示意图，请手动打开此文件：{image_path}（{exc}）")
+    else:
+        say(f"示意图文件不存在；请按上面的文字路径操作。预期图片位置：{image_path}")
+
+
 def run_obsidian_cli_plugin(vault, cli, command_name):
     # Official CLI targets the vault from the current working directory.
     # Run inside the selected Vault so another active Vault is not modified.
@@ -592,6 +641,9 @@ def run_obsidian_cli_plugin(vault, cli, command_name):
                                 timeout=180, check=False)
         if result.stdout.strip(): say(result.stdout.strip())
         if result.stderr.strip(): say("CLI 提示：" + result.stderr.strip())
+        if is_cli_not_enabled(result):
+            explain_cli_not_enabled()
+            return False
         if result.returncode != 0:
             say(f"CLI 执行失败，退出码：{result.returncode}。未继续后续步骤。")
             return False
@@ -714,6 +766,7 @@ def offer_recommended_plugins(vault):
                 say("权限：当前登录用户；不使用 sudo/管理员权限。")
                 say("影响：只向 .obsidian/plugins/ 写入插件文件；不会修改笔记正文，也不会自动启用。")
                 if ask_yes_no("是否安装以上通过核验的插件？"):
+                    cli_blocked = False
                     for item in verified:
                         say(f'\n正在安装：{item["name"]}')
                         try:
@@ -724,6 +777,10 @@ def offer_recommended_plugins(vault):
                             )
                             if result.stdout.strip(): say(result.stdout.strip())
                             if result.stderr.strip(): say("CLI 提示：" + result.stderr.strip())
+                            if is_cli_not_enabled(result):
+                                explain_cli_not_enabled()
+                                cli_blocked = True
+                                break
                             manifest = plugin_root/item["id"]/"manifest.json"
                             if result.returncode != 0 or not manifest.is_file():
                                 say(f'安装未能确认成功：{item["name"]}；停止后续安装。')
@@ -732,6 +789,8 @@ def offer_recommended_plugins(vault):
                         except Exception as e:
                             say(f'安装失败：{item["name"]}（{e}）；停止后续安装。')
                             break
+                    if cli_blocked:
+                        return
                 else:
                     say("已跳过安装；没有写入插件文件。")
             else:
@@ -765,6 +824,9 @@ def offer_recommended_plugins(vault):
             )
             if result.stdout.strip(): say(result.stdout.strip())
             if result.stderr.strip(): say("CLI 提示：" + result.stderr.strip())
+            if is_cli_not_enabled(result):
+                explain_cli_not_enabled()
+                return
             if result.returncode == 0: say(f'已启用：{item["name"]}')
             else: say(f'启用失败：{item["name"]}（退出码 {result.returncode}）')
         except Exception as e:
