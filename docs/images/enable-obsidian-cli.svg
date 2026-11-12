@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="690" viewBox="0 0 1100 690" role="img" aria-labelledby="title desc">
+  <title id="title">Obsidian CLI setting location</title>
+  <desc id="desc">Illustrative Obsidian settings screen. Choose General, then Advanced, then enable Command line interface.</desc>
+  <rect width="1100" height="690" rx="24" fill="#17191f"/>
+  <rect x="24" y="24" width="1052" height="642" rx="16" fill="#20232b" stroke="#414653" stroke-width="2"/>
+  <text x="58" y="78" fill="#f4f5f7" font-family="Arial, sans-serif" font-size="30" font-weight="700">Obsidian · Settings（设置）</text>
+  <text x="58" y="116" fill="#aeb5c2" font-family="Arial, sans-serif" font-size="18">示意图：Settings → General → Advanced → Command line interface</text>
+  <rect x="48" y="150" width="300" height="480" rx="12" fill="#292d37"/>
+  <text x="78" y="198" fill="#c5cad3" font-family="Arial, sans-serif" font-size="19">Editor</text>
+  <rect x="64" y="220" width="268" height="54" rx="9" fill="#3a4050"/>
+  <text x="88" y="255" fill="#ffffff" font-family="Arial, sans-serif" font-size="22" font-weight="700">General（通用）</text>
+  <text x="78" y="310" fill="#c5cad3" font-family="Arial, sans-serif" font-size="19">Appearance</text>
+  <text x="78" y="360" fill="#c5cad3" font-family="Arial, sans-serif" font-size="19">Hotkeys</text>
+  <rect x="64" y="382" width="268" height="58" rx="9" fill="#51452d" stroke="#e5b85c" stroke-width="2"/>
+  <text x="88" y="419" fill="#ffe0a0" font-family="Arial, sans-serif" font-size="22" font-weight="700">Advanced（高级）</text>
+  <path d="M350 411 C390 411 390 340 430 340" fill="none" stroke="#e5b85c" stroke-width="4" stroke-linecap="round"/>
+  <path d="M418 329 L433 340 L418 351" fill="none" stroke="#e5b85c" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="390" y="150" width="650" height="480" rx="12" fill="#292d37"/>
+  <text x="430" y="210" fill="#ffffff" font-family="Arial, sans-serif" font-size="28" font-weight="700">Advanced（高级）</text>
+  <line x1="430" y1="235" x2="1000" y2="235" stroke="#454b58" stroke-width="2"/>
+  <text x="430" y="290" fill="#f4f5f7" font-family="Arial, sans-serif" font-size="23" font-weight="700">Command line interface</text>
+  <text x="430" y="326" fill="#b9c0cc" font-family="Arial, sans-serif" font-size="18">Allow command-line tools to interact with Obsidian</text>
+  <rect x="888" y="270" width="88" height="42" rx="21" fill="#3b9b72"/>
+  <circle cx="954" cy="291" r="16" fill="#ffffff"/>
+  <rect x="414" y="350" width="600" height="110" rx="12" fill="#343b48" stroke="#e5b85c" stroke-width="3"/>
+  <text x="442" y="390" fill="#ffe0a0" font-family="Arial, sans-serif" font-size="21" font-weight="700">开启此选项</text>
+  <text x="442" y="425" fill="#e5e8ed" font-family="Arial, sans-serif" font-size="18">Allow command-line tools to interact with Obsidian</text>
+  <text x="430" y="520" fill="#c5cad3" font-family="Arial, sans-serif" font-size="18">注意：这是界面位置示意，不是特定版本的真实截图。</text>
+  <text x="430" y="555" fill="#c5cad3" font-family="Arial, sans-serif" font-size="18">不同 Obsidian 版本的布局或文字可能略有差异。</text>
+  <text x="430" y="590" fill="#9da6b5" font-family="Arial, sans-serif" font-size="16">启用后返回 ObsidianPluginManager，先重新检查，再决定是否继续安装。</text>
+</svg>
