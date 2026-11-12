@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+- 当 Obsidian CLI 明确返回“Command line interface is not enabled”时，识别具体原因并提供“设置 → 通用 → 高级 → 命令行界面”的中英文引导。
+- 新增可选打开的 CLI 设置位置示意图；图片缺失时保留完整文字指引。
+- CLI 未启用时立即停止当前批量安装/启用流程，避免继续操作或误判安装成功。
+- 新增 CLI 错误识别单元测试。
+
 ### Changed
 - Vault 初始化自动补齐缺失的 `.obsidian` 与 `.obsidian/plugins` 空目录；已有内容保持不变，遇到非目录路径或符号链接时安全停止。
 - 插件盘点自动执行官方社区目录与 manifest 声明 GitHub 仓库的只读核验；不上传 Vault 或笔记内容，核验失败明确标记为无法确认。
