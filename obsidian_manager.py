@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# ObsidianPluginManager 0.6.0
+# ObsidianPluginManager 0.6.1
 # GPL-3.0-only
 """Cross-platform, consent-first Obsidian plugin inventory and heuristic audit."""
 from __future__ import annotations
@@ -800,7 +800,7 @@ def active_vault_path(cli):
             candidates.append(value[5:].strip().strip('"'))
         elif value.casefold().startswith("path:"):
             candidates.append(value.split(":", 1)[1].strip().strip('"'))
-        elif value.startswith(("/", "~")):
+        elif value.startswith(("/", "~")) or Path(value.strip('"')).is_absolute():
             candidates.append(value.strip('"'))
     for value in reversed(candidates):
         path = Path(os.path.expanduser(value))
