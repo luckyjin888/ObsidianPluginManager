@@ -1221,7 +1221,7 @@ def main():
         raw_path = vault_choice.strip().strip('"').strip("'")
         vault = Path(os.path.expandvars(os.path.expanduser(raw_path))).resolve()
     else:
-        vault = active_vault_path(cli) if cli else None
+        vault = active_vault_path(cli, wait_timeout=20) if cli else None
 
     if vault is None:
         say("无法确认 Obsidian 当前打开的 Vault。为避免随机选择或误操作，请手动输入 Vault 文件夹路径。")
