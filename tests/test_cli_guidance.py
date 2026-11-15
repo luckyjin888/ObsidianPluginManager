@@ -54,10 +54,11 @@ class ObsidianCliGuidanceTests(unittest.TestCase):
         self.assertFalse(obsidian_manager.check_cli_available("/fake/obsidian"))
         guide.assert_not_called()
 
+    @patch("obsidian_manager.Path.is_file", return_value=True)
     @patch("obsidian_manager.subprocess.run")
     @patch("obsidian_manager.shutil.which", return_value="/usr/bin/chafa")
     @patch("obsidian_manager.say")
-    def test_diagram_uses_chafa_in_terminal_without_opening_viewer(self, say, which, run):
+    def test_diagram_uses_chafa_in_terminal_without_opening_viewer(self, say, which, run, is_file):
         run.return_value = SimpleNamespace(stdout="terminal image", stderr="", returncode=0)
         obsidian_manager.display_cli_setup_diagram(Path("/repo/guide.svg"))
         run.assert_called_once()
