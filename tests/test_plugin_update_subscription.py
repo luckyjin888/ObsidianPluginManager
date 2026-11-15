@@ -46,6 +46,18 @@ class ReleaseSubscriptionTests(unittest.TestCase):
         self.assertEqual(record["latest"]["title"], "v1.2.3")
         self.assertEqual(record["etag"], '"feed-tag"')
 
+    def test_first_release_after_empty_feed_is_reported(self):
+        response = Mock()
+        response.read.return_value = ATOM
+        response.headers = {}
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=False)
+        previous = {"checked": True, "latest": None}
+        with patch.object(watcher.urllib.request, "urlopen", return_value=response):
+            record, status = watcher.check_one("Example", "example/plugin", previous)
+        self.assertEqual(status, "new")
+        self.assertEqual(record["latest"]["title"], "v1.2.3")
+
     def test_existing_release_change_is_reported(self):
         response = Mock()
         response.read.return_value = ATOM
