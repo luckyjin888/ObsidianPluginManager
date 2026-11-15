@@ -54,6 +54,26 @@ class ObsidianCliGuidanceTests(unittest.TestCase):
         self.assertFalse(obsidian_manager.check_cli_available("/fake/obsidian"))
         guide.assert_not_called()
 
+    @patch("obsidian_manager.subprocess.run")
+    @patch("obsidian_manager.shutil.which", return_value="/usr/bin/chafa")
+    @patch("obsidian_manager.say")
+    def test_diagram_uses_chafa_in_terminal_without_opening_viewer(self, say, which, run):
+        run.return_value = SimpleNamespace(stdout="terminal image", stderr="", returncode=0)
+        obsidian_manager.display_cli_setup_diagram(Path("/repo/guide.svg"))
+        run.assert_called_once()
+        self.assertIn("--size", run.call_args.args[0])
+        self.assertIn("terminal image", [str(call.args[0]) for call in say.call_args_list])
+
+    @patch("obsidian_manager.subprocess.run")
+    @patch("obsidian_manager.shutil.which", return_value=None)
+    @patch("obsidian_manager.say")
+    def test_diagram_falls_back_to_ascii_without_chafa(self, say, which, run):
+        obsidian_manager.display_cli_setup_diagram(Path("/repo/guide.svg"))
+        run.assert_not_called()
+        output = "\\n".join(str(call.args[0]) for call in say.call_args_list)
+        self.assertIn("Obsidian · 设置", output)
+        self.assertIn("命令行界面", output)
+
     @patch("obsidian_manager.ask")
     @patch("obsidian_manager.explain_cli_not_enabled")
     @patch("obsidian_manager.subprocess.run")
