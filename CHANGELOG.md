@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Added
+- 新增独立的 GitHub Releases Atom Feed 更新检查器，支持 ETag / Last-Modified 条件请求、本地缓存和新版本通知；仅检查与通知，不自动安装或更新插件。
+- 首次运行建立订阅基线；缓存保存在当前用户缓存目录，不读取 Vault；遇到 GitHub 403/429 时停止后续请求，避免持续请求。
+
+### Changed
+- 版本更新至 0.6.3。
+
 ### Fixed
 - 启用插件后轮询等待 `community-plugins.json` 落盘，避免 CLI 已成功但文件尚未写入时误报失败并中断后续批量安装。
 - HTTPS 读取官方目录/仓库状态时，对 `IncompleteRead` 与超时等瞬时网络错误自动重试，并将联网超时从 8 秒提高到 30 秒。
