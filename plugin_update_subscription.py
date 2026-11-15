@@ -133,7 +133,9 @@ def check_one(name: str, repository: str, previous: dict) -> tuple[dict, str]:
                 old_id = previous.get("latest", {}).get("id") if isinstance(previous.get("latest"), dict) else None
                 record["latest"] = latest
                 if old_id is None:
-                    status = "baseline"
+                    # 首次检查只建立基线；若此前已成功检查过但没有 Release，
+                    # 现在出现第一个 Release，应作为新发布通知。
+                    status = "new" if previous.get("checked") else "baseline"
                 elif latest.get("id") and latest.get("id") != old_id:
                     status = "new"
                 else:
