@@ -2,7 +2,7 @@
 
 一个以安全、透明、用户确认优先为原则的 Obsidian 插件盘点与初步审查工具。
 
-**版本：** 0.5.5  
+**版本：** 0.6.1  
 **核心：** Python 3  
 **启动入口：** macOS/Linux 使用 Bash；Windows 使用 PowerShell  
 **许可证：** GNU GPL-3.0-only
@@ -12,8 +12,9 @@
 ## 功能
 
 - 运行时识别 macOS、Windows、Linux。
-- 由用户输入 Vault 路径，不硬编码个人路径。
-- Vault 缺少 `.obsidian` 或 `.obsidian/plugins` 时，分别说明用途、权限、影响与风险，并要求输入 `YES` 后才创建空目录；拒绝后跳过插件相关流程。
+- 默认启动 Obsidian 并使用应用当前打开的 Vault；新启动时由 Obsidian 恢复上次使用的 Vault。
+- 输入 `switch` 可打开 Obsidian 官方仓库选择器；无法确认当前 Vault 时要求用户明确选择，不随机猜测。
+- Vault 缺少 `.obsidian` 或 `.obsidian/plugins` 时只创建缺失的空目录；拒绝符号链接，不覆盖已有内容，初始化中途失败时尽力回滚本次创建且仍为空的目录。
 - 读取插件 manifest，统计插件目录总数。
 - 读取 `.obsidian/community-plugins.json`，统计启用、禁用、未知数量。
 - 可选联网核对 Obsidian 官方社区插件目录。
@@ -21,10 +22,11 @@
 - 对插件 JavaScript 做关键词静态初筛：网络通信、本地文件访问、系统命令/进程、动态代码执行、凭据/环境访问。
 - 输出发现的线索与无法确认项；不把“没有命中规则”说成“安全”。
 - CLI 未注册时，可尝试创建当前用户级命令入口；执行前展示双版本说明并要求输入完整的 `YES`。
-- 可选通过 Obsidian 官方 CLI 安装 Obsidian Git（`obsidian-git`）。
+- 程序先启动或聚焦 Obsidian，等待应用就绪后再执行无修改的 `obsidian help` 检查；如果 CLI 未启用，立即显示中文设置示意图并安全停止。
+- 将 Obsidian Git 与 6 个推荐社区插件纳入同一张 7 项管理清单。
 - 新增优质开源插件推荐库：QuickAdd、Tasks、Excalidraw、Linter、Advanced Tables、Templater；可按 ID 多选或选择全部。
 - 安装前实时核对 Obsidian 官方社区目录、GitHub 源码仓库、SPDX 开源许可证和仓库归档状态；未通过核验的插件跳过。
-- 批量安装前统一展示双版本说明并要求输入 `INSTALL`；只安装、不自动启用。
+- 安装与启用合并为一次批次授权：未安装的插件安装后启用，已安装但未启用的只启用，已启用的自动跳过。
 
 ## 环境要求
 
@@ -110,9 +112,17 @@ conda install ca-certificates certifi openssl
 
 输入有效的 Vault 根目录后，程序会自动检查 `.obsidian` 和 `.obsidian/plugins`。缺失时自动创建空目录，不再逐项询问；已有目录和文件保持原样。若目标路径已存在但不是文件夹，或是符号链接（包括指向其他位置的目录链接），程序会停止并报告，不会通过链接写入 Vault 以外的位置。初始化只创建目录，不创建或覆盖配置文件、不安装或启用插件、不读取或修改笔记正文。结果同时提供「标准专业版」与「10岁儿童比喻版」说明。
 
+## Obsidian 自动启动与 Vault 选择
+
+程序先启动或聚焦 Obsidian。首次启动时由 Obsidian 自己恢复上次使用的 Vault；脚本不从多个 Vault 中随机挑选。默认回车使用当前活动 Vault；输入 `switch` 会打开 Obsidian 官方 `obsidian://choose-vault` 仓库选择器，用户选好后再继续。若 CLI 无法确认当前 Vault，程序要求手动输入路径并停止猜测。
+
+**标准专业版：** GUI 启动后等待 CLI 就绪，再读取 `obsidian vault info=path`；切换通过 Obsidian 官方 URI 交给用户确认。
+
+**10岁儿童比喻版：** 软件先打开上次的教室；想换教室就自己从教室列表里选。程序不知道是哪间教室时，会问你，不会闭着眼睛乱选。
+
 ## CLI 注册行为
 
-程序先检查 `obsidian` 是否已在 PATH 中。若未找到，会尝试定位可能的 Obsidian CLI 文件，并询问是否进行用户级注册。
+程序先检查 `obsidian` 是否已在 PATH 中。若找到，会先启动或聚焦 Obsidian，等待应用就绪后再运行只读的 `obsidian help`，确认 Obsidian 应用内的 CLI 开关真正可用；如果检测到“Command line interface is not enabled”，就直接在终端显示中文设置示意图，并在询问 Vault 路径之前停止。若系统已安装可选的 `chafa`，程序会尝试把仓库内 SVG 转换为终端字符图；没有 `chafa` 或转换失败时，自动使用内置 ASCII 示意图和完整文字路径。程序会同时显示终端示意图并打开原始 SVG 图片查看器；不会自动安装任何工具。其他 CLI 检查错误也会显示原因并安全停止，不会误判为“CLI 未启用”。若 PATH 中未找到命令，程序会尝试定位可能的 Obsidian CLI 文件，并询问是否进行用户级注册。
 
 - macOS：在 `~/.local/bin/obsidian` 创建指向应用内置 CLI 的符号链接。
 - Linux：将检测到的 CLI 文件复制到 `~/.local/bin/obsidian`。
@@ -128,53 +138,48 @@ conda install ca-certificates certifi openssl
 
 **10岁儿童比喻版：** 就像在自己的书桌抽屉里放一个 Obsidian 快捷按钮。只整理自己的抽屉，不进管理员办公室，也不碰你的笔记。如果抽屉里已经有同名按钮，就停下来不覆盖。抽屉不在电脑寻找按钮的路线里时，还要由你自己把它加入路线。
 
-## Obsidian Git 的 CLI 安装
+## 社区插件统一安装与启用
 
-完成 Vault 插件盘点后，程序可提供可选的 Obsidian Git 安装流程。该插件是第三方社区插件，不是 Obsidian 内置插件。
+程序将 Obsidian Git 与 6 个推荐插件放在同一张清单中，共 7 个插件。每次运行先检查所选 Vault 中的安装状态（插件目录内的 `manifest.json`）和启用状态（`.obsidian/community-plugins.json`）。
 
-- 官方社区页面：[Obsidian Git](https://community.obsidian.md/plugins/obsidian-git)
-- 插件 ID：`obsidian-git`
-- 官方 CLI 安装命令：`obsidian plugin:install id=obsidian-git`
-- 官方 CLI 启用命令：`obsidian plugin:enable id=obsidian-git`
-- CLI 需要 Obsidian 正在运行，并且已在设置中启用、注册 CLI；安装社区插件还需 Obsidian 允许社区插件（Restricted Mode 可能需要由用户在设置中关闭）。程序不会自动更改此安全设置。
-- 程序在所选 Vault 目录作为工作目录调用 CLI，以明确目标 Vault。
-- 安装和启用是两个独立动作；安装后先核验 `.obsidian/plugins/obsidian-git/manifest.json`，默认不自动启用。
-- 发现插件未安装时，直接进入安装前的双版本说明，不再先问一次是否考虑安装；真正执行安装前仍须明确确认（1=是 / 2=否）。启用是独立动作，也会再次展示双版本说明并单独确认。拒绝或取消即停止，默认不启用。
-
-**标准专业版：** 安装会通过 Obsidian CLI 在所选 Vault 的 `.obsidian/plugins/obsidian-git` 写入第三方插件文件；启用会允许 Obsidian 加载并执行该插件代码。两步均以当前用户权限运行，不使用 sudo/管理员权限。可在 Obsidian 社区插件设置中禁用；卸载不由此流程执行。
-
-**10岁儿童比喻版：** 安装就像把一个第三方小工具放进你选定的笔记本工具箱；启用就像允许它开始工作、接触这本笔记本。两步都要分别点头，只用你自己的普通账户。它不是 Obsidian 自带工具，可能有风险；不想用时可以在设置里关掉。
-## 优质开源插件推荐库
-
-程序盘点插件时会自动进行在线来源与维护状态只读核验，不再询问是否查看。请求仅访问 Obsidian 官方社区插件目录及插件 manifest 声明的 GitHub 仓库 API；不会上传 Vault 或笔记内容。核验失败会明确报告无法确认，不会将失败当作通过。
-
-程序内置以下第三方社区插件候选清单，可输入多个插件 ID 一次安装：
-
-| 插件 | ID | GitHub 许可证（本次核对） | 用途 |
+| 插件 | ID | 用途 | 特别风险 |
 |---|---|---|---|
-| QuickAdd | `quickadd` | MIT | 快速捕捉、创建笔记和自动化工作流 |
-| Tasks | `obsidian-tasks-plugin` | MIT | 待办、截止日期、重复任务 |
-| Excalidraw | `obsidian-excalidraw-plugin` | AGPL-3.0 | 绘图、关系图和白板 |
-| Linter | `obsidian-linter` | MIT | Markdown 格式整理 |
-| Advanced Tables | `table-editor-obsidian` | GPL-3.0 | Markdown 表格编辑；项目说明仍属实验性，可能有导致当前笔记数据丢失的缺陷 |
-| Templater | `templater-obsidian` | AGPL-3.0 | 动态模板；可执行 JavaScript 和系统命令，属于高风险能力 |
+| Obsidian Git | `obsidian-git` | Git 版本管理、提交与同步 | 自动提交/同步前应理解远程仓库和凭据设置 |
+| QuickAdd | `quickadd` | 快速捕捉、模板与自动化工作流 | 可配置自动化与脚本 |
+| Tasks | `obsidian-tasks-plugin` | 待办、截止日期、重复任务 | 读取并处理 Vault 中的任务标记 |
+| Excalidraw | `obsidian-excalidraw-plugin` | 绘图、关系图和白板 | 会在 Vault 中创建和修改绘图文件 |
+| Linter | `obsidian-linter` | Markdown 格式整理 | 规则可能批量修改笔记，先备份 |
+| Advanced Tables | `table-editor-obsidian` | Markdown 表格编辑 | 仍属实验性，可能有数据丢失缺陷，先备份 |
+| Templater | `templater-obsidian` | 动态模板 | 高风险：可执行 JavaScript 和系统命令 |
 
-表中许可证是本次 GitHub 仓库元数据核对结果；程序运行时仍会重新核验，第三方插件由 CLI 从社区目录单独获取，并未被打包进本项目仓库。
+### 统一操作规则
 
-安装前程序会逐项核验：
-1. 插件 ID 是否存在于 Obsidian 官方社区插件目录。
-2. 官方目录声明的 GitHub 仓库是否与内置推荐来源一致。
-3. GitHub API 是否能识别开源 SPDX 许可证。
-4. 仓库是否已归档。
+1. 未安装、未启用：一次授权后先安装，再启用。
+2. 已安装、未启用：一次授权后只启用，不重复安装。
+3. 已安装、已启用：自动跳过，不重复操作。
+4. 启用状态文件格式异常，或启用列表与插件文件不一致：停止操作，不猜测状态。
+5. 安装或启用失败、状态无法验证：停止后续批量操作，并如实报告；不把 CLI 返回成功直接当作最终成功。
+6. 每次批次只展示一次完整的双版本说明并询问一次授权。拒绝或回车取消时，不执行该批次任何安装/启用操作。
 
-无法核验许可证、仓库来源不一致、仓库已归档或网络核验失败时，该插件会被跳过。通过核验不代表安全认证。Templater 的代码执行能力风险较高，建议初学者先不要安装或启用。 Advanced Tables 的官方插件说明也提示其仍属实验性，可能存在影响当前笔记数据的缺陷，使用前应先备份。
+**标准专业版：** 用户确认前，程序会列出每个插件本次将执行的具体动作、Vault 路径、权限、写入位置和风险。授权后以当前用户权限执行 Obsidian CLI，不使用 sudo 或管理员权限。安装后验证 manifest，启用后验证 `community-plugins.json`。本流程不卸载、不更新插件，也不修改笔记正文。
 
-批量安装前会说明目标 Vault、权限、写入位置和风险，并要求输入完整的 `INSTALL`。安装后只核验文件，不自动启用；启用前请先审阅插件并备份 Vault。所有新安装插件保持未启用状态。 输入 `all` 时会自动排除具备任意 JavaScript/系统命令执行能力的 Templater；只有单独输入 `templater-obsidian` 才会把它加入待安装清单。
+**10岁儿童比喻版：** 先看看工具箱：没有的工具先放进去，再打开开关；已经放进去但没打开的，只打开开关；已经打开的就不碰。程序先把这次要做的事全部告诉你，你同意一次才开始。中途出错就停下来告诉你，不会假装已经完成。
+
+### 选择插件与高风险保护
+
+- 输入序号或逗号分隔的序号，可以选择部分插件。
+- 输入 `all` 会选择普通插件，并自动排除高风险的 Templater。
+- 如果确实需要 Templater，必须单独输入它对应的序号；程序仍会在同一次批次授权说明中突出显示它可执行 JavaScript 和系统命令的风险。
+- 选择全部时，已安装且已启用的插件仍会显示为“跳过”，不会重复安装或启用。
+- 安装前仍会核验 Obsidian 官方社区目录中的插件 ID、仓库来源、GitHub SPDX 开源许可证和仓库归档状态；核验失败的插件会跳过。
+- CLI 需要 Obsidian 正在运行，并且已在设置中启用、注册。安装社区插件还需 Obsidian 允许社区插件（Restricted Mode 可能需要由用户在设置中关闭）。程序不会自动更改这些安全设置。
+- CLI 在所选 Vault 目录作为工作目录运行，避免误操作其他 Vault。
 
 ## 全面审查的边界
 
 - 官方社区目录匹配只说明找到相同插件 ID，不代表官方安全认证。
 - GitHub 最近推送时间不是维护质量或安全性的保证。
+- 静态关键词检查按稳定路径顺序处理 JavaScript 文件，默认最多扫描 500 个文件、单文件 2 MB、总读取 50 MB；达到上限或读取失败会报告跳过数量。部分扫描不能证明没有风险。
 - 静态关键词检查可能误报，也可能漏掉混淆代码、动态加载、依赖包和运行时行为。
 - 本工具不执行插件代码、不上传 Vault/笔记正文、不读取笔记内容。
 - 网络核验会向 Obsidian 官方 GitHub 社区目录及 manifest 声明的 GitHub API 发起只读请求。
