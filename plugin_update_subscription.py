@@ -23,7 +23,7 @@ ATOM_NS = {"atom": "http://www.w3.org/2005/Atom"}
 
 # 订阅源来自插件清单中已声明的 GitHub 仓库。
 PLUGINS = (
-    ("Obsidian Git", "denolehov/obsidian-git"),
+    ("Obsidian Git", "Vinzent03/obsidian-git"),
     ("QuickAdd", "chhoumann/quickadd"),
     ("Tasks", "obsidian-tasks-group/obsidian-tasks"),
     ("Excalidraw", "zsviczian/obsidian-excalidraw-plugin"),
