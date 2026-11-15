@@ -2,7 +2,7 @@
 
 一个以安全、透明、用户确认优先为原则的 Obsidian 插件盘点与初步审查工具。
 
-**版本：** 0.5.7  
+**版本：** 0.5.8  
 **核心：** Python 3  
 **启动入口：** macOS/Linux 使用 Bash；Windows 使用 PowerShell  
 **许可证：** GNU GPL-3.0-only
@@ -21,7 +21,7 @@
 - 对插件 JavaScript 做关键词静态初筛：网络通信、本地文件访问、系统命令/进程、动态代码执行、凭据/环境访问。
 - 输出发现的线索与无法确认项；不把“没有命中规则”说成“安全”。
 - CLI 未注册时，可尝试创建当前用户级命令入口；执行前展示双版本说明并要求输入完整的 `YES`。
-- 如果 Obsidian 明确提示 CLI 尚未启用，程序会解释原因、指引至“设置 → 通用 → 高级 → 命令行界面”，并可选择打开项目内的图示；当前批量操作会立即停止。
+- 程序启动时先自动执行无修改的 `obsidian help` 检查；如果 CLI 未启用，立即显示中文图文教程并自动打开设置位置示意图，然后停止，不再询问 Vault 路径或扫描插件。
 - 可选通过 Obsidian 官方 CLI 安装 Obsidian Git（`obsidian-git`）。
 - 新增优质开源插件推荐库：QuickAdd、Tasks、Excalidraw、Linter、Advanced Tables、Templater；可按 ID 多选或选择全部。
 - 安装前实时核对 Obsidian 官方社区目录、GitHub 源码仓库、SPDX 开源许可证和仓库归档状态；未通过核验的插件跳过。
@@ -113,7 +113,7 @@ conda install ca-certificates certifi openssl
 
 ## CLI 注册行为
 
-程序先检查 `obsidian` 是否已在 PATH 中。若未找到，会尝试定位可能的 Obsidian CLI 文件，并询问是否进行用户级注册。
+程序先检查 `obsidian` 是否已在 PATH 中。若找到，会立即运行一次只读的 `obsidian help`，确认 Obsidian 应用内的 CLI 开关真正可用；如果检测到“Command line interface is not enabled”，就直接显示中文文字教程、自动打开项目内的中文设置位置示意图，并在询问 Vault 路径之前停止。其他 CLI 检查错误也会显示原因并安全停止，不会误判为“CLI 未启用”。若 PATH 中未找到命令，程序会尝试定位可能的 Obsidian CLI 文件，并询问是否进行用户级注册。
 
 - macOS：在 `~/.local/bin/obsidian` 创建指向应用内置 CLI 的符号链接。
 - Linux：将检测到的 CLI 文件复制到 `~/.local/bin/obsidian`。
