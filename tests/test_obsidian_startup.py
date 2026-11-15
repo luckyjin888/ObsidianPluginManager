@@ -35,12 +35,12 @@ class ObsidianStartupTests(unittest.TestCase):
     def test_active_vault_path_reads_cli_output_without_guessing(self):
         with tempfile.TemporaryDirectory() as tmp:
             vault = Path(tmp)
-            response = SimpleNamespace(returncode=0, stdout=f"path {vault}\\n", stderr="")
+            response = SimpleNamespace(returncode=0, stdout=f"path {vault}\n", stderr="")
             with patch.object(om.subprocess, "run", return_value=response):
                 self.assertEqual(om.active_vault_path("/fake/obsidian"), vault.resolve())
 
     def test_active_vault_path_returns_none_for_unknown_path(self):
-        response = SimpleNamespace(returncode=0, stdout="path /not/a/real/vault\\n", stderr="")
+        response = SimpleNamespace(returncode=0, stdout="path /not/a/real/vault\n", stderr="")
         with patch.object(om.subprocess, "run", return_value=response):
             self.assertIsNone(om.active_vault_path("/fake/obsidian"))
 
