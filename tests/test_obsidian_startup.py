@@ -44,6 +44,18 @@ class ObsidianStartupTests(unittest.TestCase):
         with patch.object(om.subprocess, "run", return_value=response):
             self.assertIsNone(om.active_vault_path("/fake/obsidian"))
 
+    def test_plugin_batch_rejects_empty_enabled_plugin_ids(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = Path(tmp)
+            enabled = vault / ".obsidian" / "community-plugins.json"
+            enabled.parent.mkdir(parents=True)
+            enabled.write_text('[""]', encoding="utf-8")
+            with patch.object(om.shutil, "which", return_value="/fake/obsidian"):
+                with patch.object(om, "say") as say:
+                    om.offer_obsidian_plugins(vault)
+            messages = "\\n".join(str(call.args[0]) for call in say.call_args_list)
+            self.assertIn("格式异常", messages)
+
     def test_vault_chooser_uses_official_obsidian_uri(self):
         with patch.object(om.platform, "system", return_value="Darwin"):
             with patch.object(om.subprocess, "Popen") as popen:
