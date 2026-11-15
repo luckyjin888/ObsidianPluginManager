@@ -12,7 +12,8 @@
 ## 功能
 
 - 运行时识别 macOS、Windows、Linux。
-- 默认启动 Obsidian 并使用应用当前打开的 Vault；新启动时由 Obsidian 恢复上次使用的 Vault。\n- 输入 `switch` 可打开 Obsidian 官方仓库选择器；无法确认当前 Vault 时要求用户明确选择，不随机猜测。
+- 默认启动 Obsidian 并使用应用当前打开的 Vault；新启动时由 Obsidian 恢复上次使用的 Vault。
+- 输入 `switch` 可打开 Obsidian 官方仓库选择器；无法确认当前 Vault 时要求用户明确选择，不随机猜测。
 - Vault 缺少 `.obsidian` 或 `.obsidian/plugins` 时只创建缺失的空目录；拒绝符号链接，不覆盖已有内容，初始化中途失败时尽力回滚本次创建且仍为空的目录。
 - 读取插件 manifest，统计插件目录总数。
 - 读取 `.obsidian/community-plugins.json`，统计启用、禁用、未知数量。
