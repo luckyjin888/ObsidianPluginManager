@@ -180,3 +180,79 @@ Obsidian Manager 主项目采用 GPL-3.0。采用第三方代码前必须：
 ---
 
 **本文件是研究规范，不是安装说明或安全认证。** 所有候选仍需进一步核验与实测；未获得用户后续明确授权前，不安装、启用、卸载或修改任何第三方插件。
+
+
+## 10. 已核验的开源来源与安装决策（核验日期：2026-11-16）
+
+本节将“开源来源”和“本项目自研”明确区分。以下项目均为第三方开源项目；本项目目前只研究、比较和记录来源，不复制其源码，也不将其打包进 Obsidian Manager。
+
+### 10.1 首选候选：Codeblock Customizer
+
+- 项目：Codeblock Customizer（Obsidian 社区插件）
+- 作者/维护者：mugiwara85
+- 官方仓库：https://github.com/mugiwara85/CodeblockCustomizer
+- Obsidian 社区插件页：https://community.obsidian.md/plugins/codeblock-customizer
+- 插件 ID：`codeblock-customizer`
+- 已核验 manifest 版本：`1.4.7`
+- 最低 Obsidian 版本：`0.15.0`
+- 桌面/移动端：manifest 的 `isDesktopOnly=false`
+- LICENSE：MIT（已检查仓库根目录 LICENSE）
+- 适配功能：主题/颜色、语法高亮增强、标题栏/文件名、行号、重点行/文本、折叠、终端提示符等。
+- 安装方式：优先从 Obsidian → 设置 → 第三方插件 → 浏览，搜索 “Codeblock Customizer”，安装并启用。官方 README 也提供手动安装方式，但本项目不建议初次采用手动复制。
+- 采用性质：直接安装第三方插件并配置；不是 Obsidian Manager 自己实现的代码块渲染器。
+- 来源与版权要求：保留作者和官方仓库链接；若未来复制或分发其代码，必须保留 MIT 版权与许可声明，并重新审查依赖及 GPL-3.0 兼容性。
+
+### 10.2 对照候选：Code Block Pro
+
+- 项目：https://github.com/jalvarado-it/obsidian-code-block-pro
+- Obsidian 社区插件页：https://community.obsidian.md/plugins/code-block-pro
+- 插件 ID：`code-block-pro`
+- 已核验 manifest 版本：`0.8.3`
+- 最低 Obsidian 版本：`1.13.0`
+- 桌面/移动端：manifest 的 `isDesktopOnly=false`
+- LICENSE：MIT（已检查仓库根目录 LICENSE）
+- 官方说明的功能：行号、复制/下载按钮、语言标签、代码块标题、长代码折叠。
+- 决策：作为 Codeblock Customizer 的对照组；两者不要同时启用做正式使用，以免重复装饰代码块。先在测试 Vault 中分别测试。
+
+### 10.3 专项候选：Shiki Highlighter
+
+- 项目：https://github.com/mProjectsCode/obsidian-shiki-plugin
+- Obsidian 社区插件页：https://community.obsidian.md/plugins/shiki-highlighter
+- 插件 ID：`shiki-highlighter`
+- 已核验 manifest 版本：`0.8.0`
+- 最低 Obsidian 版本：`1.13.0`
+- 桌面/移动端：manifest 的 `isDesktopOnly=false`
+- LICENSE：MIT（已检查仓库根目录 LICENSE）
+- 官方说明：集成 Shiki/Expressive Code，为 100+ 语言提供高亮，并支持标题、行号和行高亮等展示。
+- 决策：作为语法高亮质量专项候选；不与 Codeblock Customizer 同时启用，除非隔离测试明确证明兼容且有必要。
+
+### 10.4 底层引擎：Shiki
+
+- 官方仓库：https://github.com/shikijs/shiki
+- 定位：基于 TextMate grammar 的语法高亮引擎；不是可以直接在 Obsidian 插件市场中安装的完整展示插件。
+- LICENSE：MIT（仓库标示 MIT）。
+- 决策：当前不直接把 Shiki 引入 Obsidian Manager 主程序。若以后开发独立 Markdown/HTML 渲染器，再单独评估。
+
+### 10.5 当前推荐决策
+
+1. 首轮只测试 Codeblock Customizer；它覆盖本项目要求的大部分展示能力，且 manifest 明确支持桌面与移动端。
+2. 用 Code Block Pro 做单独对照测试，比较复制准确性、标题、行号、折叠和兼容性。
+3. 若主要问题是语法高亮质量，再单独测试 Shiki Highlighter。
+4. 不同时启用多个会重绘/装饰代码块的插件；避免行号、按钮和标题重复。
+5. 不把第三方插件代码复制到本项目，不自动安装或启用；由用户在 Obsidian 社区插件市场明确安装。
+6. PR #8 先提交研究结论、来源和安装说明；只有测试通过后，才考虑把“推荐插件及配置”纳入项目文档。当前不应把第三方插件误标为本项目自研功能。
+
+### 10.6 官方核验来源
+
+- Codeblock Customizer 仓库与 README：https://github.com/mugiwara85/CodeblockCustomizer
+- Codeblock Customizer LICENSE：https://github.com/mugiwara85/CodeblockCustomizer/blob/master/LICENSE
+- Codeblock Customizer manifest：https://github.com/mugiwara85/CodeblockCustomizer/blob/master/manifest.json
+- Code Block Pro 仓库：https://github.com/jalvarado-it/obsidian-code-block-pro
+- Code Block Pro LICENSE：https://github.com/jalvarado-it/obsidian-code-block-pro/blob/master/LICENSE
+- Code Block Pro manifest：https://github.com/jalvarado-it/obsidian-code-block-pro/blob/master/manifest.json
+- Shiki Highlighter 仓库：https://github.com/mProjectsCode/obsidian-shiki-plugin
+- Shiki Highlighter LICENSE：https://github.com/mProjectsCode/obsidian-shiki-plugin/blob/master/LICENSE
+- Shiki Highlighter manifest：https://github.com/mProjectsCode/obsidian-shiki-plugin/blob/master/manifest.json
+- Shiki 引擎：https://github.com/shikijs/shiki
+
+核验说明：版本和最低 Obsidian 版本来自各项目当前仓库的 manifest.json；许可证来自各仓库 LICENSE 文件。版本会变化，正式安装前需重新检查最新 Release、manifest、LICENSE 和兼容性问题。
