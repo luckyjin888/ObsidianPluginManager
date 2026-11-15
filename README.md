@@ -113,7 +113,7 @@ conda install ca-certificates certifi openssl
 
 ## CLI 注册行为
 
-程序先检查 `obsidian` 是否已在 PATH 中。若找到，会立即运行一次只读的 `obsidian help`，确认 Obsidian 应用内的 CLI 开关真正可用；如果检测到“Command line interface is not enabled”，就直接在终端显示中文设置示意图，并在询问 Vault 路径之前停止。若系统已安装可选的 `chafa`，程序会尝试把仓库内 SVG 转换为终端字符图；没有 `chafa` 或转换失败时，自动使用内置 ASCII 示意图和完整文字路径。程序不会打开外部图片查看器，也不会自动安装任何工具。其他 CLI 检查错误也会显示原因并安全停止，不会误判为“CLI 未启用”。若 PATH 中未找到命令，程序会尝试定位可能的 Obsidian CLI 文件，并询问是否进行用户级注册。
+程序先检查 `obsidian` 是否已在 PATH 中。若找到，会立即运行一次只读的 `obsidian help`，确认 Obsidian 应用内的 CLI 开关真正可用；如果检测到“Command line interface is not enabled”，就直接在终端显示中文设置示意图，并在询问 Vault 路径之前停止。若系统已安装可选的 `chafa`，程序会尝试把仓库内 SVG 转换为终端字符图；没有 `chafa` 或转换失败时，自动使用内置 ASCII 示意图和完整文字路径。程序会同时显示终端示意图并打开原始 SVG 图片查看器；不会自动安装任何工具。其他 CLI 检查错误也会显示原因并安全停止，不会误判为“CLI 未启用”。若 PATH 中未找到命令，程序会尝试定位可能的 Obsidian CLI 文件，并询问是否进行用户级注册。
 
 - macOS：在 `~/.local/bin/obsidian` 创建指向应用内置 CLI 的符号链接。
 - Linux：将检测到的 CLI 文件复制到 `~/.local/bin/obsidian`。
