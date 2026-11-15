@@ -1,3 +1,4 @@
+import http.client
 import ssl
 import unittest
 from unittest.mock import patch
@@ -8,8 +9,9 @@ import obsidian_manager as om
 
 
 class DummyResponse:
-    def __init__(self, payload=b'{"ok": true}'):
+    def __init__(self, payload=b'{"ok": true}', exc=None):
         self.payload = payload
+        self.exc = exc
 
     def __enter__(self):
         return self
@@ -18,6 +20,8 @@ class DummyResponse:
         return False
 
     def read(self):
+        if self.exc is not None:
+            raise self.exc
         return self.payload
 
 
@@ -96,6 +100,30 @@ class SSLHandlingTests(unittest.TestCase):
         self.assertEqual(result, {"full_name": "owner/repo"})
         request = mocked.call_args.args[0]
         self.assertEqual(request.full_url, "https://api.github.com/repos/owner/repo")
+
+    def test_fetch_json_https_retries_incomplete_read(self):
+        incomplete = http.client.IncompleteRead(b"partial", 8)
+        responses = [
+            DummyResponse(exc=incomplete),
+            DummyResponse(payload=b'{"ok": true}'),
+        ]
+        with patch.object(om, "open_verified_https", side_effect=responses) as mocked:
+            with patch.object(om.time, "sleep") as sleep:
+                payload = om.fetch_json_https(Request("https://example.com/registry.json"))
+        self.assertEqual(payload, {"ok": True})
+        self.assertEqual(mocked.call_count, 2)
+        sleep.assert_called_once_with(1)
+
+    def test_fetch_json_https_does_not_retry_non_transient_error(self):
+        with patch.object(
+            om, "open_verified_https",
+            side_effect=URLError("network unavailable"),
+        ) as mocked:
+            with patch.object(om.time, "sleep") as sleep:
+                with self.assertRaises(URLError):
+                    om.fetch_json_https(Request("https://example.com/registry.json"))
+        self.assertEqual(mocked.call_count, 1)
+        sleep.assert_not_called()
 
     def test_wrapped_certificate_error_is_recognized(self):
         error = URLError(ssl.SSLCertVerificationError("certificate verify failed"))

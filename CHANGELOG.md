@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- 启用插件后轮询等待 `community-plugins.json` 落盘，避免 CLI 已成功但文件尚未写入时误报失败并中断后续批量安装。
+- HTTPS 读取官方目录/仓库状态时，对 `IncompleteRead` 与超时等瞬时网络错误自动重试，并将联网超时从 8 秒提高到 30 秒。
+- 版本更新至 0.6.2。
 - 修复 CLI 在 Obsidian 尚未启动时提前检查导致的连接失败：先启动/聚焦应用，再等待 CLI 就绪。
 - 默认读取 Obsidian 当前活动 Vault（新启动时恢复上次使用的 Vault）；支持通过 `switch` 打开官方仓库选择器，无法确认时不随机选择。
 - 移植 PR #3 的安装目录与 CLI 来源验证、插件扫描预算、异常 manifest/启用列表处理及 Vault 初始化失败回滚。
