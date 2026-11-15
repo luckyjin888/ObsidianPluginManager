@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# ObsidianPluginManager 0.5.6
+# ObsidianPluginManager 0.5.8
 # GPL-3.0-only
 """Cross-platform, consent-first Obsidian plugin inventory and heuristic audit."""
 from __future__ import annotations
@@ -7,7 +7,7 @@ import json, os, platform, re, shutil, subprocess, sys, ssl, urllib.error, urlli
 from pathlib import Path
 from datetime import datetime, timezone
 
-VERSION = "0.5.7"
+VERSION = "0.5.8"
 MIN_CLI = (1, 12, 7)
 REGISTRY_URL = "https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugins.json"
 NETWORK_TIMEOUT = 8
@@ -595,6 +595,43 @@ def is_cli_not_enabled(result):
     return any(marker in output for marker in markers)
 
 
+def check_cli_available(cli):
+    """Run a harmless CLI help check before asking for a Vault or scanning plugins."""
+    say("正在检查 Obsidian 命令行功能（obsidian help）……")
+    try:
+        result = subprocess.run(
+            [str(cli), "help"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=15,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        say("CLI 检查超时。为避免进入无法确认的安装流程，程序已停止；未扫描 Vault、未安装或启用插件。")
+        return False
+    except OSError as exc:
+        say(f"无法启动 Obsidian CLI：{exc}")
+        say("程序已停止；未扫描 Vault、未安装或启用插件。请检查 CLI 路径后重新运行。")
+        return False
+
+    if is_cli_not_enabled(result):
+        explain_cli_not_enabled()
+        return False
+
+    if result.returncode != 0:
+        if result.stdout.strip():
+            say("CLI 输出：" + result.stdout.strip())
+        if result.stderr.strip():
+            say("CLI 错误：" + result.stderr.strip())
+        say(f"CLI 检查未通过（退出码 {result.returncode}）。程序已停止；未扫描 Vault、未安装或启用插件。")
+        return False
+
+    say("Obsidian CLI 检查通过，可以继续。")
+    return True
+
+
 def explain_cli_not_enabled():
     """Guide the user to enable the official Obsidian CLI switch; do not change settings."""
     say("\n" + "="*58)
@@ -610,21 +647,20 @@ def explain_cli_not_enabled():
     say("我们不会偷偷替你按开关；开关打开前，先暂停安装，避免重复放东西。")
     image_path = Path(__file__).resolve().parent / "docs" / "images" / "enable-obsidian-cli.svg"
     if image_path.is_file():
-        say(f"设置位置示意图：{image_path}")
-        if ask_yes_no("是否打开这张设置示意图？"):
-            try:
-                system = platform.system()
-                if system == "Darwin":
-                    subprocess.Popen(["open", str(image_path)])
-                elif system == "Windows":
-                    os.startfile(str(image_path))
-                else:
-                    subprocess.Popen(["xdg-open", str(image_path)])
-                say("已请求系统使用默认图片/浏览器查看器打开示意图。")
-            except Exception as exc:
-                say(f"无法自动打开示意图，请手动打开此文件：{image_path}（{exc}）")
+        say(f"正在自动打开中文设置位置示意图：{image_path}")
+        try:
+            system = platform.system()
+            if system == "Darwin":
+                subprocess.Popen(["open", str(image_path)])
+            elif system == "Windows":
+                os.startfile(str(image_path))
+            else:
+                subprocess.Popen(["xdg-open", str(image_path)])
+            say("已请求系统使用默认图片查看器打开示意图。")
+        except Exception as exc:
+            say(f"无法自动打开示意图，请按上面的文字教程操作；图片位置：{image_path}（{exc}）")
     else:
-        say(f"示意图文件不存在；请按上面的文字路径操作。预期图片位置：{image_path}")
+        say(f"示意图文件不存在；请按上面的文字教程操作。预期图片位置：{image_path}")
 
 
 def run_obsidian_cli_plugin(vault, cli, command_name):
@@ -868,6 +904,10 @@ def main():
                 register_cli(app, source)
         else: say("未找到可识别的内置 CLI 文件；不会下载或替换程序。")
     else: say("未定位应用，无法自动注册 CLI。")
+    # A CLI executable may exist on PATH while Obsidian's in-app CLI switch is off.
+    # Check it before asking for a Vault, creating folders, scanning, or making network requests.
+    if cli and not check_cli_available(cli):
+        return 0
     vault_input = ask("\n请输入 Vault 文件夹路径（留空退出）：")
     if not vault_input: return 0
     # Windows Explorer often copies paths with surrounding quotation marks.
