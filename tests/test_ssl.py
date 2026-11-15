@@ -114,6 +114,38 @@ class SSLHandlingTests(unittest.TestCase):
         self.assertEqual(mocked.call_count, 2)
         sleep.assert_called_once_with(1)
 
+    def test_fetch_json_https_retries_direct_connection_reset(self):
+        with patch.object(
+            om, "open_verified_https",
+            side_effect=[ConnectionResetError("connection reset"), DummyResponse()],
+        ) as mocked:
+            with patch.object(om.time, "sleep") as sleep:
+                payload = om.fetch_json_https(Request("https://example.com/registry.json"))
+        self.assertEqual(payload, {"ok": True})
+        self.assertEqual(mocked.call_count, 2)
+        sleep.assert_called_once_with(1)
+
+    def test_fetch_json_https_retries_wrapped_connection_aborted(self):
+        wrapped = URLError(ConnectionAbortedError("connection aborted"))
+        with patch.object(
+            om, "open_verified_https",
+            side_effect=[wrapped, DummyResponse()],
+        ) as mocked:
+            with patch.object(om.time, "sleep") as sleep:
+                payload = om.fetch_json_https(Request("https://example.com/registry.json"))
+        self.assertEqual(payload, {"ok": True})
+        self.assertEqual(mocked.call_count, 2)
+        sleep.assert_called_once_with(1)
+
+    def test_fetch_json_https_does_not_retry_certificate_verification_error(self):
+        error = ssl.SSLCertVerificationError("certificate verify failed")
+        with patch.object(om, "open_verified_https", side_effect=error) as mocked:
+            with patch.object(om.time, "sleep") as sleep:
+                with self.assertRaises(ssl.SSLCertVerificationError):
+                    om.fetch_json_https(Request("https://example.com/registry.json"))
+        self.assertEqual(mocked.call_count, 1)
+        sleep.assert_not_called()
+
     def test_fetch_json_https_does_not_retry_non_transient_error(self):
         with patch.object(
             om, "open_verified_https",
