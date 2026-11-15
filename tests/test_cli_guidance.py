@@ -54,23 +54,34 @@ class ObsidianCliGuidanceTests(unittest.TestCase):
         self.assertFalse(obsidian_manager.check_cli_available("/fake/obsidian"))
         guide.assert_not_called()
 
+    @patch("obsidian_manager.subprocess.Popen")
+    @patch("obsidian_manager.platform.system", return_value="Darwin")
     @patch("obsidian_manager.Path.is_file", return_value=True)
     @patch("obsidian_manager.subprocess.run")
     @patch("obsidian_manager.shutil.which", return_value="/usr/bin/chafa")
     @patch("obsidian_manager.say")
-    def test_diagram_uses_chafa_in_terminal_without_opening_viewer(self, say, which, run, is_file):
+    def test_diagram_shows_terminal_and_original_image_together(
+        self, say, which, run, is_file, system, popen
+    ):
         run.return_value = SimpleNamespace(stdout="terminal image", stderr="", returncode=0)
         obsidian_manager.display_cli_setup_diagram(Path("/repo/guide.svg"))
         run.assert_called_once()
         self.assertIn("--size", run.call_args.args[0])
         self.assertIn("terminal image", [str(call.args[0]) for call in say.call_args_list])
+        popen.assert_called_once_with(["open", "/repo/guide.svg"])
 
+    @patch("obsidian_manager.subprocess.Popen")
+    @patch("obsidian_manager.platform.system", return_value="Darwin")
+    @patch("obsidian_manager.Path.is_file", return_value=True)
     @patch("obsidian_manager.subprocess.run")
     @patch("obsidian_manager.shutil.which", return_value=None)
     @patch("obsidian_manager.say")
-    def test_diagram_falls_back_to_ascii_without_chafa(self, say, which, run):
+    def test_diagram_falls_back_to_ascii_and_opens_original_svg(
+        self, say, which, run, is_file, system, popen
+    ):
         obsidian_manager.display_cli_setup_diagram(Path("/repo/guide.svg"))
         run.assert_not_called()
+        popen.assert_called_once_with(["open", "/repo/guide.svg"])
         output = "\\n".join(str(call.args[0]) for call in say.call_args_list)
         self.assertIn("Obsidian · 设置", output)
         self.assertIn("命令行界面", output)
