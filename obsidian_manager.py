@@ -651,7 +651,7 @@ def explain_cli_not_enabled():
 
 def display_cli_setup_diagram(image_path):
     """Show the setup guide in the terminal and open the original SVG image."""
-    say("\\n【终端设置示意图】")
+    say("\n【终端设置示意图】")
     chafa = shutil.which("chafa")
     rendered = False
     if chafa and image_path.is_file():
