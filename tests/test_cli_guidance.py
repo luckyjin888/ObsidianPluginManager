@@ -1,5 +1,7 @@
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import obsidian_manager
 
@@ -19,6 +21,57 @@ class ObsidianCliGuidanceTests(unittest.TestCase):
 
     def test_handles_missing_output_attributes(self):
         self.assertFalse(obsidian_manager.is_cli_not_enabled(object()))
+
+    @patch("obsidian_manager.subprocess.run")
+    def test_preflight_runs_help_and_accepts_success(self, run):
+        run.return_value = SimpleNamespace(stdout="Obsidian CLI help", stderr="", returncode=0)
+        self.assertTrue(obsidian_manager.check_cli_available("/fake/obsidian"))
+        run.assert_called_once_with(
+            ["/fake/obsidian", "help"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=15,
+            check=False,
+        )
+
+    @patch("obsidian_manager.explain_cli_not_enabled")
+    @patch("obsidian_manager.subprocess.run")
+    def test_preflight_shows_guide_when_cli_is_disabled(self, run, guide):
+        run.return_value = SimpleNamespace(
+            stdout="",
+            stderr="Command line interface is not enabled. Please turn it on in Settings > General > Advanced.",
+            returncode=1,
+        )
+        self.assertFalse(obsidian_manager.check_cli_available("/fake/obsidian"))
+        guide.assert_called_once_with()
+
+    @patch("obsidian_manager.explain_cli_not_enabled")
+    @patch("obsidian_manager.subprocess.run")
+    def test_preflight_does_not_misclassify_other_errors(self, run, guide):
+        run.return_value = SimpleNamespace(stdout="", stderr="Vault not found.", returncode=1)
+        self.assertFalse(obsidian_manager.check_cli_available("/fake/obsidian"))
+        guide.assert_not_called()
+
+    @patch("obsidian_manager.ask")
+    @patch("obsidian_manager.explain_cli_not_enabled")
+    @patch("obsidian_manager.subprocess.run")
+    @patch("obsidian_manager.shutil.which", return_value="/fake/obsidian")
+    @patch("obsidian_manager.app_version", return_value="1.13.7")
+    @patch("obsidian_manager.find_obsidian", return_value=Path("/Applications/Obsidian.app"))
+    @patch("obsidian_manager.platform.system", return_value="Darwin")
+    def test_main_stops_before_vault_prompt_when_cli_is_disabled(
+        self, system, find_app, version, which, run, guide, ask
+    ):
+        run.return_value = SimpleNamespace(
+            stdout="",
+            stderr="Command line interface is not enabled.",
+            returncode=1,
+        )
+        self.assertEqual(obsidian_manager.main(), 0)
+        guide.assert_called_once_with()
+        ask.assert_not_called()
 
 
 if __name__ == "__main__":
