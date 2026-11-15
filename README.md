@@ -2,7 +2,7 @@
 
 一个以安全、透明、用户确认优先为原则的 Obsidian 插件盘点与初步审查工具。
 
-**版本：** 0.6.0  
+**版本：** 0.6.1  
 **核心：** Python 3  
 **启动入口：** macOS/Linux 使用 Bash；Windows 使用 PowerShell  
 **许可证：** GNU GPL-3.0-only
@@ -12,7 +12,7 @@
 ## 功能
 
 - 运行时识别 macOS、Windows、Linux。
-- 由用户输入 Vault 路径，不硬编码个人路径。
+- 默认启动 Obsidian 并使用应用当前打开的 Vault；新启动时由 Obsidian 恢复上次使用的 Vault。\n- 输入 `switch` 可打开 Obsidian 官方仓库选择器；无法确认当前 Vault 时要求用户明确选择，不随机猜测。
 - Vault 缺少 `.obsidian` 或 `.obsidian/plugins` 时，分别说明用途、权限、影响与风险，并要求输入 `YES` 后才创建空目录；拒绝后跳过插件相关流程。
 - 读取插件 manifest，统计插件目录总数。
 - 读取 `.obsidian/community-plugins.json`，统计启用、禁用、未知数量。
@@ -21,7 +21,7 @@
 - 对插件 JavaScript 做关键词静态初筛：网络通信、本地文件访问、系统命令/进程、动态代码执行、凭据/环境访问。
 - 输出发现的线索与无法确认项；不把“没有命中规则”说成“安全”。
 - CLI 未注册时，可尝试创建当前用户级命令入口；执行前展示双版本说明并要求输入完整的 `YES`。
-- 程序启动时先自动执行无修改的 `obsidian help` 检查；如果 CLI 未启用，立即在终端显示中文设置示意图，然后停止，不再询问 Vault 路径或扫描插件。
+- 程序先启动或聚焦 Obsidian，等待应用就绪后再执行无修改的 `obsidian help` 检查；如果 CLI 未启用，立即显示中文设置示意图并安全停止。
 - 将 Obsidian Git 与 6 个推荐社区插件纳入同一张 7 项管理清单。
 - 新增优质开源插件推荐库：QuickAdd、Tasks、Excalidraw、Linter、Advanced Tables、Templater；可按 ID 多选或选择全部。
 - 安装前实时核对 Obsidian 官方社区目录、GitHub 源码仓库、SPDX 开源许可证和仓库归档状态；未通过核验的插件跳过。
@@ -113,7 +113,7 @@ conda install ca-certificates certifi openssl
 
 ## CLI 注册行为
 
-程序先检查 `obsidian` 是否已在 PATH 中。若找到，会立即运行一次只读的 `obsidian help`，确认 Obsidian 应用内的 CLI 开关真正可用；如果检测到“Command line interface is not enabled”，就直接在终端显示中文设置示意图，并在询问 Vault 路径之前停止。若系统已安装可选的 `chafa`，程序会尝试把仓库内 SVG 转换为终端字符图；没有 `chafa` 或转换失败时，自动使用内置 ASCII 示意图和完整文字路径。程序会同时显示终端示意图并打开原始 SVG 图片查看器；不会自动安装任何工具。其他 CLI 检查错误也会显示原因并安全停止，不会误判为“CLI 未启用”。若 PATH 中未找到命令，程序会尝试定位可能的 Obsidian CLI 文件，并询问是否进行用户级注册。
+程序先检查 `obsidian` 是否已在 PATH 中。若找到，会先启动或聚焦 Obsidian，等待应用就绪后再运行只读的 `obsidian help`，确认 Obsidian 应用内的 CLI 开关真正可用；如果检测到“Command line interface is not enabled”，就直接在终端显示中文设置示意图，并在询问 Vault 路径之前停止。若系统已安装可选的 `chafa`，程序会尝试把仓库内 SVG 转换为终端字符图；没有 `chafa` 或转换失败时，自动使用内置 ASCII 示意图和完整文字路径。程序会同时显示终端示意图并打开原始 SVG 图片查看器；不会自动安装任何工具。其他 CLI 检查错误也会显示原因并安全停止，不会误判为“CLI 未启用”。若 PATH 中未找到命令，程序会尝试定位可能的 Obsidian CLI 文件，并询问是否进行用户级注册。
 
 - macOS：在 `~/.local/bin/obsidian` 创建指向应用内置 CLI 的符号链接。
 - Linux：将检测到的 CLI 文件复制到 `~/.local/bin/obsidian`。
