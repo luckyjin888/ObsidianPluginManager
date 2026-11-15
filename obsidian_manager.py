@@ -778,35 +778,43 @@ def launch_obsidian(app):
         return False
 
 
-def active_vault_path(cli):
-    """Read the path of the Vault currently active in Obsidian; never guess."""
-    try:
-        result = subprocess.run(
-            [str(cli), "vault", "info=path"], capture_output=True, text=True,
-            encoding="utf-8", errors="replace", timeout=15, check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        say(f"无法读取 Obsidian 当前仓库：{exc}")
+def active_vault_path(cli, wait_timeout=0):
+    """Read the active Vault path; wait briefly for startup and never guess."""
+    deadline = time.monotonic() + max(0, wait_timeout)
+    last_error = None
+    while True:
+        try:
+            result = subprocess.run(
+                [str(cli), "vault", "info=path"], capture_output=True, text=True,
+                encoding="utf-8", errors="replace", timeout=15, check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            last_error = str(exc)
+            result = None
+        if result is not None and result.returncode == 0:
+            output = (result.stdout or "").strip()
+            candidates = []
+            for line in output.splitlines():
+                value = line.strip()
+                if value.casefold().startswith("path "):
+                    candidates.append(value[5:].strip().strip('"'))
+                elif value.casefold().startswith("path:"):
+                    candidates.append(value.split(":", 1)[1].strip().strip('"'))
+                elif value.startswith(("/", "~")) or Path(value.strip('"')).is_absolute():
+                    candidates.append(value.strip('"'))
+            for value in reversed(candidates):
+                path = Path(os.path.expanduser(value))
+                if path.is_dir():
+                    return path.resolve()
+        elif result is not None and result.stderr.strip():
+            last_error = result.stderr.strip()
+
+        if time.monotonic() < deadline:
+            time.sleep(1)
+            continue
+        if last_error:
+            say("读取当前仓库失败：" + last_error)
         return None
-    if result.returncode != 0:
-        if result.stderr.strip():
-            say("读取当前仓库失败：" + result.stderr.strip())
-        return None
-    output = (result.stdout or "").strip()
-    candidates = []
-    for line in output.splitlines():
-        value = line.strip()
-        if value.casefold().startswith("path "):
-            candidates.append(value[5:].strip().strip('"'))
-        elif value.casefold().startswith("path:"):
-            candidates.append(value.split(":", 1)[1].strip().strip('"'))
-        elif value.startswith(("/", "~")) or Path(value.strip('"')).is_absolute():
-            candidates.append(value.strip('"'))
-    for value in reversed(candidates):
-        path = Path(os.path.expanduser(value))
-        if path.is_dir():
-            return path.resolve()
-    return None
 
 
 def open_vault_chooser():
@@ -1208,7 +1216,7 @@ def main():
         if not open_vault_chooser():
             return 1
         ask("请在 Obsidian 仓库选择器中选好 Vault，完成后按回车继续：")
-        vault = active_vault_path(cli) if cli else None
+        vault = active_vault_path(cli, wait_timeout=20) if cli else None
     elif vault_choice.strip():
         raw_path = vault_choice.strip().strip('"').strip("'")
         vault = Path(os.path.expandvars(os.path.expanduser(raw_path))).resolve()
