@@ -650,9 +650,10 @@ def explain_cli_not_enabled():
 
 
 def display_cli_setup_diagram(image_path):
-    """Render the SVG in the terminal when chafa is available; otherwise show ASCII."""
-    say("\n【终端设置示意图】")
+    """Show the setup guide in the terminal and open the original SVG image."""
+    say("\\n【终端设置示意图】")
     chafa = shutil.which("chafa")
+    rendered = False
     if chafa and image_path.is_file():
         try:
             result = subprocess.run(
@@ -663,30 +664,46 @@ def display_cli_setup_diagram(image_path):
             if result.returncode == 0 and result.stdout.strip():
                 say(result.stdout.rstrip())
                 say("（chafa 已将项目 SVG 转换为终端字符图；原始 SVG 保持不变。）")
-                return
+                rendered = True
         except (OSError, subprocess.TimeoutExpired):
             pass
 
-    if not image_path.is_file():
-        say("原始 SVG 示意图文件不存在，以下显示文字版路径。")
+    if not rendered:
+        if not image_path.is_file():
+            say("原始 SVG 示意图文件不存在，以下显示文字版路径。")
+        else:
+            say("未检测到可用的 chafa 图像转换工具，使用内置字符示意图。")
+            say("如需彩色终端效果，可自行安装 chafa；本程序不会替你安装。")
+        say("+--------------------------------------------------------------+")
+        say("|                    Obsidian · 设置                           |")
+        say("|  左侧菜单                    右侧设置                        |")
+        say("|  +------------------+       +-----------------------------+  |")
+        say("|  | 编辑器           |       | 高级设置                    |  |")
+        say("|  | > 通用           | ----> | 命令行界面                  |  |")
+        say("|  |   外观           |       | 允许命令行工具与 Obsidian   |  |")
+        say("|  |   快捷键         |       | 进行交互                    |  |")
+        say("|  | > 高级           |       |                             |  |")
+        say("|  +------------------+       |      [ 请打开这个开关 ]     |  |")
+        say("|                             +-----------------------------+  |")
+        say("+--------------------------------------------------------------+")
+        say("设置路径：通用 → 高级 → 命令行界面")
+        say("注意：这是位置示意图，不是特定版本的真实截图；菜单文字可能因版本不同而变化。")
+
+    # Keep the full original SVG visible in a separate image viewer as well.
+    if image_path.is_file():
+        say("正在打开完整中文 SVG 示意图：" + str(image_path))
+        try:
+            system = platform.system()
+            if system == "Darwin":
+                subprocess.Popen(["open", str(image_path)])
+            elif system == "Windows":
+                os.startfile(str(image_path))
+            else:
+                subprocess.Popen(["xdg-open", str(image_path)])
+        except (OSError, AttributeError) as exc:
+            say(f"无法打开独立图片窗口，请查看终端示意图；图片位置：{image_path}（{exc}）")
     else:
-        say("未检测到可用的 chafa 图像转换工具，使用内置字符示意图。")
-        say("如需彩色终端效果，可自行安装 chafa；本程序不会替你安装。")
-    say("+--------------------------------------------------------------+")
-    say("|                    Obsidian · 设置                           |")
-    say("|  左侧菜单                    右侧设置                        |")
-    say("|  +------------------+       +-----------------------------+  |")
-    say("|  | 编辑器           |       | 高级设置                    |  |")
-    say("|  | > 通用           | ----> | 命令行界面                  |  |")
-    say("|  |   外观           |       | 允许命令行工具与 Obsidian   |  |")
-    say("|  |   快捷键         |       | 进行交互                    |  |")
-    say("|  | > 高级           |       |                             |  |")
-    say("|  +------------------+       |      [ 请打开这个开关 ]     |  |")
-    say("|                             +-----------------------------+  |")
-    say("+--------------------------------------------------------------+")
-    say("设置路径：通用 → 高级 → 命令行界面")
-    say("注意：这是位置示意图，不是特定版本的真实截图；菜单文字可能因版本不同而变化。")
-    say("原始 SVG 保存在：" + str(image_path))
+        say("完整 SVG 文件不存在，已保留终端文字说明。预期图片位置：" + str(image_path))
 
 
 def run_obsidian_cli_plugin(vault, cli, command_name):
