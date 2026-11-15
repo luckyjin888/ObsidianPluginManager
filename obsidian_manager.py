@@ -489,6 +489,10 @@ def open_verified_https(request):
 
 def is_transient_network_error(exc):
     """True for truncated HTTPS bodies, timeouts, and short-lived connection drops."""
+    # Certificate verification failures are terminal, even when their diagnostic
+    # text contains words such as "timeout" (for example, timeout.example).
+    if is_certificate_verification_error(exc):
+        return False
     current = exc
     seen = set()
     while current is not None and id(current) not in seen:
