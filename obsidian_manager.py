@@ -493,7 +493,9 @@ def is_transient_network_error(exc):
     seen = set()
     while current is not None and id(current) not in seen:
         seen.add(id(current))
-        if isinstance(current, (http.client.IncompleteRead, TimeoutError)):
+        # ConnectionError covers reset, aborted, refused, and broken-pipe
+        # failures that can occur transiently while reading HTTPS responses.
+        if isinstance(current, (http.client.IncompleteRead, TimeoutError, ConnectionError)):
             return True
         if isinstance(current, urllib.error.URLError):
             reason = current.reason
