@@ -1005,7 +1005,7 @@ def offer_obsidian_plugins(vault):
     enabled_path = vault / ".obsidian" / "community-plugins.json"
     if enabled_path.exists():
         enabled_data = read_json(enabled_path)
-        if not isinstance(enabled_data, list) or not all(isinstance(x, str) for x in enabled_data):
+        if not isinstance(enabled_data, list) or not all(isinstance(x, str) and x for x in enabled_data):
             say("启用状态文件 community-plugins.json 格式异常；为避免误操作，已停止插件管理。")
             return
         enabled_ids = set(enabled_data)
