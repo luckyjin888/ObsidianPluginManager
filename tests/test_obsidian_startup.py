@@ -39,6 +39,22 @@ class ObsidianStartupTests(unittest.TestCase):
             with patch.object(om.subprocess, "run", return_value=response):
                 self.assertEqual(om.active_vault_path("/fake/obsidian"), vault.resolve())
 
+    def test_active_vault_path_retries_until_vault_is_ready(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = Path(tmp)
+            responses = [
+                SimpleNamespace(returncode=0, stdout="path /not/ready/yet\\n", stderr=""),
+                SimpleNamespace(returncode=0, stdout=f"path {vault}\\n", stderr=""),
+            ]
+            with patch.object(om.subprocess, "run", side_effect=responses):
+                with patch.object(om.time, "monotonic", side_effect=[0, 0]):
+                    with patch.object(om.time, "sleep") as sleep:
+                        self.assertEqual(
+                            om.active_vault_path("/fake/obsidian", wait_timeout=5),
+                            vault.resolve(),
+                        )
+                        sleep.assert_called_once_with(1)
+
     def test_active_vault_path_returns_none_for_unknown_path(self):
         response = SimpleNamespace(returncode=0, stdout="path /not/a/real/vault\n", stderr="")
         with patch.object(om.subprocess, "run", return_value=response):
