@@ -114,6 +114,17 @@ class SSLHandlingTests(unittest.TestCase):
         self.assertEqual(mocked.call_count, 2)
         sleep.assert_called_once_with(1)
 
+    def test_fetch_json_https_retries_timeout(self):
+        with patch.object(
+            om, "open_verified_https",
+            side_effect=[TimeoutError("request timed out"), DummyResponse()],
+        ) as mocked:
+            with patch.object(om.time, "sleep") as sleep:
+                payload = om.fetch_json_https(Request("https://example.com/registry.json"))
+        self.assertEqual(payload, {"ok": True})
+        self.assertEqual(mocked.call_count, 2)
+        sleep.assert_called_once_with(1)
+
     def test_fetch_json_https_retries_direct_connection_reset(self):
         with patch.object(
             om, "open_verified_https",
