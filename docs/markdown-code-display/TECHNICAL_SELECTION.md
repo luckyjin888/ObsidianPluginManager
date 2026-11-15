@@ -256,3 +256,33 @@ Obsidian Manager 主项目采用 GPL-3.0。采用第三方代码前必须：
 - Shiki 引擎：https://github.com/shikijs/shiki
 
 核验说明：版本和最低 Obsidian 版本来自各项目当前仓库的 manifest.json；许可证来自各仓库 LICENSE 文件。版本会变化，正式安装前需重新检查最新 Release、manifest、LICENSE 和兼容性问题。
+
+
+## 11. 最终推荐（维护者决策建议，2026-11-16）
+
+**首选采用 Codeblock Customizer，暂不采用多插件拼装方案。**
+
+推荐理由：
+- 功能覆盖最完整：主题、标题栏、行号、重点行/文本高亮、折叠/半折叠、终端提示符、代码块分组、注释标注、换行控制等。
+- 官方 Obsidian 社区页面显示约 74k 下载、32 次更新；项目已有较长维护和使用记录。
+- MIT 许可证，适合以“用户独立安装第三方插件”的方式使用；不需要把第三方源码并入 GPL-3.0 主项目。
+- 桌面和移动端均列为支持平台；但仍须在实际 Obsidian 版本、主题和 Live Preview 中实测。
+
+为什么不把 Code Block Pro 作为首选：
+- 它的优势是轻量、复制/下载行为明确、Reading View 与 Live Preview 支持清楚，适合只需要标题、行号、复制和折叠的用户。
+- 但当前项目需求还包括终端展示、重点行多色高亮、主题和分组等更丰富的展示能力；Codeblock Customizer 覆盖面更合适。
+- 可保留 Code Block Pro 作为备选，不建议与首选插件同时启用。
+
+为什么暂不单独安装 Shiki Highlighter：
+- 它主要解决语法高亮质量问题；当前首选插件已经覆盖更广的展示需求。
+- 避免两个插件同时接管代码块 DOM，减少样式、按钮、行号和复制交互冲突。
+
+实施原则：
+1. 先在独立测试 Vault 安装并启用 Codeblock Customizer，不碰日常 Vault。
+2. 先使用默认设置；逐项打开标题、复制/行号、折叠和高亮功能。
+3. 测试 Reading View、Live Preview、移动端、复制结果、长代码块和 GitHub README 降级表现。
+4. Markdown 源文件默认仍使用标准围栏和语言标识。Codeblock Customizer 的 `hl:`、`fold`、`prompt:` 等自定义围栏参数只在明确接受 Obsidian 专属语法的笔记中使用，不写入要求 GitHub 原生兼容的 README/通用文档。
+5. 通过验收后，将其记录为“推荐第三方插件”，不是 Obsidian Manager 自研功能；不把插件源码打包进主程序。
+6. 若测试发现明显兼容性、复制准确性或维护问题，再回退并评估 Code Block Pro。
+
+本推荐是选型结论，不代表已经安装、启用或完成实测。正式安装前仍应从 Obsidian 社区插件市场确认最新版本、作者、插件 ID 和兼容性。
