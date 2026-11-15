@@ -651,7 +651,7 @@ def explain_cli_not_enabled():
 
 def display_cli_setup_diagram(image_path):
     """Render the SVG in the terminal when chafa is available; otherwise show ASCII."""
-    say("\\n【终端设置示意图】")
+    say("\n【终端设置示意图】")
     chafa = shutil.which("chafa")
     if chafa and image_path.is_file():
         try:
