@@ -72,6 +72,23 @@ class ObsidianStartupTests(unittest.TestCase):
             messages = "\n".join(str(call.args[0]) for call in say.call_args_list)
             self.assertIn("格式异常", messages)
 
+    def test_plugin_manager_stops_on_invalid_manifest_before_selection(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = Path(tmp)
+            manifest = vault / ".obsidian" / "plugins" / "quickadd" / "manifest.json"
+            manifest.parent.mkdir(parents=True)
+            manifest.write_text('{"id":"wrong-plugin"}', encoding="utf-8")
+            enabled = vault / ".obsidian" / "community-plugins.json"
+            enabled.write_text("[]", encoding="utf-8")
+            with patch.object(om.shutil, "which", return_value="/fake/obsidian"):
+                with patch.object(om, "select_numbered") as select:
+                    with patch.object(om, "say") as say:
+                        om.offer_obsidian_plugins(vault)
+            select.assert_not_called()
+            output = "\n".join(str(call.args[0]) for call in say.call_args_list)
+            self.assertIn("插件 ID 不匹配", output)
+            self.assertIn("已停止插件管理", output)
+
     def test_vault_chooser_uses_official_obsidian_uri(self):
         with patch.object(om.platform, "system", return_value="Darwin"):
             with patch.object(om.subprocess, "Popen") as popen:
