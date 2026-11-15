@@ -3,14 +3,17 @@
 # GPL-3.0-only
 """Cross-platform, consent-first Obsidian plugin inventory and heuristic audit."""
 from __future__ import annotations
+import http.client
 import json, os, platform, re, shutil, subprocess, sys, ssl, time, urllib.error, urllib.request
 from pathlib import Path
 from datetime import datetime, timezone
 
-VERSION = "0.6.1"
+VERSION = "0.6.2"
 MIN_CLI = (1, 12, 7)
 REGISTRY_URL = "https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugins.json"
-NETWORK_TIMEOUT = 8
+NETWORK_TIMEOUT = 30
+NETWORK_RETRIES = 3
+ENABLE_VERIFY_TIMEOUT = 15
 
 def say(s=""):
     """跨平台安全输出；终端编码不支持中文时回退到 UTF-8 字节流。"""
@@ -484,9 +487,51 @@ def open_verified_https(request):
     )
 
 
-def fetch_json_https(request):
-    with open_verified_https(request) as response:
-        return json.loads(response.read().decode("utf-8"))
+def is_transient_network_error(exc):
+    """True for truncated HTTPS bodies, timeouts, and short-lived connection drops."""
+    # Certificate verification failures are terminal, even when their diagnostic
+    # text contains words such as "timeout" (for example, timeout.example).
+    if is_certificate_verification_error(exc):
+        return False
+    current = exc
+    seen = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        # ConnectionError covers reset, aborted, refused, and broken-pipe
+        # failures that can occur transiently while reading HTTPS responses.
+        if isinstance(current, (http.client.IncompleteRead, TimeoutError, ConnectionError)):
+            return True
+        if isinstance(current, urllib.error.URLError):
+            reason = current.reason
+            if isinstance(reason, BaseException):
+                current = reason
+                continue
+            text = str(reason or current).casefold()
+            if any(token in text for token in ("timed out", "timeout", "incomplete", "connection reset", "temporarily")):
+                return True
+            current = current.__cause__ or current.__context__
+            continue
+        text = str(current).casefold()
+        if "incompleteread" in text or "timed out" in text or "timeout" in text:
+            return True
+        current = getattr(current, "__cause__", None) or getattr(current, "__context__", None)
+    return False
+
+
+def fetch_json_https(request, retries=NETWORK_RETRIES):
+    """Read JSON over verified HTTPS; retry truncated/timed-out responses only."""
+    attempts = max(1, int(retries))
+    last_error = None
+    for attempt in range(1, attempts + 1):
+        try:
+            with open_verified_https(request) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except Exception as exc:
+            last_error = exc
+            if not is_transient_network_error(exc) or attempt >= attempts:
+                raise
+            time.sleep(min(2, attempt))
+    raise last_error
 
 
 def fetch_registry():
@@ -509,6 +554,18 @@ def fetch_repo_status(repo):
                  "Accept":"application/vnd.github+json"}
     )
     return fetch_json_https(req)
+
+
+def wait_for_plugin_enabled(enabled_path, plugin_id, wait_timeout=ENABLE_VERIFY_TIMEOUT):
+    """Poll community-plugins.json until Obsidian finishes writing the enable state."""
+    deadline = time.monotonic() + max(0, wait_timeout)
+    while True:
+        current = read_json(enabled_path)
+        if isinstance(current, list) and plugin_id in current:
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.5)
 
 PATTERNS = {
  "网络通信": (r"\bfetch\s*\(", r"XMLHttpRequest", r"\bWebSocket\s*\(", r"\bhttps?\.request\s*\(", r"\baxios\b"),
@@ -1146,9 +1203,9 @@ def offer_obsidian_plugins(vault):
             say(f'已停止后续批量操作；{item["name"]} 尚未确认启用。')
             return
 
-        current_enabled = read_json(enabled_path)
-        if not isinstance(current_enabled, list) or pid not in current_enabled:
-            say(f'CLI 返回成功，但 community-plugins.json 尚未确认 {item["name"]} 已启用。')
+        # Obsidian may return CLI success before community-plugins.json is flushed.
+        if not wait_for_plugin_enabled(enabled_path, pid):
+            say(f'CLI 返回成功，但 community-plugins.json 在等待后仍未确认 {item["name"]} 已启用。')
             say("为避免误报，已停止后续操作；请在 Obsidian 中检查插件状态。")
             return
         say(f'安装/启用状态验证通过：{item["name"]}')

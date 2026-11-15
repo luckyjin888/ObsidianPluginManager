@@ -60,6 +60,28 @@ class ObsidianStartupTests(unittest.TestCase):
         with patch.object(om.subprocess, "run", return_value=response):
             self.assertIsNone(om.active_vault_path("/fake/obsidian"))
 
+    def test_wait_for_plugin_enabled_retries_until_file_updates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            enabled = Path(tmp) / "community-plugins.json"
+            enabled.write_text('["obsidian-git"]', encoding="utf-8")
+
+            def appear_later(_seconds):
+                enabled.write_text('["obsidian-git", "quickadd"]', encoding="utf-8")
+
+            with patch.object(om.time, "monotonic", side_effect=[0, 0, 0]):
+                with patch.object(om.time, "sleep", side_effect=appear_later) as sleep:
+                    self.assertTrue(om.wait_for_plugin_enabled(enabled, "quickadd", wait_timeout=5))
+            sleep.assert_called_once_with(0.5)
+
+    def test_wait_for_plugin_enabled_times_out_without_false_success(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            enabled = Path(tmp) / "community-plugins.json"
+            enabled.write_text('["obsidian-git"]', encoding="utf-8")
+            with patch.object(om.time, "monotonic", side_effect=[0, 5]):
+                with patch.object(om.time, "sleep") as sleep:
+                    self.assertFalse(om.wait_for_plugin_enabled(enabled, "quickadd", wait_timeout=5))
+            sleep.assert_not_called()
+
     def test_plugin_batch_rejects_empty_enabled_plugin_ids(self):
         with tempfile.TemporaryDirectory() as tmp:
             vault = Path(tmp)
