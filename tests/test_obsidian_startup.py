@@ -43,8 +43,8 @@ class ObsidianStartupTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             vault = Path(tmp)
             responses = [
-                SimpleNamespace(returncode=0, stdout="path /not/ready/yet\\n", stderr=""),
-                SimpleNamespace(returncode=0, stdout=f"path {vault}\\n", stderr=""),
+                SimpleNamespace(returncode=0, stdout="path /not/ready/yet\n", stderr=""),
+                SimpleNamespace(returncode=0, stdout=f"path {vault}\n", stderr=""),
             ]
             with patch.object(om.subprocess, "run", side_effect=responses):
                 with patch.object(om.time, "monotonic", side_effect=[0, 0]):
@@ -69,7 +69,7 @@ class ObsidianStartupTests(unittest.TestCase):
             with patch.object(om.shutil, "which", return_value="/fake/obsidian"):
                 with patch.object(om, "say") as say:
                     om.offer_obsidian_plugins(vault)
-            messages = "\\n".join(str(call.args[0]) for call in say.call_args_list)
+            messages = "\n".join(str(call.args[0]) for call in say.call_args_list)
             self.assertIn("格式异常", messages)
 
     def test_vault_chooser_uses_official_obsidian_uri(self):
