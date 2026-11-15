@@ -95,6 +95,20 @@ class ObsidianStartupTests(unittest.TestCase):
                 self.assertTrue(om.open_vault_chooser())
                 popen.assert_called_once_with(["open", "obsidian://choose-vault"])
 
+    def test_missing_app_still_allows_manual_local_vault_audit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = Path(tmp)
+            with patch.object(om.platform, "system", return_value="Linux"):
+                with patch.object(om, "find_obsidian", return_value=None):
+                    with patch.object(om, "ask", return_value=str(vault)):
+                        with patch.object(om, "ensure_vault_plugin_dirs", return_value=True):
+                            with patch.object(om, "audit_plugins") as audit:
+                                with patch.object(om, "offer_obsidian_plugins") as manage:
+                                    with patch.object(om, "say"):
+                                        self.assertEqual(om.main(), 0)
+            audit.assert_called_once_with(vault.resolve())
+            manage.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
