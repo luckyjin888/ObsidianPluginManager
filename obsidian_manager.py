@@ -79,6 +79,17 @@ def read_json(path):
         with path.open("r", encoding="utf-8") as f: return json.load(f)
     except Exception: return None
 
+def is_valid_plugin_manifest(path, expected_id):
+    """Accept only a regular, parseable JSON object with the expected plugin ID."""
+    try:
+        if path.is_symlink() or not path.is_file():
+            return False
+        with path.open("r", encoding="utf-8") as f:
+            manifest = json.load(f)
+        return isinstance(manifest, dict) and manifest.get("id") == expected_id
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return False
+
 def platform_name():
     return {"Darwin":"macOS", "Windows":"Windows", "Linux":"Linux"}.get(platform.system(), platform.system())
 
@@ -1025,10 +1036,21 @@ def offer_obsidian_plugins(vault):
                 "repo": "Vinzent03/obsidian-git",
                 "risk": "第三方插件；配置自动提交/同步前应先理解远程仓库和凭据设置"}] + RECOMMENDED_PLUGINS
 
-    installed_ids = {
-        item["id"] for item in catalog
-        if (plugin_root / item["id"] / "manifest.json").is_file()
-    }
+    installed_ids = set()
+    invalid_manifests = []
+    for item in catalog:
+        manifest_path = plugin_root / item["id"] / "manifest.json"
+        if manifest_path.exists() or manifest_path.is_symlink():
+            if is_valid_plugin_manifest(manifest_path, item["id"]):
+                installed_ids.add(item["id"])
+            else:
+                invalid_manifests.append(item["id"])
+    if invalid_manifests:
+        say("以下插件的 manifest.json 缺失有效 JSON 对象或插件 ID 不匹配：" +
+            ", ".join(sorted(invalid_manifests)))
+        say("状态无法确认；为避免覆盖或启用未知插件，已停止插件管理。")
+        return
+
     inconsistent = enabled_ids.intersection({item["id"] for item in catalog}) - installed_ids
     if inconsistent:
         say("启用状态文件列出了插件，但对应 manifest.json 不存在：" + ", ".join(sorted(inconsistent)))
@@ -1115,8 +1137,8 @@ def offer_obsidian_plugins(vault):
                 say(f'已停止后续批量操作；{item["name"]} 安装未能确认完成。')
                 return
             manifest = plugin_root / pid / "manifest.json"
-            if not manifest.is_file():
-                say(f'CLI 返回成功，但未找到 {manifest}；不继续启用或处理后续插件。')
+            if not is_valid_plugin_manifest(manifest, pid):
+                say(f'CLI 返回成功，但 {manifest} 未通过 JSON 对象及插件 ID 校验；不继续启用或处理后续插件。')
                 return
             say(f'安装文件已验证：{item["name"]}')
 
