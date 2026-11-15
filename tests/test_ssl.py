@@ -157,6 +157,24 @@ class SSLHandlingTests(unittest.TestCase):
         self.assertEqual(mocked.call_count, 1)
         sleep.assert_not_called()
 
+    def test_fetch_json_https_does_not_retry_certificate_error_with_timeout_text(self):
+        errors = [
+            ssl.SSLCertVerificationError(
+                "hostname mismatch for timeout.example"
+            ),
+            URLError(ssl.SSLCertVerificationError(
+                "hostname mismatch for timeout.example"
+            )),
+        ]
+        for error in errors:
+            with self.subTest(error=error):
+                with patch.object(om, "open_verified_https", side_effect=error) as mocked:
+                    with patch.object(om.time, "sleep") as sleep:
+                        with self.assertRaises((ssl.SSLCertVerificationError, URLError)):
+                            om.fetch_json_https(Request("https://example.com/registry.json"))
+                self.assertEqual(mocked.call_count, 1)
+                sleep.assert_not_called()
+
     def test_fetch_json_https_does_not_retry_non_transient_error(self):
         with patch.object(
             om, "open_verified_https",
