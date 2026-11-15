@@ -101,7 +101,8 @@ class ObsidianCliGuidanceTests(unittest.TestCase):
             stderr="Command line interface is not enabled.",
             returncode=1,
         )
-        self.assertEqual(obsidian_manager.main(), 0)
+        with patch("obsidian_manager.launch_obsidian", return_value=True):
+            self.assertEqual(obsidian_manager.main(), 0)
         guide.assert_called_once_with()
         ask.assert_not_called()
 
