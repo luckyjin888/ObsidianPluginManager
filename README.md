@@ -13,7 +13,7 @@
 
 - 运行时识别 macOS、Windows、Linux。
 - 默认启动 Obsidian 并使用应用当前打开的 Vault；新启动时由 Obsidian 恢复上次使用的 Vault。\n- 输入 `switch` 可打开 Obsidian 官方仓库选择器；无法确认当前 Vault 时要求用户明确选择，不随机猜测。
-- Vault 缺少 `.obsidian` 或 `.obsidian/plugins` 时，分别说明用途、权限、影响与风险，并要求输入 `YES` 后才创建空目录；拒绝后跳过插件相关流程。
+- Vault 缺少 `.obsidian` 或 `.obsidian/plugins` 时只创建缺失的空目录；拒绝符号链接，不覆盖已有内容，初始化中途失败时尽力回滚本次创建且仍为空的目录。
 - 读取插件 manifest，统计插件目录总数。
 - 读取 `.obsidian/community-plugins.json`，统计启用、禁用、未知数量。
 - 可选联网核对 Obsidian 官方社区插件目录。
@@ -111,7 +111,7 @@ conda install ca-certificates certifi openssl
 
 输入有效的 Vault 根目录后，程序会自动检查 `.obsidian` 和 `.obsidian/plugins`。缺失时自动创建空目录，不再逐项询问；已有目录和文件保持原样。若目标路径已存在但不是文件夹，或是符号链接（包括指向其他位置的目录链接），程序会停止并报告，不会通过链接写入 Vault 以外的位置。初始化只创建目录，不创建或覆盖配置文件、不安装或启用插件、不读取或修改笔记正文。结果同时提供「标准专业版」与「10岁儿童比喻版」说明。
 
-## CLI 注册行为
+## Obsidian 自动启动与 Vault 选择\n\n程序先启动或聚焦 Obsidian。首次启动时由 Obsidian 自己恢复上次使用的 Vault；脚本不从多个 Vault 中随机挑选。默认回车使用当前活动 Vault；输入 `switch` 会打开 Obsidian 官方 `obsidian://choose-vault` 仓库选择器，用户选好后再继续。若 CLI 无法确认当前 Vault，程序要求手动输入路径并停止猜测。\n\n**标准专业版：** GUI 启动后等待 CLI 就绪，再读取 `obsidian vault info=path`；切换通过 Obsidian 官方 URI 交给用户确认。\n\n**10岁儿童比喻版：** 软件先打开上次的教室；想换教室就自己从教室列表里选。程序不知道是哪间教室时，会问你，不会闭着眼睛乱选。\n\n## CLI 注册行为
 
 程序先检查 `obsidian` 是否已在 PATH 中。若找到，会先启动或聚焦 Obsidian，等待应用就绪后再运行只读的 `obsidian help`，确认 Obsidian 应用内的 CLI 开关真正可用；如果检测到“Command line interface is not enabled”，就直接在终端显示中文设置示意图，并在询问 Vault 路径之前停止。若系统已安装可选的 `chafa`，程序会尝试把仓库内 SVG 转换为终端字符图；没有 `chafa` 或转换失败时，自动使用内置 ASCII 示意图和完整文字路径。程序会同时显示终端示意图并打开原始 SVG 图片查看器；不会自动安装任何工具。其他 CLI 检查错误也会显示原因并安全停止，不会误判为“CLI 未启用”。若 PATH 中未找到命令，程序会尝试定位可能的 Obsidian CLI 文件，并询问是否进行用户级注册。
 
