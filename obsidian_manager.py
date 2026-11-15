@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# ObsidianPluginManager 0.5.8
+# ObsidianPluginManager 0.5.9
 # GPL-3.0-only
 """Cross-platform, consent-first Obsidian plugin inventory and heuristic audit."""
 from __future__ import annotations
@@ -7,7 +7,7 @@ import json, os, platform, re, shutil, subprocess, sys, ssl, urllib.error, urlli
 from pathlib import Path
 from datetime import datetime, timezone
 
-VERSION = "0.5.8"
+VERSION = "0.5.9"
 MIN_CLI = (1, 12, 7)
 REGISTRY_URL = "https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugins.json"
 NETWORK_TIMEOUT = 8
@@ -646,21 +646,47 @@ def explain_cli_not_enabled():
     say("请打开 Obsidian，按“设置 → 通用 → 高级”，找到“命令行界面”并打开。")
     say("我们不会偷偷替你按开关；开关打开前，先暂停安装，避免重复放东西。")
     image_path = Path(__file__).resolve().parent / "docs" / "images" / "enable-obsidian-cli.svg"
-    if image_path.is_file():
-        say(f"正在自动打开中文设置位置示意图：{image_path}")
+    display_cli_setup_diagram(image_path)
+
+
+def display_cli_setup_diagram(image_path):
+    """Render the SVG in the terminal when chafa is available; otherwise show ASCII."""
+    say("\\n【终端设置示意图】")
+    chafa = shutil.which("chafa")
+    if chafa and image_path.is_file():
         try:
-            system = platform.system()
-            if system == "Darwin":
-                subprocess.Popen(["open", str(image_path)])
-            elif system == "Windows":
-                os.startfile(str(image_path))
-            else:
-                subprocess.Popen(["xdg-open", str(image_path)])
-            say("已请求系统使用默认图片查看器打开示意图。")
-        except Exception as exc:
-            say(f"无法自动打开示意图，请按上面的文字教程操作；图片位置：{image_path}（{exc}）")
+            result = subprocess.run(
+                [chafa, "--size", "72x24", str(image_path)],
+                capture_output=True, text=True, encoding="utf-8",
+                errors="replace", timeout=10, check=False,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                say(result.stdout.rstrip())
+                say("（chafa 已将项目 SVG 转换为终端字符图；原始 SVG 保持不变。）")
+                return
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+
+    if not image_path.is_file():
+        say("原始 SVG 示意图文件不存在，以下显示文字版路径。")
     else:
-        say(f"示意图文件不存在；请按上面的文字教程操作。预期图片位置：{image_path}")
+        say("未检测到可用的 chafa 图像转换工具，使用内置字符示意图。")
+        say("如需彩色终端效果，可自行安装 chafa；本程序不会替你安装。")
+    say("+--------------------------------------------------------------+")
+    say("|                    Obsidian · 设置                           |")
+    say("|  左侧菜单                    右侧设置                        |")
+    say("|  +------------------+       +-----------------------------+  |")
+    say("|  | 编辑器           |       | 高级设置                    |  |")
+    say("|  | > 通用           | ----> | 命令行界面                  |  |")
+    say("|  |   外观           |       | 允许命令行工具与 Obsidian   |  |")
+    say("|  |   快捷键         |       | 进行交互                    |  |")
+    say("|  | > 高级           |       |                             |  |")
+    say("|  +------------------+       |      [ 请打开这个开关 ]     |  |")
+    say("|                             +-----------------------------+  |")
+    say("+--------------------------------------------------------------+")
+    say("设置路径：通用 → 高级 → 命令行界面")
+    say("注意：这是位置示意图，不是特定版本的真实截图；菜单文字可能因版本不同而变化。")
+    say("原始 SVG 保存在：" + str(image_path))
 
 
 def run_obsidian_cli_plugin(vault, cli, command_name):
