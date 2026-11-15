@@ -569,6 +569,123 @@ def audit_plugins(vault):
     say("“官方目录匹配”仅代表目录中存在对应 ID，不代表 Obsidian 或 GitHub 对插件作出安全背书。")
 
 
+def is_cli_not_enabled(result):
+    """Recognize Obsidian's explicit CLI-disabled response without masking other errors."""
+    output = "\n".join((
+        str(getattr(result, "stdout", "") or ""),
+        str(getattr(result, "stderr", "") or ""),
+    )).casefold()
+    markers = (
+        "command line interface is not enabled",
+        "command-line interface is not enabled",
+        "command line interface isn't enabled",
+        "command-line interface isn't enabled",
+        "command line interface has not been enabled",
+        "please turn it on in settings > general > advanced",
+    )
+    return any(marker in output for marker in markers)
+
+
+def check_cli_available(cli):
+    """Run a harmless CLI help check before asking for a Vault or scanning plugins."""
+    say("正在检查 Obsidian 命令行功能（obsidian help）……")
+    try:
+        result = subprocess.run(
+            [str(cli), "help"], capture_output=True, text=True,
+            encoding="utf-8", errors="replace", timeout=15, check=False,
+        )
+    except subprocess.TimeoutExpired:
+        say("CLI 检查超时。为避免进入无法确认的安装流程，程序已停止；未扫描 Vault、未安装或启用插件。")
+        return False
+    except OSError as exc:
+        say(f"无法启动 Obsidian CLI：{exc}")
+        say("程序已停止；未扫描 Vault、未安装或启用插件。请检查 CLI 路径后重新运行。")
+        return False
+    if is_cli_not_enabled(result):
+        explain_cli_not_enabled()
+        return False
+    if result.returncode != 0:
+        if result.stdout.strip():
+            say("CLI 输出：" + result.stdout.strip())
+        if result.stderr.strip():
+            say("CLI 错误：" + result.stderr.strip())
+        say(f"CLI 检查未通过（退出码 {result.returncode}）。程序已停止；未扫描 Vault、未安装或启用插件。")
+        return False
+    say("Obsidian CLI 检查通过，可以继续。")
+    return True
+
+
+def explain_cli_not_enabled():
+    """Guide the user to enable the official Obsidian CLI switch; do not change settings."""
+    say("\n" + "=" * 58)
+    say("【标准专业版】")
+    say("原因：Obsidian CLI 命令已被调用，但 Obsidian 应用内的“命令行界面”开关尚未启用。")
+    say("处理：打开 Obsidian → Settings（设置）→ General（通用）→ Advanced（高级）→")
+    say("开启 Command line interface（命令行界面）。如果 Obsidian 显示注册 CLI 命令的提示，请按应用内说明完成。")
+    say("权限与影响：这只是 Obsidian 应用内的功能开关；本工具不会代替你修改设置，不需要 sudo 或管理员权限。")
+    say("安全处理：已停止当前插件安装/启用流程，不会继续批量操作。开启后请重新运行检查，并先核对插件文件是否已部分写入。")
+    say("\n【10岁儿童比喻版】")
+    say("脚本已经找到 Obsidian 的遥控器，但 Obsidian 还没打开“允许遥控”的开关。")
+    say("请打开 Obsidian，按“设置 → 通用 → 高级”，找到“命令行界面”并打开。")
+    say("我们不会偷偷替你按开关；开关打开前，先暂停安装，避免重复放东西。")
+    image_path = Path(__file__).resolve().parent / "docs" / "images" / "enable-obsidian-cli.svg"
+    display_cli_setup_diagram(image_path)
+
+
+def display_cli_setup_diagram(image_path):
+    """Show the setup guide in the terminal and open the original SVG image."""
+    say("\n【终端设置示意图】")
+    chafa = shutil.which("chafa")
+    rendered = False
+    if chafa and image_path.is_file():
+        try:
+            result = subprocess.run(
+                [chafa, "--size", "72x24", str(image_path)],
+                capture_output=True, text=True, encoding="utf-8",
+                errors="replace", timeout=10, check=False,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                say(result.stdout.rstrip())
+                say("（chafa 已将项目 SVG 转换为终端字符图；原始 SVG 保持不变。）")
+                rendered = True
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    if not rendered:
+        if not image_path.is_file():
+            say("原始 SVG 示意图文件不存在，以下显示文字版路径。")
+        else:
+            say("未检测到可用的 chafa 图像转换工具，使用内置字符示意图。")
+            say("如需彩色终端效果，可自行安装 chafa；本程序不会替你安装。")
+        say("+--------------------------------------------------------------+")
+        say("|                    Obsidian · 设置                           |")
+        say("|  左侧菜单                    右侧设置                        |")
+        say("|  +------------------+       +-----------------------------+  |")
+        say("|  | 编辑器           |       | 高级设置                    |  |")
+        say("|  | > 通用           | ----> | 命令行界面                  |  |")
+        say("|  |   外观           |       | 允许命令行工具与 Obsidian   |  |")
+        say("|  |   快捷键         |       | 进行交互                    |  |")
+        say("|  | > 高级           |       |                             |  |")
+        say("|  +------------------+       |      [ 请打开这个开关 ]     |  |")
+        say("|                             +-----------------------------+  |")
+        say("+--------------------------------------------------------------+")
+        say("设置路径：通用 → 高级 → 命令行界面")
+        say("注意：这是位置示意图，不是特定版本的真实截图；菜单文字可能因版本不同而变化。")
+    if image_path.is_file():
+        say("正在打开完整中文 SVG 示意图：" + str(image_path))
+        try:
+            system = platform.system()
+            if system == "Darwin":
+                subprocess.Popen(["open", str(image_path)])
+            elif system == "Windows":
+                os.startfile(str(image_path))
+            else:
+                subprocess.Popen(["xdg-open", str(image_path)])
+        except (OSError, AttributeError) as exc:
+            say(f"无法打开独立图片窗口，请查看终端示意图；图片位置：{image_path}（{exc}）")
+    else:
+        say("完整 SVG 文件不存在，已保留终端文字说明。预期图片位置：" + str(image_path))
+
+
 def plugin_action(plugin_id, installed_ids, enabled_ids):
     """Return the required action for one plugin based on its observed state."""
     if plugin_id in enabled_ids:
