@@ -3,11 +3,11 @@
 # GPL-3.0-only
 """Cross-platform, consent-first Obsidian plugin inventory and heuristic audit."""
 from __future__ import annotations
-import json, os, platform, re, shutil, subprocess, sys, ssl, urllib.error, urllib.request
+import json, os, platform, re, shutil, subprocess, sys, ssl, time, urllib.error, urllib.request
 from pathlib import Path
 from datetime import datetime, timezone
 
-VERSION = "0.6.0"
+VERSION = "0.6.1"
 MIN_CLI = (1, 12, 7)
 REGISTRY_URL = "https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugins.json"
 NETWORK_TIMEOUT = 8
@@ -170,13 +170,39 @@ def windows_running_obsidian_paths():
 
 
 def is_obsidian_install(path):
-    """Accept an install folder or Obsidian.exe path only if the GUI executable exists."""
+    """Validate a platform-specific Obsidian application layout, not mere path existence."""
     try:
         candidate = Path(path).expanduser()
-        if candidate.is_file() and candidate.name.lower() == "obsidian.exe":
-            return candidate.parent
-        if candidate.is_dir() and (candidate / "Obsidian.exe").is_file():
-            return candidate
+        system = platform.system()
+        if system == "Windows":
+            if candidate.is_file() and candidate.name.lower() == "obsidian.exe":
+                return candidate.parent
+            if candidate.is_dir() and (candidate / "Obsidian.exe").is_file():
+                return candidate
+            return None
+        if system == "Darwin":
+            if candidate.suffix != ".app" or not candidate.is_dir():
+                return None
+            info = candidate / "Contents" / "Info.plist"
+            executable = candidate / "Contents" / "MacOS" / "Obsidian"
+            if info.is_file() and executable.is_file() and os.access(executable, os.X_OK):
+                return candidate
+            return None
+        if system == "Linux":
+            if candidate.is_file():
+                if not os.access(candidate, os.X_OK):
+                    return None
+                candidate = candidate.resolve().parent
+            if not candidate.is_dir():
+                return None
+            resources = candidate / "resources"
+            executable = next(
+                (p for p in (candidate / "obsidian", candidate / "Obsidian")
+                 if p.is_file() and os.access(p, os.X_OK)),
+                None,
+            )
+            if executable and (resources / "app.asar").is_file():
+                return candidate
     except (OSError, TypeError, ValueError):
         pass
     return None
@@ -221,17 +247,18 @@ def find_obsidian():
             if match:
                 return match
         return None
-    else:
+    elif system == "Linux":
         for name in ("obsidian", "Obsidian"):
             found = shutil.which(name)
             if found:
-                p = Path(found).resolve()
-                candidates.extend([p.parent, p.parent.parent])
+                executable = Path(found).resolve()
+                candidates.extend([executable, executable.parent, executable.parent.parent])
         candidates += [Path("/usr/share/obsidian"), Path("/opt/Obsidian"), Path.home()/".local/share/Obsidian"]
-    for p in candidates:
-        if p.exists(): return p
+    for candidate in candidates:
+        match = is_obsidian_install(candidate)
+        if match:
+            return match
     return None
-
 
 def prompt_manual_obsidian_path(app):
     """Offer a manual install path when Windows auto-discovery fails."""
@@ -273,7 +300,28 @@ def cli_candidates(app):
         # Obsidian.com is the CLI shim. Obsidian.exe is the GUI and must never
         # be copied/renamed as a command-line executable.
         return [app/"Obsidian.com"]
-    return [app/"obsidian", app/"obsidian-cli", app/"resources/app.asar.unpacked/obsidian"]
+    # The top-level "obsidian" binary is commonly the GUI launcher, not a CLI shim.
+    return [app/"obsidian-cli", app/"resources/app.asar.unpacked/obsidian"]
+
+def is_valid_cli_source(app, source):
+    """Only register an executable located at a platform-specific bundled CLI path."""
+    try:
+        app_root = Path(app).expanduser().resolve(strict=True)
+        source_path = Path(source).expanduser()
+        if source_path.is_symlink():
+            return False
+        candidate = source_path.resolve(strict=True)
+        if not candidate.is_relative_to(app_root):
+            return False
+        allowed = {p.resolve(strict=True) for p in cli_candidates(Path(app))
+                   if p.is_file() and not p.is_symlink()}
+        if candidate not in allowed or not candidate.is_file():
+            return False
+        if platform.system() in ("Darwin", "Linux"):
+            return os.access(candidate, os.X_OK)
+        return platform.system() == "Windows" and candidate.name.lower() == "obsidian.com"
+    except (OSError, TypeError, ValueError):
+        return False
 
 def explain_cli_registration(target, source, action):
     say("\n【标准专业版】")
@@ -290,6 +338,9 @@ def explain_cli_registration(target, source, action):
     return ask_yes_no("\n是否同意执行以上 CLI 注册？")
 
 def register_cli(app, source):
+    if not is_valid_cli_source(app, source):
+        say(f"CLI 来源验证失败：{source}；未注册任何命令入口。")
+        return False
     bindir = Path.home()/".local"/"bin"
     target = bindir/("obsidian.com" if platform.system() == "Windows" else "obsidian")
     if target.exists() or target.is_symlink():
@@ -456,22 +507,69 @@ PATTERNS = {
  "凭据/环境访问": (r"process\.env", r"keychain", r"credential", r"localStorage", r"sessionStorage")
 }
 
-def scan_source(plugin_dir):
+def scan_source(plugin_dir, *, max_files=500, max_file_size=2_000_000,
+                max_total_bytes=50_000_000):
+    """Scan JavaScript deterministically within explicit file-count and byte budgets.
+
+    Returns (findings, stats). Files skipped by a limit or filesystem error are
+    reported so a partial scan is never presented as a complete clean result.
+    """
     findings = []
-    files = list(plugin_dir.rglob("*.js"))
-    if len(files) > 500: files = files[:500]
-    for file in files:
+    stats = {
+        "discovered": 0, "scanned": 0, "skipped": 0,
+        "errors": [], "bytes_scanned": 0,
+        "max_files": max_files, "max_file_size": max_file_size,
+        "max_total_bytes": max_total_bytes,
+    }
+    try:
+        files = sorted(plugin_dir.rglob("*.js"), key=lambda p: p.as_posix().casefold())
+    except OSError as exc:
+        stats["errors"].append(f"无法枚举 JavaScript 文件：{exc}")
+        return findings, stats
+
+    stats["discovered"] = len(files)
+    for index, file in enumerate(files):
+        if index >= max_files:
+            stats["skipped"] += len(files) - index
+            break
         try:
-            if file.stat().st_size > 2_000_000: continue
-            source = file.read_text(encoding="utf-8", errors="replace")
-        except Exception: continue
+            if file.is_symlink():
+                stats["skipped"] += 1
+                stats["errors"].append(f"符号链接文件不纳入扫描：{file}")
+                continue
+            size = file.stat().st_size
+            if size > max_file_size:
+                stats["skipped"] += 1
+                stats["errors"].append(f"超过单文件大小上限，已跳过：{file}")
+                continue
+            remaining = max_total_bytes - stats["bytes_scanned"]
+            # Read at most one byte beyond the remaining budget, so a file
+            # that grows after stat() cannot exceed the configured memory budget.
+            with file.open("rb") as handle:
+                raw = handle.read(min(max_file_size, remaining) + 1)
+            if len(raw) > max_file_size:
+                stats["skipped"] += 1
+                stats["errors"].append(f"读取期间文件超过单文件大小上限，已跳过：{file}")
+                continue
+            if len(raw) > remaining:
+                stats["skipped"] += len(files) - index
+                stats["errors"].append("达到总读取字节上限；剩余文件未扫描。")
+                break
+            source = raw.decode("utf-8", errors="replace")
+            stats["bytes_scanned"] += len(raw)
+            stats["scanned"] += 1
+        except OSError as exc:
+            stats["skipped"] += 1
+            stats["errors"].append(f"读取失败，已跳过 {file}：{exc}")
+            continue
         for category, patterns in PATTERNS.items():
-            hits = [p for p in patterns if re.search(p, source, re.I)]
-            if hits: findings.append((category, file.name, hits))
-    return findings
+            hits = [pattern for pattern in patterns if re.search(pattern, source, re.I)]
+            if hits:
+                findings.append((category, file.name, hits))
+    return findings, stats
 
 def ensure_vault_plugin_dirs(vault):
-    """自动创建缺失的 Vault 基础目录；拒绝符号链接，避免写入 Vault 以外的位置。"""
+    """创建 Vault 基础目录；失败时尽力回滚本次新建且仍为空的目录。"""
     vault = Path(vault)
     if not vault.is_dir():
         say(f"Vault 路径不存在或不是文件夹：{vault}")
@@ -479,49 +577,65 @@ def ensure_vault_plugin_dirs(vault):
 
     config_dir = vault / ".obsidian"
     plugin_dir = config_dir / "plugins"
-    for directory, label in (
+    targets = (
         (config_dir, ".obsidian 配置目录"),
         (plugin_dir, "plugins 插件目录"),
-    ):
-        # 即使是指向文件夹的符号链接也拒绝，防止写入 Vault 根目录之外。
-        # is_symlink() 同时可以识别目标已失效的 broken symlink。
-        if directory.is_symlink():
-            say(f"初始化失败：{label}不能是符号链接：{directory}")
-            return False
-        if directory.exists():
-            if not directory.is_dir():
-                say(f"初始化失败：{label}路径存在但不是文件夹：{directory}")
-                return False
-            say(f"已存在，保留不变：{directory}")
-            continue
-        try:
-            directory.mkdir()
-            say(f"已自动创建缺失目录：{directory}")
-        except FileExistsError:
-            if directory.is_symlink() or not directory.is_dir():
-                say(f"初始化失败：目标路径已存在但不是安全的普通文件夹：{directory}")
-                return False
-            say(f"目录已由其他进程创建，保留不变：{directory}")
-        except OSError as exc:
-            say(f"创建{label}失败：{exc}")
-            return False
+    )
+    created = []
+    try:
+        for directory, label in targets:
+            # 拒绝普通链接和失效链接，避免把写入引导到 Vault 以外。
+            if directory.is_symlink():
+                raise ValueError(f"{label}不能是符号链接：{directory}")
+            if directory.exists():
+                if not directory.is_dir():
+                    raise ValueError(f"{label}路径存在但不是文件夹：{directory}")
+                say(f"已存在，保留不变：{directory}")
+                continue
+            try:
+                directory.mkdir()
+                created.append(directory)
+                say(f"已自动创建缺失目录：{directory}")
+            except FileExistsError:
+                # 允许并发创建者先完成同一路径，但必须重新验证对象类型。
+                if directory.is_symlink() or not directory.is_dir():
+                    raise ValueError(f"目标路径已存在但不是安全的普通文件夹：{directory}")
+                say(f"目录已由其他进程创建，保留不变：{directory}")
+    except (OSError, ValueError) as exc:
+        say(f"初始化失败：{exc}")
+        # 仅删除本次创建、且仍为空的目录；任何已有内容都不会被删除。
+        for directory in reversed(created):
+            try:
+                directory.rmdir()
+                say(f"已回滚本次创建的空目录：{directory}")
+            except OSError:
+                say(f"未能回滚（目录可能已有其他内容），请人工检查：{directory}")
+        return False
 
-    say("【标准专业版】缺失的 Vault 基础目录已自动补齐；已有目录和文件均保留。")
-    say("【10岁儿童比喻版】工具柜或抽屉没有就自动搭一个；里面原有的东西不会动。")
+    say("【标准专业版】缺失的 Vault 基础目录已补齐；若中途失败，会尝试移除本次创建且仍为空的目录。已有内容不会删除。")
+    say("【10岁儿童比喻版】搭工具柜时如果第二步失败，会尝试拆掉刚搭好且空空的第一层；如果里面已经有东西，就不会拆。")
     say("本步骤只创建空目录，不安装、启用、删除或上传任何插件/笔记。")
     return True
-
 
 def audit_plugins(vault):
     cfg = vault/".obsidian"
     plugin_root = cfg/"plugins"
     enabled = read_json(cfg/"community-plugins.json")
-    enabled_set = set(enabled) if isinstance(enabled,list) else None
+    enabled_set = (
+        {item for item in enabled if isinstance(item, str) and item}
+        if isinstance(enabled, list) else None
+    )
+    invalid_enabled_entries = (
+        [item for item in enabled if not isinstance(item, str) or not item]
+        if isinstance(enabled, list) else []
+    )
     if not plugin_root.is_dir():
         say("没有找到 .obsidian/plugins 目录。"); return
     dirs = sorted([p for p in plugin_root.iterdir() if p.is_dir()], key=lambda p:p.name.lower())
     say(f"\n发现插件目录：{len(dirs)} 个")
     say("启用状态来源：.obsidian/community-plugins.json（缺失或格式异常时标为未知）")
+    if invalid_enabled_entries:
+        say(f"启用列表含 {len(invalid_enabled_entries)} 条非字符串/空值；已忽略这些异常项，其余有效 ID 仍可正常盘点。")
     say("网络核验会向 Obsidian 官方 GitHub 社区插件目录及插件声明的 GitHub 仓库发送只读请求。不会上传 Vault 或笔记内容。")
     do_network = True
     say("自动进行在线来源与维护状态只读核验；不会上传 Vault 或笔记内容。")
@@ -531,7 +645,9 @@ def audit_plugins(vault):
         except Exception as e: say(f"官方目录读取失败：{e}")
     counts = {"启用":0,"禁用":0,"未知":0}
     for p in dirs:
-        manifest = read_json(p/"manifest.json") or {}
+        manifest_path = p / "manifest.json"
+        manifest_data = read_json(manifest_path)
+        manifest = manifest_data if isinstance(manifest_data, dict) else {}
         pid = str(manifest.get("id") or p.name)
         name = manifest.get("name", p.name)
         if enabled_set is None: state = "未知"
@@ -541,7 +657,10 @@ def audit_plugins(vault):
         say(f"{name}  [{pid}]")
         say(f"版本：{manifest.get('version','未知')} | 作者：{manifest.get('author','未知')} | 状态：{state}")
         say(f"最低 Obsidian 版本：{manifest.get('minAppVersion','未声明')}")
-        if not (p/"manifest.json").is_file(): say("插件信息不完整：未找到 manifest.json，无法确认插件名称和版本")
+        if not manifest_path.is_file():
+            say("插件信息不完整：未找到 manifest.json，无法确认插件名称和版本")
+        elif not isinstance(manifest_data, dict):
+            say("插件信息异常：manifest.json 不是有效的 JSON 对象，插件元数据无法确认")
         if registry is not None:
             if pid in registry: say("官方目录：找到匹配记录（不等于安全认证）")
             else: say("官方目录：未找到匹配 ID（可能是非官方、已下架或 ID 不一致）")
@@ -555,7 +674,14 @@ def audit_plugins(vault):
                     say(f"GitHub：{info.get('full_name','')} | 最近推送：{pushed} | 归档：{info.get('archived',False)}")
                 else: say("GitHub：manifest 未提供可识别的仓库地址")
             except Exception as e: say(f"GitHub 状态：无法确认（{e}）")
-        findings = scan_source(p)
+        findings, scan_stats = scan_source(p)
+        say(
+            f"静态扫描范围：发现 {scan_stats['discovered']} 个 JS 文件，"
+            f"已扫描 {scan_stats['scanned']} 个，跳过 {scan_stats['skipped']} 个，"
+            f"读取 {scan_stats['bytes_scanned']} 字节。"
+        )
+        for scan_error in scan_stats["errors"]:
+            say(f"扫描限制/异常：{scan_error}")
         if findings:
             say("自动初筛发现的代码能力线索（不是恶意判定，无需用户逐条审代码）：")
             for category, filename, hits in findings:
@@ -567,7 +693,6 @@ def audit_plugins(vault):
     say(f"插件统计：总数 {len(dirs)} | 启用 {counts['启用']} | 禁用 {counts['禁用']} | 未知 {counts['未知']}")
     say("自动初筛仅提供风险提示，不要求普通用户自行审查源代码；它不能证明插件绝对安全，也不能完整理解混淆、动态加载或运行时行为。是否启用由用户根据用途和风险提示决定。")
     say("“官方目录匹配”仅代表目录中存在对应 ID，不代表 Obsidian 或 GitHub 对插件作出安全背书。")
-
 
 def is_cli_not_enabled(result):
     """Recognize Obsidian's explicit CLI-disabled response without masking other errors."""
@@ -586,34 +711,161 @@ def is_cli_not_enabled(result):
     return any(marker in output for marker in markers)
 
 
-def check_cli_available(cli):
-    """Run a harmless CLI help check before asking for a Vault or scanning plugins."""
-    say("正在检查 Obsidian 命令行功能（obsidian help）……")
+def obsidian_is_running():
+    """Return whether the Obsidian desktop process is already running."""
+    system = platform.system()
+    try:
+        if system == "Darwin":
+            result = subprocess.run(
+                ["pgrep", "-x", "Obsidian"], capture_output=True, text=True,
+                timeout=5, check=False,
+            )
+            return result.returncode == 0
+        if system == "Windows":
+            result = subprocess.run(
+                ["tasklist", "/FI", "IMAGENAME eq Obsidian.exe", "/NH"],
+                capture_output=True, text=True, encoding="utf-8",
+                errors="replace", timeout=5, check=False,
+            )
+            return "Obsidian.exe" in result.stdout
+        for process_name in ("obsidian", "Obsidian"):
+            result = subprocess.run(
+                ["pgrep", "-x", process_name], capture_output=True, text=True,
+                timeout=5, check=False,
+            )
+            if result.returncode == 0:
+                return True
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return False
+
+
+def launch_obsidian(app):
+    """Launch or focus Obsidian; the app itself restores its previously used Vault."""
+    if not app:
+        say("没有定位到 Obsidian 应用，无法自动启动。")
+        return False
+    if obsidian_is_running():
+        say("Obsidian 已经运行；不重复启动，继续使用当前窗口。")
+        return True
+    try:
+        system = platform.system()
+        if system == "Darwin":
+            subprocess.Popen(["open", "-a", str(app)])
+        elif system == "Windows":
+            executable = Path(app) / "Obsidian.exe"
+            if not executable.is_file():
+                say(f"找不到 Obsidian 启动程序：{executable}")
+                return False
+            subprocess.Popen([str(executable)], cwd=str(app))
+        elif system == "Linux":
+            executable = next(
+                (p for p in (Path(app) / "obsidian", Path(app) / "Obsidian")
+                 if p.is_file() and os.access(p, os.X_OK)),
+                None,
+            )
+            if executable is None:
+                say(f"找不到可执行的 Obsidian 程序：{app}")
+                return False
+            subprocess.Popen([str(executable)], cwd=str(app))
+        else:
+            say("当前系统不支持自动启动 Obsidian。")
+            return False
+        say("已请求启动 Obsidian；等待应用和上次使用的 Vault 就绪……")
+        return True
+    except OSError as exc:
+        say(f"启动 Obsidian 失败：{exc}")
+        return False
+
+
+def active_vault_path(cli):
+    """Read the path of the Vault currently active in Obsidian; never guess."""
     try:
         result = subprocess.run(
-            [str(cli), "help"], capture_output=True, text=True,
+            [str(cli), "vault", "info=path"], capture_output=True, text=True,
             encoding="utf-8", errors="replace", timeout=15, check=False,
         )
-    except subprocess.TimeoutExpired:
-        say("CLI 检查超时。为避免进入无法确认的安装流程，程序已停止；未扫描 Vault、未安装或启用插件。")
-        return False
-    except OSError as exc:
-        say(f"无法启动 Obsidian CLI：{exc}")
-        say("程序已停止；未扫描 Vault、未安装或启用插件。请检查 CLI 路径后重新运行。")
-        return False
-    if is_cli_not_enabled(result):
-        explain_cli_not_enabled()
-        return False
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        say(f"无法读取 Obsidian 当前仓库：{exc}")
+        return None
     if result.returncode != 0:
+        if result.stderr.strip():
+            say("读取当前仓库失败：" + result.stderr.strip())
+        return None
+    output = (result.stdout or "").strip()
+    candidates = []
+    for line in output.splitlines():
+        value = line.strip()
+        if value.casefold().startswith("path "):
+            candidates.append(value[5:].strip().strip('"'))
+        elif value.casefold().startswith("path:"):
+            candidates.append(value.split(":", 1)[1].strip().strip('"'))
+        elif value.startswith(("/", "~")):
+            candidates.append(value.strip('"'))
+    for value in reversed(candidates):
+        path = Path(os.path.expanduser(value))
+        if path.is_dir():
+            return path.resolve()
+    return None
+
+
+def open_vault_chooser():
+    """Open Obsidian's own Vault chooser; the user makes the selection."""
+    uri = "obsidian://choose-vault"
+    try:
+        system = platform.system()
+        if system == "Darwin":
+            subprocess.Popen(["open", uri])
+        elif system == "Windows":
+            os.startfile(uri)
+        elif system == "Linux":
+            subprocess.Popen(["xdg-open", uri])
+        else:
+            return False
+        say("已打开 Obsidian 仓库选择器。请在 Obsidian 中亲自选择要使用的 Vault。")
+        return True
+    except (OSError, AttributeError) as exc:
+        say(f"无法打开 Obsidian 仓库选择器：{exc}")
+        return False
+
+
+def check_cli_available(cli, wait_timeout=0):
+    """Run harmless CLI help; optionally wait for the just-launched app to become ready."""
+    say("正在检查 Obsidian 命令行功能（obsidian help）……")
+    deadline = time.monotonic() + max(0, wait_timeout)
+    while True:
+        try:
+            result = subprocess.run(
+                [str(cli), "help"], capture_output=True, text=True,
+                encoding="utf-8", errors="replace", timeout=15, check=False,
+            )
+        except subprocess.TimeoutExpired:
+            say("CLI 检查超时。为避免进入无法确认的安装流程，程序已停止；未扫描 Vault、未安装或启用插件。")
+            return False
+        except OSError as exc:
+            say(f"无法启动 Obsidian CLI：{exc}")
+            say("程序已停止；未扫描 Vault、未安装或启用插件。请检查 CLI 路径后重新运行。")
+            return False
+        if is_cli_not_enabled(result):
+            explain_cli_not_enabled()
+            return False
+        if result.returncode == 0:
+            say("Obsidian CLI 检查通过，可以继续。")
+            return True
+        output = "\n".join((result.stdout or "", result.stderr or ""))
+        not_ready = "the cli is unable to find obsidian" in output.casefold()
+        if not_ready and time.monotonic() < deadline:
+            time.sleep(1)
+            continue
         if result.stdout.strip():
             say("CLI 输出：" + result.stdout.strip())
         if result.stderr.strip():
             say("CLI 错误：" + result.stderr.strip())
-        say(f"CLI 检查未通过（退出码 {result.returncode}）。程序已停止；未扫描 Vault、未安装或启用插件。")
+        if not_ready:
+            say("等待 Obsidian 启动后仍无法连接 CLI。程序已停止；未扫描 Vault、未安装或启用插件。")
+        else:
+            say(f"CLI 检查未通过（退出码 {result.returncode}）。程序已停止；未扫描 Vault、未安装或启用插件。")
         return False
-    say("Obsidian CLI 检查通过，可以继续。")
-    return True
-
 
 def explain_cli_not_enabled():
     """Guide the user to enable the official Obsidian CLI switch; do not change settings."""
@@ -906,15 +1158,15 @@ def main():
         say("需要 Python 3.10 或更高版本。")
         say(f"当前 Python：{sys.version.split()[0]}")
         return 2
-    # Keep Chinese diagnostics readable in Windows PowerShell/Terminal.
     for stream in (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
         if reconfigure:
             try: reconfigure(encoding="utf-8", errors="replace")
             except Exception: pass
     say("="*58); say(f" ObsidianPluginManager v{VERSION}"); say(f" 平台：{platform_name()}"); say("="*58)
-    if platform.system() not in ("Darwin","Windows","Linux"):
+    if platform.system() not in ("Darwin", "Windows", "Linux"):
         say("暂不支持此操作系统。"); return 2
+
     app = find_obsidian()
     if app:
         say(f"发现 Obsidian 位置：{app}")
@@ -922,38 +1174,69 @@ def main():
         say("未能自动定位 Obsidian 安装目录。")
         app = prompt_manual_obsidian_path(app)
         if not app:
-            say("未提供有效安装目录；仍可继续输入 Vault 路径，但无法自动注册 CLI。")
-    ver = app_version(app) if app else "未知"
+            say("未提供有效安装目录；无法自动启动 Obsidian。")
+            return 1
+    ver = app_version(app)
     say(f"Obsidian 版本：{ver}")
+
     cli = shutil.which("obsidian")
-    if cli: say(f"CLI 已在 PATH 中：{cli}")
-    elif app:
+    if cli:
+        say(f"CLI 已在 PATH 中：{cli}")
+    else:
         source = next((x for x in cli_candidates(app) if x.is_file()), None)
         if source:
             say(f"发现可能的内置 CLI：{source}")
             say("CLI 命令尚未注册。官方 CLI 功能仍需先在 Obsidian 设置 → 常规 → 命令行界面中启用。")
             if ask_yes_no("是否进行当前用户级 CLI 注册？"):
-                register_cli(app, source)
-        else: say("未找到可识别的内置 CLI 文件；不会下载或替换程序。")
-    else: say("未定位应用，无法自动注册 CLI。")
-    # A CLI executable may exist on PATH while Obsidian's in-app CLI switch is off.
-    # Check it before asking for a Vault, creating folders, scanning, or making network requests.
-    if cli and not check_cli_available(cli):
+                if register_cli(app, source):
+                    cli = shutil.which("obsidian")
+        else:
+            say("未找到可识别的内置 CLI 文件；不会下载或替换程序。")
+
+    if not launch_obsidian(app):
+        say("无法启动 Obsidian；程序已停止，未扫描 Vault、未安装或启用插件。")
+        return 1
+
+    if cli and not check_cli_available(cli, wait_timeout=40):
         return 0
-    vault_input = ask("\n请输入 Vault 文件夹路径（留空退出）：")
-    if not vault_input: return 0
-    # Windows Explorer often copies paths with surrounding quotation marks.
-    vault_input = vault_input.strip().strip('"').strip("'")
-    vault = Path(os.path.expandvars(os.path.expanduser(vault_input))).resolve()
+    if not cli:
+        say("未找到可用的 Obsidian CLI；本次只能进行本地 Vault 盘点，不能通过 CLI 安装或启用插件。")
+
+    say("\n默认使用 Obsidian 当前打开的 Vault（新启动时由 Obsidian 恢复上次使用的 Vault）。")
+    vault_choice = ask("回车=使用当前 Vault；输入 switch=打开 Obsidian 仓库选择器；也可输入 Vault 文件夹路径：")
+    if vault_choice.strip().casefold() == "switch":
+        if not open_vault_chooser():
+            return 1
+        ask("请在 Obsidian 仓库选择器中选好 Vault，完成后按回车继续：")
+        vault = active_vault_path(cli) if cli else None
+    elif vault_choice.strip():
+        raw_path = vault_choice.strip().strip('"').strip("'")
+        vault = Path(os.path.expandvars(os.path.expanduser(raw_path))).resolve()
+    else:
+        vault = active_vault_path(cli) if cli else None
+
+    if vault is None:
+        say("无法确认 Obsidian 当前打开的 Vault。为避免随机选择或误操作，请手动输入 Vault 文件夹路径。")
+        vault_input = ask("请输入 Vault 文件夹路径（留空退出）：")
+        if not vault_input:
+            return 0
+        vault = Path(os.path.expandvars(os.path.expanduser(
+            vault_input.strip().strip('"').strip("'")
+        ))).resolve()
+
     if not vault.is_dir():
-        say("该 Vault 文件夹不存在或不是文件夹。"); return 1
-    say(f"Vault：{vault}")
+        say(f"Vault 路径不存在或不是文件夹：{vault}")
+        return 1
+    say(f"本次目标 Vault：{vault}")
     if not ensure_vault_plugin_dirs(vault):
         say("目录初始化未完成；已跳过插件盘点、安装与启用流程。")
         say("检查结束。本工具未读取笔记正文。")
         return 0
     audit_plugins(vault)
-    offer_obsidian_plugins(vault)
+    if cli:
+        offer_obsidian_plugins(vault)
+    else:
+        say("未执行插件安装或启用：当前没有可用的 Obsidian CLI。")
     say("\n检查结束。本工具只执行用户对本次插件清单一次明确授权的操作；未读取笔记正文。")
     return 0
 
