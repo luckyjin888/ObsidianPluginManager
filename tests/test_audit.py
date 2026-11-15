@@ -107,4 +107,29 @@ class AuditTests(unittest.TestCase):
             self.assertEqual(stats["skipped"], 1)
             self.assertTrue(any("超过单文件大小上限" in item for item in stats["errors"]))
 
+    def test_plugin_manifest_validation_requires_object_and_matching_id(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = Path(tmp) / "manifest.json"
+            manifest.write_text(json.dumps({"id": "quickadd", "name": "QuickAdd"}), encoding="utf-8")
+            self.assertTrue(om.is_valid_plugin_manifest(manifest, "quickadd"))
+            self.assertFalse(om.is_valid_plugin_manifest(manifest, "another-plugin"))
+
+            manifest.write_text(json.dumps(["quickadd"]), encoding="utf-8")
+            self.assertFalse(om.is_valid_plugin_manifest(manifest, "quickadd"))
+
+            manifest.write_text("{ invalid json", encoding="utf-8")
+            self.assertFalse(om.is_valid_plugin_manifest(manifest, "quickadd"))
+
+    def test_plugin_manifest_validation_rejects_symlinks(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            target = root / "real.json"
+            target.write_text(json.dumps({"id": "quickadd"}), encoding="utf-8")
+            link = root / "manifest.json"
+            try:
+                link.symlink_to(target)
+            except (OSError, NotImplementedError):
+                self.skipTest("Symlink creation is not available on this platform")
+            self.assertFalse(om.is_valid_plugin_manifest(link, "quickadd"))
+
 if __name__ == "__main__": unittest.main()
