@@ -68,7 +68,7 @@ class ObsidianCliGuidanceTests(unittest.TestCase):
         run.assert_called_once()
         self.assertIn("--size", run.call_args.args[0])
         self.assertIn("terminal image", [str(call.args[0]) for call in say.call_args_list])
-        popen.assert_called_once_with(["open", "/repo/guide.svg"])
+        popen.assert_called_once_with(["open", str(Path("/repo/guide.svg"))])
 
     @patch("obsidian_manager.subprocess.Popen")
     @patch("obsidian_manager.platform.system", return_value="Darwin")
@@ -81,7 +81,7 @@ class ObsidianCliGuidanceTests(unittest.TestCase):
     ):
         obsidian_manager.display_cli_setup_diagram(Path("/repo/guide.svg"))
         run.assert_not_called()
-        popen.assert_called_once_with(["open", "/repo/guide.svg"])
+        popen.assert_called_once_with(["open", str(Path("/repo/guide.svg"))])
         output = "\\n".join(str(call.args[0]) for call in say.call_args_list)
         self.assertIn("Obsidian · 设置", output)
         self.assertIn("命令行界面", output)
