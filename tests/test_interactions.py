@@ -44,6 +44,29 @@ class OutputAndSelectionTests(unittest.TestCase):
         with patch("builtins.input", return_value="1,3"):
             self.assertEqual(om.select_numbered(items), [])
 
+    def test_select_numbered_all_excludes_templater(self):
+        items = [
+            {"id": "quickadd", "name": "QuickAdd"},
+            {"id": "templater-obsidian", "name": "Templater"},
+        ]
+        with patch("builtins.input", return_value="all"):
+            selected = om.select_numbered(items, exclude_all_ids={"templater-obsidian"})
+        self.assertEqual([item["id"] for item in selected], ["quickadd"])
+
+    def test_plugin_action_uses_current_install_and_enable_state(self):
+        self.assertEqual(om.plugin_action("new", set(), set()), "install_and_enable")
+        self.assertEqual(om.plugin_action("installed", {"installed"}, set()), "enable")
+        self.assertEqual(om.plugin_action("enabled", {"enabled"}, {"enabled"}), "skip")
+
+    def test_plugin_batch_uses_one_consent_for_all_selected_items(self):
+        plan = [
+            ({"id": "one", "name": "One", "risk": "normal"}, "install_and_enable"),
+            ({"id": "two", "name": "Two", "risk": "normal"}, "enable"),
+        ]
+        with patch("obsidian_manager.ask_yes_no", return_value=True) as consent:
+            self.assertTrue(om.explain_plugin_batch("/vault", plan))
+        consent.assert_called_once()
+
     def test_yes_no_requires_explicit_one_and_defaults_blank_to_no(self):
         with patch("builtins.input", side_effect=["x", "1"]):
             self.assertTrue(om.ask_yes_no("确认"))
