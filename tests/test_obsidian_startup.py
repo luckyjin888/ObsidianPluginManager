@@ -19,7 +19,7 @@ class ObsidianStartupTests(unittest.TestCase):
             with patch.object(om.platform, "system", return_value="Darwin"):
                 with patch.object(om.subprocess, "Popen") as popen:
                     self.assertTrue(om.launch_obsidian(Path("/Applications/Obsidian.app")))
-                    popen.assert_called_once_with(["open", "-a", "/Applications/Obsidian.app"])
+                    popen.assert_called_once_with(["open", "-a", str(Path("/Applications/Obsidian.app"))])
 
     def test_cli_check_retries_while_app_is_starting(self):
         responses = [
