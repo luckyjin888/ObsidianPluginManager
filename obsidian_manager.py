@@ -1200,53 +1200,56 @@ def main():
     app = find_obsidian()
     if app:
         say(f"发现 Obsidian 位置：{app}")
+        ver = app_version(app)
+        say(f"Obsidian 版本：{ver}")
+
+        cli = shutil.which("obsidian")
+        if cli:
+            say(f"CLI 已在 PATH 中：{cli}")
+        else:
+            source = next((x for x in cli_candidates(app) if x.is_file()), None)
+            if source:
+                say(f"发现可能的内置 CLI：{source}")
+                say("CLI 命令尚未注册。官方 CLI 功能仍需先在 Obsidian 设置 → 常规 → 命令行界面中启用。")
+                if ask_yes_no("是否进行当前用户级 CLI 注册？"):
+                    if register_cli(app, source):
+                        cli = shutil.which("obsidian")
+            else:
+                say("未找到可识别的内置 CLI 文件；不会下载或替换程序。")
+
+        if not launch_obsidian(app):
+            say("无法启动 Obsidian；程序已停止，未扫描 Vault、未安装或启用插件。")
+            return 1
+        if cli and not check_cli_available(cli, wait_timeout=40):
+            return 0
+        if not cli:
+            say("未找到可用的 Obsidian CLI；本次只能进行本地 Vault 盘点，不能通过 CLI 安装或启用插件。")
+
+        say("\n默认使用 Obsidian 当前打开的 Vault（新启动时由 Obsidian 恢复上次使用的 Vault）。")
+        vault_choice = ask("回车=使用当前 Vault；输入 switch=打开 Obsidian 仓库选择器；也可输入 Vault 文件夹路径：")
+        if vault_choice.strip().casefold() == "switch":
+            if not open_vault_chooser():
+                return 1
+            ask("请在 Obsidian 仓库选择器中选好 Vault，完成后按回车继续：")
+            vault = active_vault_path(cli, wait_timeout=20) if cli else None
+        elif vault_choice.strip():
+            raw_path = vault_choice.strip().strip('"').strip("'")
+            vault = Path(os.path.expandvars(os.path.expanduser(raw_path))).resolve()
+        else:
+            vault = active_vault_path(cli, wait_timeout=20) if cli else None
+
+        if vault is None:
+            say("无法确认 Obsidian 当前打开的 Vault。为避免随机选择或误操作，请手动输入 Vault 文件夹路径。")
+            vault_input = ask("请输入 Vault 文件夹路径（留空退出）：")
+            if not vault_input:
+                return 0
+            vault = Path(os.path.expandvars(os.path.expanduser(
+                vault_input.strip().strip('"').strip("'")
+            ))).resolve()
     else:
         say("未能自动定位 Obsidian 安装目录。")
-        app = prompt_manual_obsidian_path(app)
-        if not app:
-            say("未提供有效安装目录；无法自动启动 Obsidian。")
-            return 1
-    ver = app_version(app)
-    say(f"Obsidian 版本：{ver}")
-
-    cli = shutil.which("obsidian")
-    if cli:
-        say(f"CLI 已在 PATH 中：{cli}")
-    else:
-        source = next((x for x in cli_candidates(app) if x.is_file()), None)
-        if source:
-            say(f"发现可能的内置 CLI：{source}")
-            say("CLI 命令尚未注册。官方 CLI 功能仍需先在 Obsidian 设置 → 常规 → 命令行界面中启用。")
-            if ask_yes_no("是否进行当前用户级 CLI 注册？"):
-                if register_cli(app, source):
-                    cli = shutil.which("obsidian")
-        else:
-            say("未找到可识别的内置 CLI 文件；不会下载或替换程序。")
-
-    if not launch_obsidian(app):
-        say("无法启动 Obsidian；程序已停止，未扫描 Vault、未安装或启用插件。")
-        return 1
-
-    if cli and not check_cli_available(cli, wait_timeout=40):
-        return 0
-    if not cli:
-        say("未找到可用的 Obsidian CLI；本次只能进行本地 Vault 盘点，不能通过 CLI 安装或启用插件。")
-
-    say("\n默认使用 Obsidian 当前打开的 Vault（新启动时由 Obsidian 恢复上次使用的 Vault）。")
-    vault_choice = ask("回车=使用当前 Vault；输入 switch=打开 Obsidian 仓库选择器；也可输入 Vault 文件夹路径：")
-    if vault_choice.strip().casefold() == "switch":
-        if not open_vault_chooser():
-            return 1
-        ask("请在 Obsidian 仓库选择器中选好 Vault，完成后按回车继续：")
-        vault = active_vault_path(cli, wait_timeout=20) if cli else None
-    elif vault_choice.strip():
-        raw_path = vault_choice.strip().strip('"').strip("'")
-        vault = Path(os.path.expandvars(os.path.expanduser(raw_path))).resolve()
-    else:
-        vault = active_vault_path(cli, wait_timeout=20) if cli else None
-
-    if vault is None:
-        say("无法确认 Obsidian 当前打开的 Vault。为避免随机选择或误操作，请手动输入 Vault 文件夹路径。")
+        say("你仍可继续进行本地 Vault 盘点；本次不会启动 Obsidian，也不会安装或启用插件。")
+        cli = None
         vault_input = ask("请输入 Vault 文件夹路径（留空退出）：")
         if not vault_input:
             return 0
