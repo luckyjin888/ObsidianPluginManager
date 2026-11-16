@@ -555,13 +555,16 @@ def github_rate_limit_retry_delay(exc):
             return max(1, int(float(reset_at) - time.time()))
         except (TypeError, ValueError):
             pass
-    return 2
+    # GitHub documents a minimum one-minute wait for secondary limits
+    # when no Retry-After or primary reset timestamp is supplied.
+    return 60
 
 
 def fetch_json_https(request, retries=NETWORK_RETRIES):
     """Read JSON over verified HTTPS; retry transient network failures and bounded rate limits."""
     attempts = max(1, int(retries))
     last_error = None
+    total_rate_limit_wait = 0
     for attempt in range(1, attempts + 1):
         try:
             with open_verified_https(request) as response:
@@ -575,12 +578,13 @@ def fetch_json_https(request, retries=NETWORK_RETRIES):
                     f"HTTP {exc.code}：GitHub/HTTP 服务触发请求限流；"
                     "已达到本次重试次数，未继续请求。"
                 ) from exc
-            if delay > MAX_RATE_LIMIT_WAIT:
+            if delay > MAX_RATE_LIMIT_WAIT - total_rate_limit_wait:
                 raise RuntimeError(
-                    f"HTTP {exc.code}：请求仍处于限流窗口，需等待约 {delay} 秒；"
-                    "超过自动等待上限，已停止请求。"
+                    f"HTTP {exc.code}：本次累计限流等待将超过 {MAX_RATE_LIMIT_WAIT} 秒；"
+                    "已停止请求，请稍后重新运行。"
                 ) from exc
             time.sleep(delay)
+            total_rate_limit_wait += delay
         except Exception as exc:
             last_error = exc
             if not is_transient_network_error(exc) or attempt >= attempts:
