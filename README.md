@@ -229,3 +229,11 @@ GNU General Public License v3.0 only，见 [LICENSE](LICENSE)。
 ## 参与社区建设
 
 欢迎所有人参与本项目：报告问题、测试不同平台、改善文档、翻译或提交代码都很有价值。普通贡献者无需仓库写入权限，可通过 Fork 和 Pull Request 提交修改。项目采用模块分工、核心审核、贡献者名单与积分认可制度。详情请阅读 [贡献指南](CONTRIBUTING.md)、[项目治理](GOVERNANCE.md) 和 [贡献者名单](CONTRIBUTORS.md)。
+
+## Markdown 模板库
+
+本项目提供可选的纯 Markdown 模板示例，覆盖日常记录、会议、研究文献、交易复盘与 AI Agent 任务/知识来源。模板不会自动安装插件、执行脚本或修改 Vault；请按需复制到自己的模板目录。
+
+- [模板目录与使用说明](docs/template-catalog/README.md)
+- [上游项目与许可来源记录](docs/template-catalog/SOURCES.md)
+- [依赖与安全边界](docs/template-catalog/DEPENDENCIES.md)

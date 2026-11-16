@@ -4,6 +4,8 @@
 
 ### Added
 - 新增可选 QuickAdd 代码块快捷模板：普通代码块、JSON 和 Python；提供 `{{CURSOR}}` 光标定位、Capture 配置说明及建议快捷键。仅分发 Markdown 示例，不自动修改 Vault、QuickAdd 配置或快捷键。
+- 新增可选的纯 Markdown 模板库，覆盖日常笔记、会议、研究文献、交易复盘与 AI Agent 任务/知识来源。
+- 新增模板目录、上游来源/许可证记录及依赖与安全边界说明；只引用上游项目，不复制其模板正文或资源。
 
 ### Added
 - 新增独立的 GitHub Releases Atom Feed 更新检查器，支持 ETag / Last-Modified 条件请求、本地缓存和新版本通知；仅检查与通知，不自动安装或更新插件。
