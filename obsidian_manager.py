@@ -519,27 +519,6 @@ def is_transient_network_error(exc):
     return False
 
 
-def github_api_token():
-    """Read a GitHub API token from the local process environment; never persist or print it."""
-    for name in ("GITHUB_TOKEN", "GH_TOKEN", "GITHUB_PAT"):
-        token = os.environ.get(name, "").strip()
-        if token:
-            return token
-    return None
-
-
-def github_api_headers():
-    """Build headers only for api.github.com requests; public registry reads stay unauthenticated."""
-    headers = {
-        "User-Agent": f"ObsidianPluginManager/{VERSION}",
-        "Accept": "application/vnd.github+json",
-    }
-    token = github_api_token()
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    return headers
-
-
 def github_rate_limit_retry_delay(exc):
     """Return a bounded retry delay for confirmed HTTP rate limits, never ordinary 403s."""
     if not isinstance(exc, urllib.error.HTTPError):
@@ -625,7 +604,11 @@ def fetch_repo_status(repo):
     repo = re.sub(r"\.git$","",repo)
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo): return None
     url = "https://api.github.com/repos/"+repo
-    req = urllib.request.Request(url, headers=github_api_headers())
+    req = urllib.request.Request(
+        url,
+        headers={"User-Agent": f"ObsidianPluginManager/{VERSION}",
+                 "Accept":"application/vnd.github+json"}
+    )
     return fetch_json_https(req)
 
 
@@ -1215,11 +1198,6 @@ def offer_obsidian_plugins(vault):
         return
 
     say("\n开始进行官方来源、仓库和许可证只读核验：")
-    if github_api_token():
-        say("GitHub API 认证：已检测到本机环境变量；Token 仅用于 GitHub API 仓库元数据读取，不会显示或写入文件。")
-    else:
-        say("GitHub API 认证：未检测到本机 Token；将使用公开 API 配额，可能更容易遇到 403 限流。")
-        say("如需提高配额，可在启动本程序的终端设置 GITHUB_TOKEN、GH_TOKEN 或 GITHUB_PAT。")
     try:
         registry = fetch_registry()
     except Exception as exc:
