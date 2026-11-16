@@ -342,7 +342,10 @@ def configure_quickadd_shortcuts(vault: Path, cli: str, confirm, say, ask=None, 
             answer = ask("完全退出 Obsidian 后按回车继续；输入 cancel 可跳过快捷键写入：")
             if str(answer).strip().lower() == "cancel":
                 raise RuntimeError("你选择跳过快捷键写入；QuickAdd 选项已导入，可稍后手动绑定。")
-            if is_running():
+            running_state = is_running()
+            if running_state is not False:
+                if running_state is None:
+                    raise RuntimeError("无法确认 Obsidian 已关闭（进程状态未知）；为避免配置被覆盖，未写入 hotkeys.json。")
                 raise RuntimeError("检测到 Obsidian 仍在运行；为避免配置被覆盖，未写入 hotkeys.json。")
             if hotkeys_path.exists():
                 latest_hotkeys = _read_json(hotkeys_path)
