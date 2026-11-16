@@ -71,6 +71,8 @@ Python:
 ## Upstream documentation
 
 - [QuickAdd — Capture choices](https://quickadd.obsidian.guide/docs/Choices/CaptureChoice/)
+- [QuickAdd — CLI package preview/import](https://quickadd.obsidian.guide/docs/Advanced/CLI/)
+- [Obsidian — CLI hotkeys and command listing](https://obsidian.md/help/cli)
 - [QuickAdd — Format syntax (`{{CURSOR}}` and `{{TEMPLATE:...}}`)](https://quickadd.obsidian.guide/docs/FormatSyntax/)
 - [QuickAdd — Getting started](https://quickadd.obsidian.guide/docs/)
 
