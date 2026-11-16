@@ -82,6 +82,12 @@ def build_package() -> dict:
             "newLineCapture": {"enabled": False, "direction": "below"},
             "task": False,
             "openFile": False,
+            "fileOpening": {
+                "location": "tab",
+                "direction": "vertical",
+                "mode": "default",
+                "focus": True,
+            },
         }
         choices.append({
             "choice": choice,
