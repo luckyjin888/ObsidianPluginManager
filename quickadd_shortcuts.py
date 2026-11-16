@@ -6,7 +6,6 @@ never edits QuickAdd's data.json directly and never overwrites existing choices.
 from __future__ import annotations
 
 import json
-import os
 import shutil
 import subprocess
 import tempfile
@@ -166,6 +165,8 @@ def _expected_choice(item: dict) -> dict:
 
 
 def _choice_state(data_path: Path) -> str:
+    if data_path.is_symlink():
+        raise RuntimeError("QuickAdd data.json 是符号链接；为避免写入 Vault 以外的位置，已停止。")
     if not data_path.exists():
         return "none"
     data = _read_json(data_path)
@@ -245,8 +246,18 @@ def configure_quickadd_shortcuts(vault: Path, cli: str, confirm, say) -> bool:
         return False
 
     data_path = plugin_dir / "data.json"
-    state = _choice_state(data_path)
     hotkeys_path = config_root / "hotkeys.json"
+    if config_root.is_symlink() or plugin_dir.is_symlink():
+        say("Obsidian 配置目录或 QuickAdd 插件目录是符号链接；为避免越界写入，已停止。")
+        return False
+    try:
+        state = _choice_state(data_path)
+    except RuntimeError as exc:
+        say(str(exc))
+        return False
+    if hotkeys_path.is_symlink():
+        say("hotkeys.json 是符号链接；为避免越界写入，已停止。")
+        return False
     if hotkeys_path.exists():
         hotkeys = _read_json(hotkeys_path)
         if not isinstance(hotkeys, dict):
