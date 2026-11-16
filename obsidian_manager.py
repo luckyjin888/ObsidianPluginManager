@@ -1215,6 +1215,11 @@ def offer_obsidian_plugins(vault):
         return
 
     say("\n开始进行官方来源、仓库和许可证只读核验：")
+    if github_api_token():
+        say("GitHub API 认证：已检测到本机环境变量；Token 仅用于 GitHub API 仓库元数据读取，不会显示或写入文件。")
+    else:
+        say("GitHub API 认证：未检测到本机 Token；将使用公开 API 配额，可能更容易遇到 403 限流。")
+        say("如需提高配额，可在启动本程序的终端设置 GITHUB_TOKEN、GH_TOKEN 或 GITHUB_PAT。")
     try:
         registry = fetch_registry()
     except Exception as exc:
