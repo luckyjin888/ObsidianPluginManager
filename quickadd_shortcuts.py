@@ -6,6 +6,7 @@ never edits QuickAdd's data.json directly and never overwrites existing choices.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import tempfile
