@@ -43,6 +43,12 @@ python3 plugin_update_subscription.py
 
 这是**按需检查的 GitHub Releases API 订阅客户端**，不是常驻后台服务，也不保证实时或不限流。可以按自己的需要手动运行，或由用户自行配置系统计划任务；本工具不会自动创建计划任务。GitHub API 仍可能限流，遇到 403/429 会停止后续请求。更新通知不代表插件已通过安全审查；安装前仍须执行原有来源、仓库和许可证核验，并由用户明确授权。
 
+## QuickAdd 代码块快捷模板
+
+项目附带可选的 QuickAdd Capture 模板，可将普通代码块、JSON 代码块和 Python 代码块绑定到 Obsidian 快捷键。模板与安装说明位于 [docs/quickadd-code-block-shortcuts](docs/quickadd-code-block-shortcuts/README.md)，可复用的 Markdown 模板位于 `examples/quickadd-templates/`。
+
+建议 macOS 快捷键为 `⌘ + ⇧ + C`（普通代码块）、`⌘ + ⇧ + J`（JSON）和 `⌘ + ⇧ + P`（Python）。这些只是建议，不会自动写入或覆盖用户的快捷键配置。该功能要求用户已安装并启用 QuickAdd，并由用户手动复制模板、创建 Capture choices 和绑定快捷键。
+
 ## 环境要求
 
 - Python 3.10 或更高版本。
