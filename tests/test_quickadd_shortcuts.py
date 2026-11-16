@@ -84,6 +84,21 @@ class QuickAddInstallerTests(unittest.TestCase):
             self.assertFalse(result)
             self.assertTrue(any("尚未安装" in x for x in messages))
 
+    def test_quickadd_below_safe_import_version_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            vault, plugin = self.make_vault(tmp)
+            (plugin / "manifest.json").write_text(
+                json.dumps({"id": "quickadd", "version": "2.29.9"}), encoding="utf-8"
+            )
+            messages = []
+            confirm = Mock(return_value=True)
+            result = qs.configure_quickadd_shortcuts(
+                vault, "obsidian", confirm, messages.append
+            )
+            self.assertFalse(result)
+            confirm.assert_not_called()
+            self.assertTrue(any("2.30.0" in message for message in messages))
+
     def test_decline_does_not_write_any_configuration(self):
         with tempfile.TemporaryDirectory() as tmp:
             vault, plugin = self.make_vault(tmp)
