@@ -182,7 +182,8 @@ def rate_limit_retry_delay(exc: urllib.error.HTTPError) -> int | None:
             return max(1, int(float(reset_at) - time.time()))
         except (TypeError, ValueError):
             pass
-    return 2
+    # GitHub recommends waiting at least one minute for headerless secondary limits.
+    return 60
 
 
 def check_one(name: str, repository: str, previous: dict) -> tuple[dict, str]:
@@ -200,12 +201,13 @@ def check_one(name: str, repository: str, previous: dict) -> tuple[dict, str]:
     if api_cache and previous.get("last_modified"):
         headers["If-Modified-Since"] = previous["last_modified"]
     request = urllib.request.Request(url, headers=headers)
+    total_rate_limit_wait = 0
 
     for attempt in range(1, 4):
         try:
             with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
                 latest = parse_release(response.read(MAX_FEED_BYTES + 1))
-                record = dict(previous)
+                record = dict(previous) if api_cache else {}
                 record["repository"] = repository
                 record["source"] = CACHE_SOURCE
                 record["checked"] = True
@@ -230,7 +232,7 @@ def check_one(name: str, repository: str, previous: dict) -> tuple[dict, str]:
                 record["checked"] = True
                 return record, "not_modified"
             if exc.code == 404:
-                record = dict(previous)
+                record = dict(previous) if api_cache else {}
                 record.update({"repository": repository, "source": CACHE_SOURCE, "checked": True, "latest": None})
                 return record, "empty"
             if exc.code == 401:
@@ -241,9 +243,13 @@ def check_one(name: str, repository: str, previous: dict) -> tuple[dict, str]:
                     raise RuntimeError(f"GitHub Releases API 权限被拒绝（HTTP {exc.code}），不是已确认的限流。") from exc
                 if attempt >= 3:
                     raise RuntimeError(f"GitHub Releases API 限流（HTTP {exc.code}），已达到重试上限。") from exc
-                if delay > 60:
-                    raise RuntimeError(f"GitHub Releases API 限流，建议等待约 {delay} 秒后再订阅；已停止自动重试。") from exc
+                if delay > 60 - total_rate_limit_wait:
+                    raise RuntimeError(
+                        f"GitHub Releases API 限流；本次累计等待将超过 60 秒，"
+                        f"建议等待约 {delay} 秒后再订阅。已停止自动重试。"
+                    ) from exc
                 time.sleep(delay)
+                total_rate_limit_wait += delay
                 continue
             raise RuntimeError(f"GitHub Releases API 请求失败：HTTP {exc.code}") from exc
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
