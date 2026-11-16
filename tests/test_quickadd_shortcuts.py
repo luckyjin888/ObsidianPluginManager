@@ -2,7 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import quickadd_shortcuts as qs
 
@@ -101,7 +101,7 @@ class QuickAddInstallerTests(unittest.TestCase):
                     {"modifiers": ["Mod", "Shift"], "key": "P"}
                 ]
             }), encoding="utf-8")
-            confirm = unittest.mock.Mock(return_value=True)
+            confirm = Mock(return_value=True)
             messages = []
             result = qs.configure_quickadd_shortcuts(vault, "obsidian", confirm, messages.append)
             self.assertFalse(result)
