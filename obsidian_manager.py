@@ -843,7 +843,7 @@ def is_cli_not_enabled(result):
 
 
 def obsidian_is_running():
-    """Return whether the Obsidian desktop process is already running."""
+    """Return True/False when the process probe succeeds, or None when state is unknown."""
     system = platform.system()
     try:
         if system == "Darwin":
@@ -851,25 +851,38 @@ def obsidian_is_running():
                 ["pgrep", "-x", "Obsidian"], capture_output=True, text=True,
                 timeout=5, check=False,
             )
-            return result.returncode == 0
+            if result.returncode == 0:
+                return True
+            if result.returncode == 1:
+                return False
+            return None
         if system == "Windows":
             result = subprocess.run(
                 ["tasklist", "/FI", "IMAGENAME eq Obsidian.exe", "/NH"],
                 capture_output=True, text=True, encoding="utf-8",
                 errors="replace", timeout=5, check=False,
             )
-            return "Obsidian.exe" in result.stdout
-        for process_name in ("obsidian", "Obsidian"):
-            result = subprocess.run(
-                ["pgrep", "-x", process_name], capture_output=True, text=True,
-                timeout=5, check=False,
-            )
-            if result.returncode == 0:
+            if result.returncode != 0:
+                return None
+            if "Obsidian.exe" in result.stdout:
                 return True
+            if "No tasks are running" in result.stdout or "没有运行的任务" in result.stdout:
+                return False
+            return None
+        if system == "Linux":
+            for process_name in ("obsidian", "Obsidian"):
+                result = subprocess.run(
+                    ["pgrep", "-x", process_name], capture_output=True, text=True,
+                    timeout=5, check=False,
+                )
+                if result.returncode == 0:
+                    return True
+                if result.returncode != 1:
+                    return None
+            return False
     except (OSError, subprocess.TimeoutExpired):
-        return False
-    return False
-
+        return None
+    return None
 
 def launch_obsidian(app):
     """Launch or focus Obsidian; the app itself restores its previously used Vault."""
