@@ -22,32 +22,19 @@ CHOICES = (
     {
         "id": "opm-insert-code-block",
         "name": "Insert Code Block",
-        "format": "```\n{{CURSOR}}\n```",
         "hotkey": "C",
     },
     {
         "id": "opm-insert-json-block",
         "name": "Insert JSON Block",
-        "format": "json\n",
         "hotkey": "J",
-        "full_format": "json",
     },
     {
         "id": "opm-insert-python-block",
         "name": "Insert Python Block",
-        "format": "python\n",
         "hotkey": "P",
-        "full_format": "python",
     },
 )
-
-
-def _capture_format(choice: dict) -> str:
-    if choice["id"] == "opm-insert-json-block":
-        return "json\n{\n  {{CURSOR}}\n}"
-    if choice["id"] == "opm-insert-python-block":
-        return "python\n```"
-    return choice["format"]
 
 
 def build_package() -> dict:
