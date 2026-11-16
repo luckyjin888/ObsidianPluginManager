@@ -560,11 +560,12 @@ def github_rate_limit_retry_delay(exc):
     return 60
 
 
-def fetch_json_https(request, retries=NETWORK_RETRIES):
+def fetch_json_https(request, retries=NETWORK_RETRIES, rate_limit_wait_budget=None):
     """Read JSON over verified HTTPS; retry transient network failures and bounded rate limits."""
     attempts = max(1, int(retries))
     last_error = None
-    total_rate_limit_wait = 0
+    # Standalone callers get a local budget; batch callers share one mutable counter.
+    wait_budget = rate_limit_wait_budget if rate_limit_wait_budget is not None else [0]
     for attempt in range(1, attempts + 1):
         try:
             with open_verified_https(request) as response:
@@ -578,13 +579,13 @@ def fetch_json_https(request, retries=NETWORK_RETRIES):
                     f"HTTP {exc.code}：GitHub/HTTP 服务触发请求限流；"
                     "已达到本次重试次数，未继续请求。"
                 ) from exc
-            if delay > MAX_RATE_LIMIT_WAIT - total_rate_limit_wait:
+            if delay > MAX_RATE_LIMIT_WAIT - wait_budget[0]:
                 raise RuntimeError(
-                    f"HTTP {exc.code}：本次累计限流等待将超过 {MAX_RATE_LIMIT_WAIT} 秒；"
+                    f"HTTP {exc.code}：本次批量操作累计限流等待将超过 {MAX_RATE_LIMIT_WAIT} 秒；"
                     "已停止请求，请稍后重新运行。"
                 ) from exc
             time.sleep(delay)
-            total_rate_limit_wait += delay
+            wait_budget[0] += delay
         except Exception as exc:
             last_error = exc
             if not is_transient_network_error(exc) or attempt >= attempts:
@@ -593,17 +594,17 @@ def fetch_json_https(request, retries=NETWORK_RETRIES):
     raise last_error
 
 
-def fetch_registry():
+def fetch_registry(rate_limit_wait_budget=None):
     """Read Obsidian's public plugin registry without sending a GitHub API token."""
     req = urllib.request.Request(
         REGISTRY_URL,
         headers={"User-Agent": f"ObsidianPluginManager/{VERSION}"}
     )
-    data = fetch_json_https(req)
+    data = fetch_json_https(req, rate_limit_wait_budget=rate_limit_wait_budget)
     return {str(x.get("id","")):x for x in data if isinstance(x,dict) and x.get("id")}
 
 
-def fetch_repo_status(repo):
+def fetch_repo_status(repo, rate_limit_wait_budget=None):
     repo = re.sub(r"^https?://github.com/","",str(repo or "").strip()).strip("/")
     repo = re.sub(r"\.git$","",repo)
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo): return None
@@ -613,7 +614,7 @@ def fetch_repo_status(repo):
         headers={"User-Agent": f"ObsidianPluginManager/{VERSION}",
                  "Accept":"application/vnd.github+json"}
     )
-    return fetch_json_https(req)
+    return fetch_json_https(req, rate_limit_wait_budget=rate_limit_wait_budget)
 
 
 def wait_for_plugin_enabled(enabled_path, plugin_id, wait_timeout=ENABLE_VERIFY_TIMEOUT):
@@ -1202,8 +1203,10 @@ def offer_obsidian_plugins(vault):
         return
 
     say("\n开始进行官方来源、仓库和许可证只读核验：")
+    # One 60-second budget covers the registry and every repository in this batch.
+    rate_limit_wait_budget = [0]
     try:
-        registry = fetch_registry()
+        registry = fetch_registry(rate_limit_wait_budget=rate_limit_wait_budget)
     except Exception as exc:
         say(f"无法读取 Obsidian 官方社区插件目录，出于安全考虑停止本次操作：{exc}")
         return
@@ -1218,9 +1221,12 @@ def offer_obsidian_plugins(vault):
             say(f'跳过 {item["name"]}：官方目录仓库与预设仓库不一致。')
             continue
         try:
-            info = fetch_repo_status(item["repo"])
+            info = fetch_repo_status(item["repo"], rate_limit_wait_budget=rate_limit_wait_budget)
         except Exception as exc:
             say(f'跳过 {item["name"]}：无法读取 GitHub 仓库状态（{exc}）。')
+            if "累计限流等待" in str(exc) or "触发请求限流" in str(exc):
+                say("检测到 GitHub 共享限流或累计等待上限；停止后续仓库请求。")
+                break
             continue
         spdx = (info.get("license") or {}).get("spdx_id") or ""
         if spdx not in OPEN_SOURCE_LICENSES:
