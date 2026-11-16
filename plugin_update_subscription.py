@@ -17,7 +17,8 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-VERSION = "0.2.0"
+VERSION = "0.2.1"
+CACHE_SOURCE = "github-releases-api-v1"
 USER_AGENT = f"ObsidianPluginManager-ReleaseWatcher/{VERSION}"
 TIMEOUT = 15
 MAX_FEED_BYTES = 1024 * 1024
@@ -190,10 +191,13 @@ def check_one(name: str, repository: str, previous: dict) -> tuple[dict, str]:
     ):
         raise ValueError("GitHub 仓库名称格式无效。")
     url = f"https://api.github.com/repos/{repository}/releases/latest"
+    # Atom Feed and REST API validators/IDs are not interchangeable. Ignore legacy
+    # cache validators and establish a clean baseline on the first API-backed run.
+    api_cache = previous.get("source") == CACHE_SOURCE
     headers = github_api_headers()
-    if previous.get("etag"):
+    if api_cache and previous.get("etag"):
         headers["If-None-Match"] = previous["etag"]
-    if previous.get("last_modified"):
+    if api_cache and previous.get("last_modified"):
         headers["If-Modified-Since"] = previous["last_modified"]
     request = urllib.request.Request(url, headers=headers)
 
@@ -203,15 +207,16 @@ def check_one(name: str, repository: str, previous: dict) -> tuple[dict, str]:
                 latest = parse_release(response.read(MAX_FEED_BYTES + 1))
                 record = dict(previous)
                 record["repository"] = repository
+                record["source"] = CACHE_SOURCE
                 record["checked"] = True
-                record["etag"] = response.headers.get("ETag", previous.get("etag", ""))
+                record["etag"] = response.headers.get("ETag", previous.get("etag", "") if api_cache else "")
                 record["last_modified"] = response.headers.get(
-                    "Last-Modified", previous.get("last_modified", "")
+                    "Last-Modified", previous.get("last_modified", "") if api_cache else ""
                 )
-                old_id = previous.get("latest", {}).get("id") if isinstance(previous.get("latest"), dict) else None
+                old_id = previous.get("latest", {}).get("id") if api_cache and isinstance(previous.get("latest"), dict) else None
                 record["latest"] = latest
-                if old_id is None:
-                    status = "new" if previous.get("checked") else "baseline"
+                if not api_cache or old_id is None:
+                    status = "new" if api_cache and previous.get("checked") else "baseline"
                 elif latest.get("id") != old_id:
                     status = "new"
                 else:
@@ -221,11 +226,12 @@ def check_one(name: str, repository: str, previous: dict) -> tuple[dict, str]:
             if exc.code == 304:
                 record = dict(previous)
                 record["repository"] = repository
+                record["source"] = CACHE_SOURCE
                 record["checked"] = True
                 return record, "not_modified"
             if exc.code == 404:
                 record = dict(previous)
-                record.update({"repository": repository, "checked": True, "latest": None})
+                record.update({"repository": repository, "source": CACHE_SOURCE, "checked": True, "latest": None})
                 return record, "empty"
             if exc.code == 401:
                 raise RuntimeError("GitHub API Token 认证失败（HTTP 401）；请检查本机环境变量中的 Token。") from exc
@@ -268,7 +274,7 @@ def run(cache_path: Path | None = None) -> int:
             elif status == "baseline":
                 print(f"[已建立订阅基线] {name}：{title}")
             elif status == "not_modified":
-                print(f"[无变化] {name}：Feed 未修改")
+                print(f"[无变化] {name}：Release API 返回未修改")
             elif status == "empty":
                 print(f"[暂无发布] {name}")
             else:
@@ -278,7 +284,7 @@ def run(cache_path: Path | None = None) -> int:
             print(f"[无法检查] {name}：{exc}")
             # 403/429 常是共享限流；不要继续轰炸同一主机。
             if "HTTP 403" in str(exc) or "HTTP 429" in str(exc) or "API 限流" in str(exc):
-                print("检测到限流，已停止后续 Feed 请求。")
+                print("检测到限流，已停止后续 API 请求。")
                 break
     if changed:
         save_cache(path, cache)
