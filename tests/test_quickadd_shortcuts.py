@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch
 
 import quickadd_shortcuts as qs
 import obsidian_hotkeys as oh
+import obsidian_manager as om
 
 
 class QuickAddPackageTests(unittest.TestCase):
@@ -193,6 +194,52 @@ class ObsidianHotkeyParsingTests(unittest.TestCase):
     def test_rejects_unrecognised_nonempty_payload(self):
         with self.assertRaisesRegex(ValueError, "无法识别"):
             oh.parse_hotkeys_json('{"unexpected":true}')
+
+
+
+class ObsidianProcessStateTests(unittest.TestCase):
+    def test_process_probe_error_returns_unknown(self):
+        with patch.object(om.platform, "system", return_value="Darwin"):
+            with patch.object(om.subprocess, "run", side_effect=OSError("pgrep unavailable")):
+                self.assertIsNone(om.obsidian_is_running())
+
+    def test_unexpected_pgrep_exit_code_returns_unknown(self):
+        from types import SimpleNamespace
+        with patch.object(om.platform, "system", return_value="Linux"):
+            with patch.object(om.subprocess, "run", return_value=SimpleNamespace(returncode=2, stdout="", stderr="permission denied")):
+                self.assertIsNone(om.obsidian_is_running())
+
+    def test_successful_no_match_probe_confirms_closed(self):
+        from types import SimpleNamespace
+        with patch.object(om.platform, "system", return_value="Linux"):
+            with patch.object(om.subprocess, "run", return_value=SimpleNamespace(returncode=1, stdout="", stderr="")):
+                self.assertFalse(om.obsidian_is_running())
+
+    def test_unknown_process_state_prevents_hotkey_write(self):
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as tmp:
+            vault, plugin = QuickAddInstallerTests().make_vault(tmp)
+            data_path = plugin / "data.json"
+            data_path.write_text('{"choices":[]}', encoding="utf-8")
+            messages = []
+
+            def fake_cli(args, **kwargs):
+                if "quickadd:package-import" in args:
+                    package = qs.build_package()
+                    data_path.write_text(json.dumps({
+                        "choices": [entry["choice"] for entry in package["choices"]]
+                    }), encoding="utf-8")
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+            with patch.object(qs, "read_active_hotkeys", return_value=set()):
+                with patch.object(qs.subprocess, "run", side_effect=fake_cli):
+                    result = qs.configure_quickadd_shortcuts(
+                        vault, "obsidian", lambda _: True, messages.append,
+                        ask=lambda _: "", is_running=lambda: None
+                    )
+            self.assertFalse(result)
+            self.assertFalse((vault / ".obsidian" / "hotkeys.json").exists())
+            self.assertTrue(any("状态未知" in message for message in messages))
 
 
 class AtomicHotkeyWriterTests(unittest.TestCase):
