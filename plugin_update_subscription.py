@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 # GPL-3.0-only
-"""低请求量检查 Obsidian 社区插件的 GitHub Releases Atom Feed。
+"""低请求量检查 Obsidian 社区插件的 GitHub Releases API。
 
-本工具使用公开 Atom Feed，而不是 GitHub REST API。它是按需检查器，不是
-常驻后台服务，也不保证实时或不限流。不会安装/更新插件，也不读取 Vault。
+GitHub Token 仅用于本订阅模块的只读 Releases API 请求；不会写入缓存、Vault、
+仓库文件或日志。工具只检查版本，不会安装/更新插件，也不读取 Vault。
 """
 from __future__ import annotations
 
 import json
 import os
 import tempfile
+import time
 import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -30,6 +31,7 @@ PLUGINS = (
     ("Linter", "platers/obsidian-linter"),
     ("Advanced Tables", "tgrosinger/advanced-tables-obsidian"),
     ("Templater", "SilentVoid13/Templater"),
+    ("Codeblock Customizer", "mugiwara85/CodeblockCustomizer"),
 )
 
 
@@ -107,56 +109,139 @@ def parse_feed(payload: bytes) -> dict | None:
     }
 
 
-def check_one(name: str, repository: str, previous: dict) -> tuple[dict, str]:
-    url = f"https://github.com/{repository}/releases.atom"
+def github_api_token() -> str | None:
+    """只从本机进程环境读取订阅用 Token；绝不持久化或打印。"""
+    for name in ("GITHUB_TOKEN", "GH_TOKEN", "GITHUB_PAT"):
+        token = os.environ.get(name, "").strip()
+        if token:
+            return token
+    return None
+
+
+def github_api_headers() -> dict:
+    """仅供 GitHub Releases 订阅 API 使用。"""
     headers = {
         "User-Agent": USER_AGENT,
-        "Accept": "application/atom+xml, application/xml;q=0.9",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
     }
+    token = github_api_token()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+
+def parse_release(payload: bytes) -> dict:
+    if len(payload) > MAX_FEED_BYTES:
+        raise ValueError("GitHub Release 响应超过 1 MiB 安全读取上限。")
+    try:
+        data = json.loads(payload.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"GitHub Release 响应不是有效 JSON：{exc}") from exc
+    if not isinstance(data, dict) or data.get("id") is None:
+        raise ValueError("GitHub Release 响应缺少有效 Release ID。")
+    return {
+        "id": str(data["id"]),
+        "title": (data.get("name") or data.get("tag_name") or "").strip(),
+        "updated": data.get("published_at") or data.get("created_at") or "",
+        "link": data.get("html_url") or "",
+    }
+
+
+def rate_limit_retry_delay(exc: urllib.error.HTTPError) -> int | None:
+    """识别真实限流；普通权限 403 不重试。"""
+    headers = exc.headers or {}
+    body = ""
+    try:
+        body = exc.read(4096).decode("utf-8", errors="replace").casefold()
+    except Exception:
+        pass
+    retry_after = headers.get("Retry-After")
+    remaining = headers.get("X-RateLimit-Remaining")
+    limited = (
+        exc.code == 429
+        or (exc.code == 403 and (
+            str(remaining).strip() == "0"
+            or "secondary rate limit" in body
+            or "api rate limit exceeded" in body
+            or "rate limit exceeded" in body
+        ))
+    )
+    if not limited:
+        return None
+    if retry_after:
+        try:
+            return max(1, int(float(retry_after)))
+        except (TypeError, ValueError):
+            pass
+    reset_at = headers.get("X-RateLimit-Reset")
+    if reset_at:
+        try:
+            return max(1, int(float(reset_at) - time.time()))
+        except (TypeError, ValueError):
+            pass
+    return 2
+
+
+def check_one(name: str, repository: str, previous: dict) -> tuple[dict, str]:
+    if not isinstance(repository, str) or not __import__("re").fullmatch(
+        r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository
+    ):
+        raise ValueError("GitHub 仓库名称格式无效。")
+    url = f"https://api.github.com/repos/{repository}/releases/latest"
+    headers = github_api_headers()
     if previous.get("etag"):
         headers["If-None-Match"] = previous["etag"]
     if previous.get("last_modified"):
         headers["If-Modified-Since"] = previous["last_modified"]
     request = urllib.request.Request(url, headers=headers)
-    try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
-            payload = response.read(MAX_FEED_BYTES + 1)
-            latest = parse_feed(payload)
-            record = dict(previous)
-            record["repository"] = repository
-            record["checked"] = True
-            record["etag"] = response.headers.get("ETag", previous.get("etag", ""))
-            record["last_modified"] = response.headers.get(
-                "Last-Modified", previous.get("last_modified", "")
-            )
-            if latest:
+
+    for attempt in range(1, 4):
+        try:
+            with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+                latest = parse_release(response.read(MAX_FEED_BYTES + 1))
+                record = dict(previous)
+                record["repository"] = repository
+                record["checked"] = True
+                record["etag"] = response.headers.get("ETag", previous.get("etag", ""))
+                record["last_modified"] = response.headers.get(
+                    "Last-Modified", previous.get("last_modified", "")
+                )
                 old_id = previous.get("latest", {}).get("id") if isinstance(previous.get("latest"), dict) else None
                 record["latest"] = latest
                 if old_id is None:
-                    # 首次检查只建立基线；若此前已成功检查过但没有 Release，
-                    # 现在出现第一个 Release，应作为新发布通知。
                     status = "new" if previous.get("checked") else "baseline"
-                elif latest.get("id") and latest.get("id") != old_id:
+                elif latest.get("id") != old_id:
                     status = "new"
                 else:
                     status = "current"
-            else:
-                record["latest"] = None
-                status = "empty"
-            return record, status
-    except urllib.error.HTTPError as exc:
-        if exc.code == 304:
-            record = dict(previous)
-            record["repository"] = repository
-            record["checked"] = True
-            return record, "not_modified"
-        if exc.code in (403, 429):
-            retry = exc.headers.get("Retry-After", "") if exc.headers else ""
-            suffix = f"；Retry-After={retry}" if retry else ""
-            raise RuntimeError(f"GitHub Feed 返回 HTTP {exc.code}，请稍后再试{suffix}") from exc
-        raise RuntimeError(f"Feed 请求失败：HTTP {exc.code}") from exc
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        raise RuntimeError(f"网络请求失败：{exc}") from exc
+                return record, status
+        except urllib.error.HTTPError as exc:
+            if exc.code == 304:
+                record = dict(previous)
+                record["repository"] = repository
+                record["checked"] = True
+                return record, "not_modified"
+            if exc.code == 404:
+                record = dict(previous)
+                record.update({"repository": repository, "checked": True, "latest": None})
+                return record, "empty"
+            if exc.code == 401:
+                raise RuntimeError("GitHub API Token 认证失败（HTTP 401）；请检查本机环境变量中的 Token。") from exc
+            if exc.code in (403, 429):
+                delay = rate_limit_retry_delay(exc)
+                if delay is None:
+                    raise RuntimeError(f"GitHub Releases API 权限被拒绝（HTTP {exc.code}），不是已确认的限流。") from exc
+                if attempt >= 3:
+                    raise RuntimeError(f"GitHub Releases API 限流（HTTP {exc.code}），已达到重试上限。") from exc
+                if delay > 60:
+                    raise RuntimeError(f"GitHub Releases API 限流，建议等待约 {delay} 秒后再订阅；已停止自动重试。") from exc
+                time.sleep(delay)
+                continue
+            raise RuntimeError(f"GitHub Releases API 请求失败：HTTP {exc.code}") from exc
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            raise RuntimeError(f"网络请求失败：{exc}") from exc
+    raise RuntimeError("GitHub Releases API 请求未能完成。")
 
 
 def run(cache_path: Path | None = None) -> int:
@@ -164,8 +249,9 @@ def run(cache_path: Path | None = None) -> int:
     cache = load_cache(path)
     changed = False
     failures = 0
-    print("插件更新订阅检查（GitHub Releases Atom Feed）")
+    print("插件更新订阅检查（GitHub Releases API）")
     print("只检查版本发布信息；不会安装、更新插件，也不会读取 Vault。")
+    print("订阅认证：" + ("已检测到本机 Token（仅用于本订阅 API）" if github_api_token() else "未检测到 Token，将使用公开 API 配额。"))
     for name, repository in PLUGINS:
         previous = cache.get(repository, {})
         if not isinstance(previous, dict):
@@ -190,7 +276,7 @@ def run(cache_path: Path | None = None) -> int:
             failures += 1
             print(f"[无法检查] {name}：{exc}")
             # 403/429 常是共享限流；不要继续轰炸同一主机。
-            if "HTTP 403" in str(exc) or "HTTP 429" in str(exc):
+            if "HTTP 403" in str(exc) or "HTTP 429" in str(exc) or "API 限流" in str(exc):
                 print("检测到限流，已停止后续 Feed 请求。")
                 break
     if changed:
