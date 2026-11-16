@@ -6,7 +6,7 @@
 - 版本更新至 0.6.5。
 
 ### Added
-- 新增 QuickAdd 代码块快捷键安装流程：通过官方 package-import 新增三个无脚本 Capture choices，安全合并 `hotkeys.json`，检查冲突并备份原配置；不覆盖已有 QuickAdd choices。
+- 新增 QuickAdd 代码块快捷键安装流程：通过官方 package-import 新增三个无脚本 Capture choices，使用 Obsidian CLI 检查默认与自定义快捷键冲突，备份原配置；完全退出 Obsidian 后才写入 `hotkeys.json`，完成后重新启动，不覆盖已有 QuickAdd choices。
 - 新增可选的纯 Markdown 模板库，覆盖日常笔记、会议、研究文献、交易复盘与 AI Agent 任务/知识来源。
 - 新增模板目录、上游来源/许可证记录及依赖与安全边界说明；只引用上游项目，不复制其模板正文或资源。
 
