@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# ObsidianPluginManager 0.6.3
+# ObsidianPluginManager 0.6.4
 # GPL-3.0-only
 """Cross-platform, consent-first Obsidian plugin inventory and heuristic audit."""
 from __future__ import annotations
@@ -8,11 +8,12 @@ import json, os, platform, re, shutil, subprocess, sys, ssl, time, urllib.error,
 from pathlib import Path
 from datetime import datetime, timezone
 
-VERSION = "0.6.3"
+VERSION = "0.6.4"
 MIN_CLI = (1, 12, 7)
 REGISTRY_URL = "https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugins.json"
 NETWORK_TIMEOUT = 30
 NETWORK_RETRIES = 3
+MAX_RATE_LIMIT_WAIT = 60
 ENABLE_VERIFY_TIMEOUT = 15
 
 def say(s=""):
@@ -518,14 +519,89 @@ def is_transient_network_error(exc):
     return False
 
 
+def github_api_token():
+    """Read a GitHub API token from the local process environment; never persist or print it."""
+    for name in ("GITHUB_TOKEN", "GH_TOKEN", "GITHUB_PAT"):
+        token = os.environ.get(name, "").strip()
+        if token:
+            return token
+    return None
+
+
+def github_api_headers():
+    """Build headers only for api.github.com requests; public registry reads stay unauthenticated."""
+    headers = {
+        "User-Agent": f"ObsidianPluginManager/{VERSION}",
+        "Accept": "application/vnd.github+json",
+    }
+    token = github_api_token()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+
+def github_rate_limit_retry_delay(exc):
+    """Return a bounded retry delay for confirmed HTTP rate limits, never ordinary 403s."""
+    if not isinstance(exc, urllib.error.HTTPError):
+        return None
+    headers = exc.headers or {}
+    retry_after = headers.get("Retry-After")
+    remaining = headers.get("X-RateLimit-Remaining")
+    body = ""
+    try:
+        body = exc.read(4096).decode("utf-8", errors="replace").casefold()
+    except Exception:
+        pass
+
+    is_rate_limited = (
+        exc.code == 429
+        or (exc.code == 403 and (
+            str(remaining).strip() == "0"
+            or "secondary rate limit" in body
+            or "api rate limit exceeded" in body
+            or "rate limit exceeded" in body
+        ))
+    )
+    if not is_rate_limited:
+        return None
+
+    if retry_after:
+        try:
+            return max(1, int(float(retry_after)))
+        except (TypeError, ValueError):
+            pass
+    reset_at = headers.get("X-RateLimit-Reset")
+    if reset_at:
+        try:
+            return max(1, int(float(reset_at) - time.time()))
+        except (TypeError, ValueError):
+            pass
+    return 2
+
+
 def fetch_json_https(request, retries=NETWORK_RETRIES):
-    """Read JSON over verified HTTPS; retry truncated/timed-out responses only."""
+    """Read JSON over verified HTTPS; retry transient network failures and bounded rate limits."""
     attempts = max(1, int(retries))
     last_error = None
     for attempt in range(1, attempts + 1):
         try:
             with open_verified_https(request) as response:
                 return json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            delay = github_rate_limit_retry_delay(exc)
+            if delay is None:
+                raise
+            if attempt >= attempts:
+                raise RuntimeError(
+                    f"HTTP {exc.code}：GitHub/HTTP 服务触发请求限流；"
+                    "已达到本次重试次数，未继续请求。"
+                ) from exc
+            if delay > MAX_RATE_LIMIT_WAIT:
+                raise RuntimeError(
+                    f"HTTP {exc.code}：请求仍处于限流窗口，需等待约 {delay} 秒；"
+                    "超过自动等待上限，已停止请求。"
+                ) from exc
+            time.sleep(delay)
         except Exception as exc:
             last_error = exc
             if not is_transient_network_error(exc) or attempt >= attempts:
@@ -535,6 +611,7 @@ def fetch_json_https(request, retries=NETWORK_RETRIES):
 
 
 def fetch_registry():
+    """Read Obsidian's public plugin registry without sending a GitHub API token."""
     req = urllib.request.Request(
         REGISTRY_URL,
         headers={"User-Agent": f"ObsidianPluginManager/{VERSION}"}
@@ -548,11 +625,7 @@ def fetch_repo_status(repo):
     repo = re.sub(r"\.git$","",repo)
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo): return None
     url = "https://api.github.com/repos/"+repo
-    req = urllib.request.Request(
-        url,
-        headers={"User-Agent": f"ObsidianPluginManager/{VERSION}",
-                 "Accept":"application/vnd.github+json"}
-    )
+    req = urllib.request.Request(url, headers=github_api_headers())
     return fetch_json_https(req)
 
 
@@ -1116,7 +1189,7 @@ def offer_obsidian_plugins(vault):
 
     say("\n" + "=" * 58)
     say("Obsidian 社区插件统一管理")
-    say("本清单包含 Obsidian Git 和 6 个推荐插件，共 7 个。")
+    say("本清单包含 Obsidian Git 和 7 个推荐插件，共 8 个。")
     say("安装与启用采用同一次授权；已安装且启用的插件自动跳过。")
     say("-" * 58)
     for index, item in enumerate(catalog, 1):
@@ -1132,7 +1205,7 @@ def offer_obsidian_plugins(vault):
     actionable = [item for item in catalog
                   if plugin_action(item["id"], installed_ids, enabled_ids) != "skip"]
     if not actionable:
-        say("\n7 个插件均已安装并启用，无需操作。")
+        say("\n8 个插件均已安装并启用，无需操作。")
         return
 
     say("\n请选择本次希望安装并启用的插件；已完成的插件不会重复操作。")
@@ -1226,6 +1299,8 @@ RECOMMENDED_PLUGINS = [
      "repo":"platers/obsidian-linter", "risk":"运行整理规则时可能批量修改笔记；首次使用前先备份"},
     {"id":"table-editor-obsidian", "name":"Advanced Tables", "purpose":"改善 Markdown 表格的编辑、对齐和导航",
      "repo":"tgrosinger/advanced-tables-obsidian", "risk":"官方说明该插件仍属实验性，可能存在导致当前笔记数据丢失的缺陷；先备份再使用"},
+    {"id":"codeblock-customizer", "name":"Codeblock Customizer", "purpose":"自定义 Obsidian Markdown 代码块在编辑和阅读模式中的显示效果",
+     "repo":"mugiwara85/CodeblockCustomizer", "risk":"第三方插件；会调整代码块显示与交互，先在独立测试 Vault 验证阅读/编辑视图、复制、滚动和移动端兼容性"},
     {"id":"templater-obsidian", "name":"Templater", "purpose":"动态模板，可运行 JavaScript 和系统命令",
      "repo":"SilentVoid13/Templater", "risk":"高风险：可执行任意 JavaScript 和系统命令；仅建议高级用户使用"}
 ]
