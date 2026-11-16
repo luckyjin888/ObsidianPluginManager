@@ -2,7 +2,7 @@
 
 一个以安全、透明、用户确认优先为原则的 Obsidian 插件盘点与初步审查工具。
 
-**版本：** 0.6.3  
+**版本：** 0.6.4  
 **核心：** Python 3  
 **启动入口：** macOS/Linux 使用 Bash；Windows 使用 PowerShell  
 **许可证：** GNU GPL-3.0-only
@@ -23,11 +23,11 @@
 - 输出发现的线索与无法确认项；不把“没有命中规则”说成“安全”。
 - CLI 未注册时，可尝试创建当前用户级命令入口；执行前展示双版本说明并要求输入完整的 `YES`。
 - 程序先启动或聚焦 Obsidian，等待应用就绪后再执行无修改的 `obsidian help` 检查；如果 CLI 未启用，立即显示中文设置示意图并安全停止。
-- 将 Obsidian Git 与 6 个推荐社区插件纳入同一张 7 项管理清单。
-- 新增优质开源插件推荐库：QuickAdd、Tasks、Excalidraw、Linter、Advanced Tables、Templater；可按 ID 多选或选择全部。
+- 将 Obsidian Git 与 7 个推荐社区插件纳入同一张 8 项管理清单。
+- 新增优质开源插件推荐库：QuickAdd、Tasks、Excalidraw、Linter、Advanced Tables、Templater、Codeblock Customizer；可按 ID 多选或选择全部。
 - 安装前实时核对 Obsidian 官方社区目录、GitHub 源码仓库、SPDX 开源许可证和仓库归档状态；未通过核验的插件跳过。
 - 安装与启用合并为一次批次授权：未安装的插件安装后启用，已安装但未启用的只启用，已启用的自动跳过。
-- 新增独立的 GitHub Releases Atom Feed 更新检查器：使用 ETag / Last-Modified 条件请求和用户级本地缓存，减少重复下载；只通知版本变化，不自动安装或更新插件。
+- 新增独立的 GitHub Releases REST API 更新检查器：可选使用本机环境变量中的只读 Token，使用 ETag / Last-Modified 条件请求和用户级本地缓存；只通知版本变化，不自动安装或更新插件。
 
 ## 插件更新订阅检查
 
@@ -37,9 +37,11 @@
 python3 plugin_update_subscription.py
 ```
 
-首次运行会为七个插件建立本地版本基线，不把当前版本误报为新更新。之后再次运行时，只报告新发布的 Release；服务器返回 HTTP 304 时复用缓存。缓存保存在当前用户的系统缓存目录，不写入 Vault 或仓库。
+首次运行会为八个插件建立本地版本基线，不把当前版本误报为新更新。之后再次运行时，只报告新发布的 Release；服务器返回 HTTP 304 时复用缓存。缓存保存在当前用户的系统缓存目录，不写入 Vault 或仓库。
 
-这是**按需检查的 Feed 订阅客户端**，不是常驻后台服务，也不保证实时或不限流。可以按自己的需要手动运行，或由用户自行配置系统计划任务；本工具不会自动创建计划任务。GitHub Feed 仍可能限流，遇到 403/429 会停止后续请求。更新通知不代表插件已通过安全审查；安装前仍须执行原有来源、仓库和许可证核验，并由用户明确授权。
+可选认证：如果公开 API 配额不足，可在启动订阅检查器的本机终端会话中设置 `GITHUB_TOKEN`、`GH_TOKEN` 或 `GITHUB_PAT`。建议使用仅对所需仓库授予 **Contents: Read-only** 的 Fine-grained token。Token 只用于本订阅模块访问 GitHub Releases API，不用于安装器、来源/许可证核验或写入接口；不会写入 Vault、仓库、缓存、日志或插件配置。不要把 Token 粘贴到项目配置文件或提交到 Git。
+
+这是**按需检查的 GitHub Releases API 订阅客户端**，不是常驻后台服务，也不保证实时或不限流。可以按自己的需要手动运行，或由用户自行配置系统计划任务；本工具不会自动创建计划任务。GitHub API 仍可能限流，遇到 403/429 会停止后续请求。更新通知不代表插件已通过安全审查；安装前仍须执行原有来源、仓库和许可证核验，并由用户明确授权。
 
 ## 环境要求
 
@@ -153,7 +155,7 @@ conda install ca-certificates certifi openssl
 
 ## 社区插件统一安装与启用
 
-程序将 Obsidian Git 与 6 个推荐插件放在同一张清单中，共 7 个插件。每次运行先检查所选 Vault 中的安装状态（插件目录内的 `manifest.json`）和启用状态（`.obsidian/community-plugins.json`）。
+程序将 Obsidian Git 与 7 个推荐插件放在同一张清单中，共 8 个插件。每次运行先检查所选 Vault 中的安装状态（插件目录内的 `manifest.json`）和启用状态（`.obsidian/community-plugins.json`）。
 
 | 插件 | ID | 用途 | 特别风险 |
 |---|---|---|---|
@@ -164,6 +166,7 @@ conda install ca-certificates certifi openssl
 | Linter | `obsidian-linter` | Markdown 格式整理 | 规则可能批量修改笔记，先备份 |
 | Advanced Tables | `table-editor-obsidian` | Markdown 表格编辑 | 仍属实验性，可能有数据丢失缺陷，先备份 |
 | Templater | `templater-obsidian` | 动态模板 | 高风险：可执行 JavaScript 和系统命令 |
+| Codeblock Customizer | `codeblock-customizer` | 增强代码块显示与自定义样式 | 可修改代码块的显示方式；安装前核对来源与许可证 |
 
 ### 统一操作规则
 
