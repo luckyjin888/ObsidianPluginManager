@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import tempfile
 import time
 import urllib.error
@@ -16,7 +17,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 USER_AGENT = f"ObsidianPluginManager-ReleaseWatcher/{VERSION}"
 TIMEOUT = 15
 MAX_FEED_BYTES = 1024 * 1024
@@ -184,7 +185,7 @@ def rate_limit_retry_delay(exc: urllib.error.HTTPError) -> int | None:
 
 
 def check_one(name: str, repository: str, previous: dict) -> tuple[dict, str]:
-    if not isinstance(repository, str) or not __import__("re").fullmatch(
+    if not isinstance(repository, str) or not re.fullmatch(
         r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository
     ):
         raise ValueError("GitHub 仓库名称格式无效。")
