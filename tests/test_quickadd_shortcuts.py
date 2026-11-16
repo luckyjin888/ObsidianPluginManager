@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import quickadd_shortcuts as qs
+import obsidian_hotkeys as oh
 
 
 class QuickAddPackageTests(unittest.TestCase):
@@ -84,9 +85,10 @@ class QuickAddInstallerTests(unittest.TestCase):
             vault, plugin = self.make_vault(tmp)
             (plugin / "data.json").write_text('{"choices":[]}', encoding="utf-8")
             messages = []
-            result = qs.configure_quickadd_shortcuts(
-                vault, "obsidian", lambda _: False, messages.append
-            )
+            with patch.object(qs, "read_active_hotkeys", return_value=set()):
+                result = qs.configure_quickadd_shortcuts(
+                    vault, "obsidian", lambda _: False, messages.append
+                )
             self.assertFalse(result)
             self.assertEqual(json.loads((plugin / "data.json").read_text())["choices"], [])
             self.assertFalse((vault / ".obsidian" / "hotkeys.json").exists())
@@ -103,7 +105,8 @@ class QuickAddInstallerTests(unittest.TestCase):
             }), encoding="utf-8")
             confirm = Mock(return_value=True)
             messages = []
-            result = qs.configure_quickadd_shortcuts(vault, "obsidian", confirm, messages.append)
+            with patch.object(qs, "read_active_hotkeys", return_value=set()):
+                result = qs.configure_quickadd_shortcuts(vault, "obsidian", confirm, messages.append)
             self.assertFalse(result)
             confirm.assert_not_called()
             self.assertIn("some-plugin:command", hotkeys.read_text())
@@ -115,11 +118,35 @@ class QuickAddInstallerTests(unittest.TestCase):
                 "choices": [{"id": "opm-insert-code-block", "name": "Insert Code Block"}]
             }), encoding="utf-8")
             messages = []
-            result = qs.configure_quickadd_shortcuts(
-                vault, "obsidian", lambda _: True, messages.append
-            )
+            with patch.object(qs, "read_active_hotkeys", return_value=set()):
+                result = qs.configure_quickadd_shortcuts(
+                    vault, "obsidian", lambda _: True, messages.append
+                )
             self.assertFalse(result)
             self.assertTrue(any("只存在部分快捷选项" in x for x in messages))
+
+
+class ObsidianHotkeyParsingTests(unittest.TestCase):
+    def test_normalises_macos_display_hotkey(self):
+        self.assertEqual(oh.normalise_hotkey("⌘⇧C"), "c+mod+shift")
+
+    def test_parses_command_records(self):
+        parsed = oh.parse_hotkeys_json(json.dumps([
+            {"id": "editor:toggle-bold", "hotkeys": ["⌘B"]},
+            {"id": "another:command", "hotkey": {"modifiers": ["Mod", "Shift"], "key": "J"}},
+        ]))
+        self.assertIn(("editor:toggle-bold", "b+mod"), parsed)
+        self.assertIn(("another:command", "j+mod+shift"), parsed)
+
+    def test_parses_id_to_bindings_map(self):
+        parsed = oh.parse_hotkeys_json(json.dumps({
+            "another:command": [{"modifiers": ["Mod", "Shift"], "key": "P"}]
+        }))
+        self.assertIn(("another:command", "mod+p+shift"), parsed)
+
+    def test_rejects_unrecognised_nonempty_payload(self):
+        with self.assertRaisesRegex(ValueError, "无法识别"):
+            oh.parse_hotkeys_json('{"unexpected":true}')
 
 
 if __name__ == "__main__":
