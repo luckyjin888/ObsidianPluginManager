@@ -227,6 +227,24 @@ def _plan_hotkeys(hotkeys: dict, cli_bindings: set[tuple[str, str]] | None = Non
     return planned, additions
 
 
+def _plugin_paths_are_safe(vault: Path) -> bool:
+    """Reject symlinked plugin ancestors and paths resolving outside the selected Vault."""
+    root = Path(vault).resolve()
+    paths = (
+        root / ".obsidian",
+        root / ".obsidian" / "plugins",
+        root / ".obsidian" / "plugins" / QUICKADD_ID,
+    )
+    for path in paths:
+        try:
+            if path.is_symlink():
+                return False
+            path.resolve(strict=False).relative_to(root)
+        except (OSError, ValueError):
+            return False
+    return True
+
+
 def configure_quickadd_shortcuts(vault: Path, cli: str, confirm, say, ask=None, is_running=None, launch=None) -> bool:
     """Offer a guarded, idempotent QuickAdd setup. Returns True only if verified."""
     vault = Path(vault)
@@ -234,6 +252,9 @@ def configure_quickadd_shortcuts(vault: Path, cli: str, confirm, say, ask=None, 
     plugin_dir = config_root / "plugins" / QUICKADD_ID
     manifest_path = plugin_dir / "manifest.json"
     enabled_path = config_root / "community-plugins.json"
+    if not _plugin_paths_are_safe(vault):
+        say("Obsidian 配置目录、plugins 目录或 QuickAdd 插件目录是符号链接/越界路径；为避免越界访问，已停止。")
+        return False
     manifest = _read_json(manifest_path)
     enabled = _read_json(enabled_path)
     if not isinstance(manifest, dict) or manifest.get("id") != QUICKADD_ID:
@@ -248,9 +269,6 @@ def configure_quickadd_shortcuts(vault: Path, cli: str, confirm, say, ask=None, 
 
     data_path = plugin_dir / "data.json"
     hotkeys_path = config_root / "hotkeys.json"
-    if config_root.is_symlink() or plugin_dir.is_symlink():
-        say("Obsidian 配置目录或 QuickAdd 插件目录是符号链接；为避免越界写入，已停止。")
-        return False
     try:
         state = _choice_state(data_path)
     except RuntimeError as exc:
