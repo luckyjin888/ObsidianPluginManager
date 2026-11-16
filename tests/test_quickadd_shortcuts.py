@@ -244,7 +244,7 @@ class ObsidianProcessStateTests(unittest.TestCase):
     def test_windows_process_probe_detects_numeric_pid(self):
         from types import SimpleNamespace
         with patch.object(om.platform, "system", return_value="Windows"):
-            with patch.object(om.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout="1234\\r\\n", stderr="")):
+            with patch.object(om.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout="1234", stderr="")):
                 self.assertTrue(om.obsidian_is_running())
 
     def test_windows_process_probe_failure_returns_unknown(self):
