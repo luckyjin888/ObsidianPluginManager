@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# ObsidianPluginManager 0.6.4
+# ObsidianPluginManager 0.6.5
 # GPL-3.0-only
 """Cross-platform, consent-first Obsidian plugin inventory and heuristic audit."""
 from __future__ import annotations
@@ -10,7 +10,7 @@ from pathlib import Path
 from quickadd_shortcuts import configure_quickadd_shortcuts
 from datetime import datetime, timezone
 
-VERSION = "0.6.4"
+VERSION = "0.6.5"
 MIN_CLI = (1, 12, 7)
 REGISTRY_URL = "https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugins.json"
 NETWORK_TIMEOUT = 30
