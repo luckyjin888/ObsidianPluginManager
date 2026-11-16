@@ -174,6 +174,25 @@ class ReleaseSubscriptionTests(unittest.TestCase):
         self.assertEqual(opened.call_count, 2)
         sleep.assert_called_once_with(40)
 
+    def test_run_shares_rate_limit_wait_budget_across_plugins(self):
+        first_limit = http_error(429, {"Retry-After": "40"})
+        second_limit = http_error(429, {"Retry-After": "40"})
+        with tempfile.TemporaryDirectory() as tmp:
+            cache_path = Path(tmp) / "cache.json"
+            with patch.object(
+                watcher, "PLUGINS",
+                (("First", "example/first"), ("Second", "example/second"))
+            ):
+                with patch.object(
+                    watcher.urllib.request, "urlopen",
+                    side_effect=[first_limit, mock_response(), second_limit]
+                ) as opened:
+                    with patch.object(watcher.time, "sleep") as sleep:
+                        result = watcher.run(cache_path)
+        self.assertEqual(result, 1)
+        self.assertEqual(opened.call_count, 3)
+        sleep.assert_called_once_with(40)
+
     def test_legacy_cache_404_does_not_retain_atom_validators(self):
         legacy = {
             "checked": True,
