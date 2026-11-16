@@ -67,7 +67,7 @@ class ReleaseSubscriptionTests(unittest.TestCase):
         self.assertTrue(result["link"].endswith("v1.2.3"))
 
     def test_first_check_establishes_baseline_without_false_update(self):
-        with patch.object(watcher.urllib.request, "urlopen", return_value=mock_response({"ETag": '"tag"'})):
+        with patch.object(watcher.urllib.request, "urlopen", return_value=mock_response(headers={"ETag": '"tag"'})):
             record, status = watcher.check_one("Example", "example/plugin", {})
         self.assertEqual(status, "baseline")
         self.assertEqual(record["latest"]["id"], "12345")
@@ -129,7 +129,7 @@ class ReleaseSubscriptionTests(unittest.TestCase):
         sleep.assert_called_once_with(2)
 
     def test_rate_limit_403_retries_but_permission_403_does_not(self):
-        rate_error = http_error(403, {"X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "9999999999"},
+        rate_error = http_error(403, {"Retry-After": "1", "X-RateLimit-Remaining": "0"},
                                 b'{"message":"API rate limit exceeded"}')
         with patch.object(watcher.urllib.request, "urlopen",
                           side_effect=[rate_error, mock_response()]) as opened:
