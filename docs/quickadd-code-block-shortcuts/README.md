@@ -13,7 +13,7 @@ These are suggested bindings, not reserved defaults. Check Obsidian's Hotkeys se
 ## Requirements
 
 - Obsidian desktop with the QuickAdd community plugin installed and enabled.
-- QuickAdd 2.26.0 or newer for the `{{CURSOR}}` marker in Capture formats. Use a current QuickAdd release where possible.
+- Use a current QuickAdd release that supports the documented `{{CURSOR}}` and `{{TEMPLATE:...}}` format syntax. This guide does not impose an unverified minimum version.
 - An editable Markdown note open in the active pane. Cursor placement does not switch Reading view to Editing view or focus a background pane.
 
 ## Install the templates
