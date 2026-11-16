@@ -73,6 +73,22 @@ class ReleaseSubscriptionTests(unittest.TestCase):
         self.assertEqual(record["latest"]["id"], "12345")
         self.assertEqual(record["etag"], '"tag"')
 
+    def test_legacy_atom_cache_migrates_as_baseline_without_old_validators(self):
+        legacy = {
+            "checked": True,
+            "etag": '"atom-etag"',
+            "last_modified": "yesterday",
+            "latest": {"id": "tag:github.com,2008:Repository/1/v1.0.0"},
+        }
+        with patch.object(watcher.urllib.request, "urlopen", return_value=mock_response()) as opened:
+            record, status = watcher.check_one("Example", "example/plugin", legacy)
+        request = opened.call_args.args[0]
+        self.assertEqual(status, "baseline")
+        self.assertIsNone(request.get_header("If-none-match"))
+        self.assertIsNone(request.get_header("If-modified-since"))
+        self.assertEqual(record["source"], watcher.CACHE_SOURCE)
+        self.assertEqual(record["latest"]["id"], "12345")
+
     def test_first_release_after_empty_feed_is_reported(self):
         previous = {"checked": True, "latest": None}
         with patch.object(watcher.urllib.request, "urlopen", return_value=mock_response()):
