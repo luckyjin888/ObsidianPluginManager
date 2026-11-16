@@ -57,6 +57,10 @@ class QuickAddPackageTests(unittest.TestCase):
             "quickadd:choice:opm-insert-code-block"
         ])
 
+    def test_cli_default_hotkey_conflict_stops_setup(self):
+        with self.assertRaisesRegex(RuntimeError, "Obsidian 命令"):
+            qs._plan_hotkeys({}, {("core:command", "c+mod+shift")})
+
 
 class QuickAddInstallerTests(unittest.TestCase):
     def make_vault(self, root):
@@ -124,6 +128,33 @@ class QuickAddInstallerTests(unittest.TestCase):
                 )
             self.assertFalse(result)
             self.assertTrue(any("只存在部分快捷选项" in x for x in messages))
+
+    def test_does_not_write_hotkeys_while_obsidian_is_running(self):
+        from types import SimpleNamespace
+
+        with tempfile.TemporaryDirectory() as tmp:
+            vault, plugin = self.make_vault(tmp)
+            data_path = plugin / "data.json"
+            data_path.write_text('{"choices":[]}', encoding="utf-8")
+            messages = []
+
+            def fake_cli(args, **kwargs):
+                if "quickadd:package-import" in args:
+                    package = qs.build_package()
+                    data_path.write_text(json.dumps({
+                        "choices": [entry["choice"] for entry in package["choices"]]
+                    }), encoding="utf-8")
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+            with patch.object(qs, "read_active_hotkeys", return_value=set()):
+                with patch.object(qs.subprocess, "run", side_effect=fake_cli):
+                    result = qs.configure_quickadd_shortcuts(
+                        vault, "obsidian", lambda _: True, messages.append,
+                        ask=lambda _: "", is_running=lambda: True
+                    )
+            self.assertFalse(result)
+            self.assertFalse((vault / ".obsidian" / "hotkeys.json").exists())
+            self.assertTrue(any("仍在运行" in message for message in messages))
 
 
 class ObsidianHotkeyParsingTests(unittest.TestCase):
