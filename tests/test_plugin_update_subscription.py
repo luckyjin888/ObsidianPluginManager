@@ -160,6 +160,34 @@ class ReleaseSubscriptionTests(unittest.TestCase):
                 watcher.check_one("Example", "example/plugin", {})
         self.assertEqual(opened.call_count, 1)
 
+    def test_headerless_secondary_rate_limit_uses_one_minute_minimum(self):
+        error = http_error(403, {}, b'{"message":"You have exceeded a secondary rate limit"}')
+        self.assertEqual(watcher.rate_limit_retry_delay(error), 60)
+
+    def test_subscription_caps_cumulative_rate_limit_wait(self):
+        first = http_error(429, {"Retry-After": "40"})
+        second = http_error(429, {"Retry-After": "40"})
+        with patch.object(watcher.urllib.request, "urlopen", side_effect=[first, second]) as opened:
+            with patch.object(watcher.time, "sleep") as sleep:
+                with self.assertRaisesRegex(RuntimeError, "累计等待将超过 60 秒"):
+                    watcher.check_one("Example", "example/plugin", {})
+        self.assertEqual(opened.call_count, 2)
+        sleep.assert_called_once_with(40)
+
+    def test_legacy_cache_404_does_not_retain_atom_validators(self):
+        legacy = {
+            "checked": True,
+            "etag": '"legacy-atom-etag"',
+            "last_modified": "yesterday",
+            "latest": {"id": "old-atom-entry"},
+        }
+        with patch.object(watcher.urllib.request, "urlopen", side_effect=http_error(404)):
+            record, status = watcher.check_one("Example", "example/plugin", legacy)
+        self.assertEqual(status, "empty")
+        self.assertNotIn("etag", record)
+        self.assertNotIn("last_modified", record)
+        self.assertEqual(record["source"], watcher.CACHE_SOURCE)
+
     def test_cache_round_trip_uses_atomic_json_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "cache.json"
