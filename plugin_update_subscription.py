@@ -186,7 +186,15 @@ def rate_limit_retry_delay(exc: urllib.error.HTTPError) -> int | None:
     return 60
 
 
-def check_one(name: str, repository: str, previous: dict) -> tuple[dict, str]:
+def check_one(
+    name: str,
+    repository: str,
+    previous: dict,
+    rate_limit_wait_budget: list[int] | None = None,
+) -> tuple[dict, str]:
+    """检查一个仓库；可共享 run() 级别的累计限流等待预算。"""
+    if rate_limit_wait_budget is None:
+        rate_limit_wait_budget = [0]
     if not isinstance(repository, str) or not re.fullmatch(
         r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository
     ):
@@ -201,8 +209,6 @@ def check_one(name: str, repository: str, previous: dict) -> tuple[dict, str]:
     if api_cache and previous.get("last_modified"):
         headers["If-Modified-Since"] = previous["last_modified"]
     request = urllib.request.Request(url, headers=headers)
-    total_rate_limit_wait = 0
-
     for attempt in range(1, 4):
         try:
             with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
@@ -243,13 +249,13 @@ def check_one(name: str, repository: str, previous: dict) -> tuple[dict, str]:
                     raise RuntimeError(f"GitHub Releases API 权限被拒绝（HTTP {exc.code}），不是已确认的限流。") from exc
                 if attempt >= 3:
                     raise RuntimeError(f"GitHub Releases API 限流（HTTP {exc.code}），已达到重试上限。") from exc
-                if delay > 60 - total_rate_limit_wait:
+                if delay > 60 - rate_limit_wait_budget[0]:
                     raise RuntimeError(
                         f"GitHub Releases API 限流；本次累计等待将超过 60 秒，"
                         f"建议等待约 {delay} 秒后再订阅。已停止自动重试。"
                     ) from exc
                 time.sleep(delay)
-                total_rate_limit_wait += delay
+                rate_limit_wait_budget[0] += delay
                 continue
             raise RuntimeError(f"GitHub Releases API 请求失败：HTTP {exc.code}") from exc
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
@@ -262,6 +268,8 @@ def run(cache_path: Path | None = None) -> int:
     cache = load_cache(path)
     changed = False
     failures = 0
+    # 60 秒预算覆盖整次订阅运行，而不是每个插件各自重新计时。
+    rate_limit_wait_budget = [0]
     print("插件更新订阅检查（GitHub Releases API）")
     print("只检查版本发布信息；不会安装、更新插件，也不会读取 Vault。")
     print("订阅认证：" + ("已检测到本机 Token（仅用于本订阅 API）" if github_api_token() else "未检测到 Token，将使用公开 API 配额。"))
@@ -270,7 +278,9 @@ def run(cache_path: Path | None = None) -> int:
         if not isinstance(previous, dict):
             previous = {}
         try:
-            record, status = check_one(name, repository, previous)
+            record, status = check_one(
+                name, repository, previous, rate_limit_wait_budget
+            )
             cache[repository] = record
             changed = True
             latest = record.get("latest") or {}
