@@ -90,20 +90,20 @@ class ReleaseSubscriptionTests(unittest.TestCase):
         self.assertEqual(record["latest"]["id"], "12345")
 
     def test_first_release_after_empty_feed_is_reported(self):
-        previous = {"checked": True, "latest": None}
+        previous = {"source": watcher.CACHE_SOURCE, "checked": True, "latest": None}
         with patch.object(watcher.urllib.request, "urlopen", return_value=mock_response()):
             record, status = watcher.check_one("Example", "example/plugin", previous)
         self.assertEqual(status, "new")
         self.assertEqual(record["latest"]["title"], "Release 1.2.3")
 
     def test_existing_release_change_is_reported(self):
-        previous = {"latest": {"id": "old-release"}}
+        previous = {"source": watcher.CACHE_SOURCE, "latest": {"id": "old-release"}}
         with patch.object(watcher.urllib.request, "urlopen", return_value=mock_response()):
             record, status = watcher.check_one("Example", "example/plugin", previous)
         self.assertEqual(status, "new")
 
     def test_conditional_headers_and_api_url_are_sent(self):
-        previous = {"etag": '"cached"', "last_modified": "yesterday"}
+        previous = {"source": watcher.CACHE_SOURCE, "etag": '"cached"', "last_modified": "yesterday"}
         with patch.dict("os.environ", {"GITHUB_TOKEN": "test-secret"}, clear=True):
             with patch.object(watcher.urllib.request, "urlopen", return_value=mock_response()) as opened:
                 watcher.check_one("Example", "example/plugin", previous)
@@ -124,7 +124,7 @@ class ReleaseSubscriptionTests(unittest.TestCase):
         error = http_error(304)
         with patch.object(watcher.urllib.request, "urlopen", side_effect=error):
             record, status = watcher.check_one(
-                "Example", "example/plugin", {"latest": {"id": "same"}}
+                "Example", "example/plugin", {"source": watcher.CACHE_SOURCE, "latest": {"id": "same"}}
             )
         self.assertEqual(status, "not_modified")
         self.assertEqual(record["latest"]["id"], "same")
