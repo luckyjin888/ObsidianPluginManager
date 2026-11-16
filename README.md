@@ -47,7 +47,7 @@ python3 plugin_update_subscription.py
 
 项目附带可选的 QuickAdd Capture 模板，可将普通代码块、JSON 代码块和 Python 代码块绑定到 Obsidian 快捷键。模板与安装说明位于 [docs/quickadd-code-block-shortcuts](docs/quickadd-code-block-shortcuts/README.md)，可复用的 Markdown 模板位于 `examples/quickadd-templates/`。
 
-建议 macOS 快捷键为 `⌘ + ⇧ + C`（普通代码块）、`⌘ + ⇧ + J`（JSON）和 `⌘ + ⇧ + P`（Python）。运行管理器完成插件安装/启用流程后，如果 QuickAdd 已安装并启用，程序会额外提供一次明确授权的快捷键配置。它通过 QuickAdd 官方 package-import 命令新增三个无脚本 Capture choices，再合并写入 Vault 的 `.obsidian/hotkeys.json`。快捷键为 `Mod+Shift+C/J/P`（macOS 对应 `⌘+⇧+C/J/P`）。安装器要求 QuickAdd 2.28.0 或更高版本；若快捷键冲突、配置部分存在、JSON 异常或目标为符号链接，会停止而不覆盖。修改前备份现有 QuickAdd `data.json` 和 `hotkeys.json`；已有 QuickAdd 选项不会被覆盖。写入快捷键前会要求完全退出 Obsidian，避免退出时旧配置覆盖新文件；写入后自动重新启动 Obsidian。旧版手动模板仍保留在 `examples/quickadd-templates/`。
+建议 macOS 快捷键为 `⌘ + ⇧ + C`（普通代码块）、`⌘ + ⇧ + J`（JSON）和 `⌘ + ⇧ + P`（Python）。运行管理器完成插件安装/启用流程后，如果 QuickAdd 已安装并启用，程序会额外提供一次明确授权的快捷键配置。它通过 QuickAdd 官方 package-import 命令新增三个无脚本 Capture choices，再合并写入 Vault 的 `.obsidian/hotkeys.json`。快捷键为 `Mod+Shift+C/J/P`（macOS 对应 `⌘+⇧+C/J/P`）。安装器要求 QuickAdd 2.30.0 或更高版本；若快捷键冲突、配置部分存在、JSON 异常或目标为符号链接，会停止而不覆盖。修改前备份现有 QuickAdd `data.json` 和 `hotkeys.json`；已有 QuickAdd 选项不会被覆盖。写入快捷键前会要求完全退出 Obsidian，避免退出时旧配置覆盖新文件；写入后自动重新启动 Obsidian。旧版手动模板仍保留在 `examples/quickadd-templates/`。
 
 ## 环境要求
 
