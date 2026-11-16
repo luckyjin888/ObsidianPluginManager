@@ -857,18 +857,23 @@ def obsidian_is_running():
                 return False
             return None
         if system == "Windows":
+            # PowerShell emits numeric PIDs for matches and no output when
+            # there is no match, independent of Windows UI language.
             result = subprocess.run(
-                ["tasklist", "/FI", "IMAGENAME eq Obsidian.exe", "/NH"],
+                [
+                    "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+                    "$p = Get-Process -Name Obsidian -ErrorAction SilentlyContinue; "
+                    "if ($p) { $p | ForEach-Object { $_.Id } }",
+                ],
                 capture_output=True, text=True, encoding="utf-8",
                 errors="replace", timeout=5, check=False,
             )
             if result.returncode != 0:
                 return None
-            if "Obsidian.exe" in result.stdout:
-                return True
-            if "No tasks are running" in result.stdout or "没有运行的任务" in result.stdout:
-                return False
-            return None
+            pids = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+            if pids:
+                return True if all(pid.isdigit() for pid in pids) else None
+            return False
         if system == "Linux":
             for process_name in ("obsidian", "Obsidian"):
                 result = subprocess.run(
