@@ -12,6 +12,8 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+from obsidian_hotkeys import read_active_hotkeys
+
 QUICKADD_ID = "quickadd"
 MIN_QUICKADD_VERSION = (2, 30, 0)
 PACKAGE_NAME = ".opm-quickadd-code-block-shortcuts.quickadd.json"
@@ -198,7 +200,7 @@ def _binding_matches(binding, key: str) -> bool:
     return modifiers == {"mod", "shift"} and str(binding.get("key", "")).upper() == key
 
 
-def _plan_hotkeys(hotkeys: dict) -> tuple[dict, list[str]]:
+def _plan_hotkeys(hotkeys: dict, cli_bindings: set[tuple[str, str]] | None = None) -> tuple[dict, list[str]]:
     if not isinstance(hotkeys, dict):
         raise RuntimeError("hotkeys.json 顶层格式异常；不会修改。")
     planned = json.loads(json.dumps(hotkeys))
@@ -220,13 +222,20 @@ def _plan_hotkeys(hotkeys: dict) -> tuple[dict, list[str]]:
                     f"快捷键 Mod+Shift+{item['hotkey']} 已被 {other_command} 占用；"
                     "为避免覆盖，三个快捷键均未修改。"
                 )
+        normalised = "+".join(sorted({"mod", "shift", item["hotkey"].lower()}))
+        for other_command, combo in cli_bindings or set():
+            if other_command != command_id and combo == normalised:
+                raise RuntimeError(
+                    f"快捷键 Mod+Shift+{item['hotkey']} 已被 Obsidian 命令 {other_command} 占用；"
+                    "为避免覆盖，三个快捷键均未修改。"
+                )
         current.append({"modifiers": ["Mod", "Shift"], "key": item["hotkey"]})
         planned[command_id] = current
         additions.append(f"Mod+Shift+{item['hotkey']} → {item['name']}")
     return planned, additions
 
 
-def configure_quickadd_shortcuts(vault: Path, cli: str, confirm, say) -> bool:
+def configure_quickadd_shortcuts(vault: Path, cli: str, confirm, say, ask=None, is_running=None, launch=None) -> bool:
     """Offer a guarded, idempotent QuickAdd setup. Returns True only if verified."""
     vault = Path(vault)
     config_root = vault / ".obsidian"
@@ -266,8 +275,9 @@ def configure_quickadd_shortcuts(vault: Path, cli: str, confirm, say) -> bool:
     else:
         hotkeys = {}
     try:
-        planned_hotkeys, additions = _plan_hotkeys(hotkeys)
-    except RuntimeError as exc:
+        cli_bindings = read_active_hotkeys(cli, vault)
+        planned_hotkeys, additions = _plan_hotkeys(hotkeys, cli_bindings)
+    except (RuntimeError, ValueError, OSError, subprocess.SubprocessError) as exc:
         say(str(exc))
         return False
 
@@ -301,16 +311,11 @@ def configure_quickadd_shortcuts(vault: Path, cli: str, confirm, say) -> bool:
             backup = _backup(data_path)
             if backup:
                 backups.append(backup)
-        if additions:
-            backup = _backup(hotkeys_path)
-            if backup:
-                backups.append(backup)
-
         if state == "none":
             package_path.write_text(json.dumps(build_package(), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
             try:
                 preview = subprocess.run(
-                    [str(cli), "quickadd:package-preview", f"path={package_path.relative_to(vault)}"],
+                    [str(cli), "quickadd:package-preview", f"path={package_path.relative_to(vault).as_posix()}"],
                     cwd=str(vault), capture_output=True, text=True, encoding="utf-8",
                     errors="replace", timeout=60, check=False,
                 )
@@ -339,19 +344,42 @@ def configure_quickadd_shortcuts(vault: Path, cli: str, confirm, say) -> bool:
                     raise RuntimeError(f"导入后未能验证 QuickAdd 选项：{item['name']}")
 
         if additions:
-            _atomic_write_json(hotkeys_path, planned_hotkeys)
-            saved = _read_json(hotkeys_path)
+            if ask is None or is_running is None:
+                raise RuntimeError("无法安全确认 Obsidian 已关闭；QuickAdd 选项已导入，但未写入快捷键。")
+            say("\n为避免 Obsidian 将内存中的旧快捷键覆盖到文件，请先正常退出 Obsidian。")
+            answer = ask("完全退出 Obsidian 后按回车继续；输入 cancel 可跳过快捷键写入：")
+            if str(answer).strip().lower() == "cancel":
+                raise RuntimeError("你选择跳过快捷键写入；QuickAdd 选项已导入，可稍后手动绑定。")
+            if is_running():
+                raise RuntimeError("检测到 Obsidian 仍在运行；为避免配置被覆盖，未写入 hotkeys.json。")
+            if hotkeys_path.exists():
+                latest_hotkeys = _read_json(hotkeys_path)
+                if not isinstance(latest_hotkeys, dict):
+                    raise RuntimeError("Obsidian 关闭后 hotkeys.json 格式异常；未写入快捷键。")
+            else:
+                latest_hotkeys = {}
+            latest_plan, latest_additions = _plan_hotkeys(latest_hotkeys, cli_bindings)
+            if latest_additions:
+                backup = _backup(hotkeys_path)
+                if backup:
+                    backups.append(backup)
+                _atomic_write_json(hotkeys_path, latest_plan)
+            saved = _read_json(hotkeys_path) if hotkeys_path.exists() else {}
             if not isinstance(saved, dict):
                 raise RuntimeError("写入后无法读取 hotkeys.json。")
             for item in CHOICES:
                 command_id = "quickadd:choice:" + item["id"]
                 if not any(_binding_matches(x, item["hotkey"]) for x in saved.get(command_id, [])):
                     raise RuntimeError(f"写入后未能验证快捷键：{item['name']}")
+            if launch is not None:
+                if launch():
+                    say("快捷键已写入；Obsidian 已重新启动。")
+                else:
+                    say("快捷键已写入；请手动重新打开 Obsidian。")
 
         say("\nQuickAdd 三个 Capture 选项及快捷键已写入并通过文件验证。")
         if backups:
             say("原配置备份：" + "；".join(str(path) for path in backups))
-        say("请在 Obsidian 中执行一次“重新加载应用”或重启 Obsidian，使快捷键设置被重新读取。")
         return True
     except Exception as exc:
         say(f"配置未能完整完成：{exc}")
