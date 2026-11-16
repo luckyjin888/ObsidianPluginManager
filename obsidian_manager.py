@@ -1398,7 +1398,7 @@ def main():
         # QuickAdd choices and hotkeys are configured only after the plugin
         # manager has completed its install/enable flow and the Vault state
         # has been re-read from disk.
-        configure_quickadd_shortcuts(vault, cli, ask_yes_no, say)
+        configure_quickadd_shortcuts(vault, cli, ask_yes_no, say, ask, obsidian_is_running, lambda: launch_obsidian(app))
     else:
         say("未执行插件安装或启用：当前没有可用的 Obsidian CLI。")
     say("\n检查结束。本工具只执行用户对本次插件清单一次明确授权的操作；未读取笔记正文。")
