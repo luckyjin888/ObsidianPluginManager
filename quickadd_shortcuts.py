@@ -41,8 +41,6 @@ def build_package() -> dict:
     """Return a code-free QuickAdd package using the documented schema v1."""
     choices = []
     for item in CHOICES:
-        prefix = "" if item["id"] == "opm-insert-code-block" else ""
-        fmt = _capture_format(item)
         if item["id"] == "opm-insert-code-block":
             fmt = "```\n{{CURSOR}}\n```"
         elif item["id"] == "opm-insert-json-block":
@@ -309,7 +307,7 @@ def configure_quickadd_shortcuts(vault: Path, cli: str, confirm, say, ask=None, 
                 if preview.returncode != 0:
                     raise RuntimeError("QuickAdd package-preview 失败：" + (preview.stderr.strip() or preview.stdout.strip()))
                 imported = subprocess.run(
-                    [str(cli), "quickadd:package-import", f"path={package_path.relative_to(vault)}", "choices=import"],
+                    [str(cli), "quickadd:package-import", f"path={package_path.relative_to(vault).as_posix()}", "choices=import"],
                     cwd=str(vault), capture_output=True, text=True, encoding="utf-8",
                     errors="replace", timeout=120, check=False,
                 )
