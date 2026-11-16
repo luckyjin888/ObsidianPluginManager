@@ -234,6 +234,24 @@ class ObsidianProcessStateTests(unittest.TestCase):
             with patch.object(om.subprocess, "run", return_value=SimpleNamespace(returncode=1, stdout="", stderr="")):
                 self.assertFalse(om.obsidian_is_running())
 
+    def test_windows_process_probe_confirms_closed_without_localized_text(self):
+        from types import SimpleNamespace
+        with patch.object(om.platform, "system", return_value="Windows"):
+            with patch.object(om.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout="", stderr="")) as run:
+                self.assertFalse(om.obsidian_is_running())
+                self.assertIn("powershell.exe", run.call_args.args[0][0])
+
+    def test_windows_process_probe_detects_numeric_pid(self):
+        from types import SimpleNamespace
+        with patch.object(om.platform, "system", return_value="Windows"):
+            with patch.object(om.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout="1234\\r\\n", stderr="")):
+                self.assertTrue(om.obsidian_is_running())
+
+    def test_windows_process_probe_failure_returns_unknown(self):
+        with patch.object(om.platform, "system", return_value="Windows"):
+            with patch.object(om.subprocess, "run", side_effect=OSError("powershell unavailable")):
+                self.assertIsNone(om.obsidian_is_running())
+
     def test_unknown_process_state_prevents_hotkey_write(self):
         from types import SimpleNamespace
         with tempfile.TemporaryDirectory() as tmp:
