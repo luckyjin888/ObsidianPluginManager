@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Added
+- 新增可选 QuickAdd 代码块快捷模板：普通代码块、JSON 和 Python；提供 `{{CURSOR}}` 光标定位、Capture 配置说明及建议快捷键。仅分发 Markdown 示例，不自动修改 Vault、QuickAdd 配置或快捷键。
+
+### Added
 - 新增独立的 GitHub Releases Atom Feed 更新检查器，支持 ETag / Last-Modified 条件请求、本地缓存和新版本通知；仅检查与通知，不自动安装或更新插件。
 - 首次运行建立订阅基线；缓存保存在当前用户缓存目录，不读取 Vault；遇到 GitHub 403/429 时停止后续请求，避免持续请求。
 
