@@ -61,8 +61,9 @@ Python:
 
 ## Safety and scope
 
-- These files are examples only. The manager does not install QuickAdd, modify Vault settings, copy templates, create QuickAdd choices, or assign hotkeys automatically.
-- Copying the files into a Vault and configuring QuickAdd are explicit user actions.
+- The manager now offers an optional automatic setup after QuickAdd is installed and enabled. It imports three code-free Capture choices through QuickAdd's documented package-import CLI and merges the suggested bindings into `.obsidian/hotkeys.json`.
+- The installer requires QuickAdd 2.30.0 or later. It previews the package, uses import-only mode, checks hotkey conflicts, backs up existing `data.json` / `hotkeys.json`, checks custom and active Obsidian hotkeys, and stops rather than overwriting existing choices or conflicting bindings. Before writing `hotkeys.json`, it asks you to close Obsidian completely; it reopens the app after the file is safely updated.
+- The manual steps below remain available as an alternative for users who prefer to configure QuickAdd themselves.
 - No existing hotkeys or QuickAdd configuration are overwritten.
 - The templates contain no JavaScript, shell commands, network access, or Templater expressions.
 - If a hotkey is already assigned, choose another combination rather than replacing an existing binding without reviewing it.
@@ -70,6 +71,8 @@ Python:
 ## Upstream documentation
 
 - [QuickAdd — Capture choices](https://quickadd.obsidian.guide/docs/Choices/CaptureChoice/)
+- [QuickAdd — CLI package preview/import](https://quickadd.obsidian.guide/docs/Advanced/CLI/)
+- [Obsidian — CLI hotkeys and command listing](https://obsidian.md/help/cli)
 - [QuickAdd — Format syntax (`{{CURSOR}}` and `{{TEMPLATE:...}}`)](https://quickadd.obsidian.guide/docs/FormatSyntax/)
 - [QuickAdd — Getting started](https://quickadd.obsidian.guide/docs/)
 

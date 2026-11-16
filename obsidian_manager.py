@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-# ObsidianPluginManager 0.6.4
+# ObsidianPluginManager 0.6.5
 # GPL-3.0-only
 """Cross-platform, consent-first Obsidian plugin inventory and heuristic audit."""
 from __future__ import annotations
 import http.client
 import json, os, platform, re, shutil, subprocess, sys, ssl, time, urllib.error, urllib.request
 from pathlib import Path
+
+from quickadd_shortcuts import configure_quickadd_shortcuts
 from datetime import datetime, timezone
 
-VERSION = "0.6.4"
+VERSION = "0.6.5"
 MIN_CLI = (1, 12, 7)
 REGISTRY_URL = "https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugins.json"
 NETWORK_TIMEOUT = 30
@@ -841,7 +843,7 @@ def is_cli_not_enabled(result):
 
 
 def obsidian_is_running():
-    """Return whether the Obsidian desktop process is already running."""
+    """Return True/False when the process probe succeeds, or None when state is unknown."""
     system = platform.system()
     try:
         if system == "Darwin":
@@ -849,25 +851,43 @@ def obsidian_is_running():
                 ["pgrep", "-x", "Obsidian"], capture_output=True, text=True,
                 timeout=5, check=False,
             )
-            return result.returncode == 0
+            if result.returncode == 0:
+                return True
+            if result.returncode == 1:
+                return False
+            return None
         if system == "Windows":
+            # PowerShell emits numeric PIDs for matches and no output when
+            # there is no match, independent of Windows UI language.
             result = subprocess.run(
-                ["tasklist", "/FI", "IMAGENAME eq Obsidian.exe", "/NH"],
+                [
+                    "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+                    "$p = Get-Process -Name Obsidian -ErrorAction SilentlyContinue; "
+                    "if ($p) { $p | ForEach-Object { $_.Id } }",
+                ],
                 capture_output=True, text=True, encoding="utf-8",
                 errors="replace", timeout=5, check=False,
             )
-            return "Obsidian.exe" in result.stdout
-        for process_name in ("obsidian", "Obsidian"):
-            result = subprocess.run(
-                ["pgrep", "-x", process_name], capture_output=True, text=True,
-                timeout=5, check=False,
-            )
-            if result.returncode == 0:
-                return True
+            if result.returncode != 0:
+                return None
+            pids = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+            if pids:
+                return True if all(pid.isdigit() for pid in pids) else None
+            return False
+        if system == "Linux":
+            for process_name in ("obsidian", "Obsidian"):
+                result = subprocess.run(
+                    ["pgrep", "-x", process_name], capture_output=True, text=True,
+                    timeout=5, check=False,
+                )
+                if result.returncode == 0:
+                    return True
+                if result.returncode != 1:
+                    return None
+            return False
     except (OSError, subprocess.TimeoutExpired):
-        return False
-    return False
-
+        return None
+    return None
 
 def launch_obsidian(app):
     """Launch or focus Obsidian; the app itself restores its previously used Vault."""
@@ -1393,6 +1413,10 @@ def main():
     audit_plugins(vault)
     if cli:
         offer_obsidian_plugins(vault)
+        # QuickAdd choices and hotkeys are configured only after the plugin
+        # manager has completed its install/enable flow and the Vault state
+        # has been re-read from disk.
+        configure_quickadd_shortcuts(vault, cli, ask_yes_no, say, ask, obsidian_is_running, lambda: launch_obsidian(app))
     else:
         say("未执行插件安装或启用：当前没有可用的 Obsidian CLI。")
     say("\n检查结束。本工具只执行用户对本次插件清单一次明确授权的操作；未读取笔记正文。")
