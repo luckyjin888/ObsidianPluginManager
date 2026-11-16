@@ -76,6 +76,25 @@ class QuickAddInstallerTests(unittest.TestCase):
         )
         return vault, plugin
 
+    def test_symlinked_plugins_parent_is_rejected_before_reading_plugin(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = Path(tmp) / "vault"
+            outside = Path(tmp) / "outside"
+            vault.mkdir()
+            outside.mkdir()
+            (vault / ".obsidian").mkdir()
+            try:
+                (vault / ".obsidian" / "plugins").symlink_to(outside, target_is_directory=True)
+            except (OSError, NotImplementedError):
+                self.skipTest("directory symlinks are unavailable on this platform")
+            messages = []
+            result = qs.configure_quickadd_shortcuts(
+                vault, "obsidian", lambda _: True, messages.append
+            )
+            self.assertFalse(result)
+            self.assertTrue(any("符号链接/越界路径" in message for message in messages))
+            self.assertFalse((outside / "quickadd").exists())
+
     def test_missing_quickadd_is_skipped(self):
         with tempfile.TemporaryDirectory() as tmp:
             messages = []
