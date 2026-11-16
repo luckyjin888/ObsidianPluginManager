@@ -15,7 +15,7 @@ from pathlib import Path
 from obsidian_hotkeys import read_active_hotkeys
 
 QUICKADD_ID = "quickadd"
-MIN_QUICKADD_VERSION = (2, 28, 0)
+MIN_QUICKADD_VERSION = (2, 30, 0)
 PACKAGE_NAME = ".opm-quickadd-code-block-shortcuts.quickadd.json"
 
 CHOICES = (
