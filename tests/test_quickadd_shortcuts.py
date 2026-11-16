@@ -195,5 +195,14 @@ class ObsidianHotkeyParsingTests(unittest.TestCase):
             oh.parse_hotkeys_json('{"unexpected":true}')
 
 
+class AtomicHotkeyWriterTests(unittest.TestCase):
+    def test_atomic_writer_saves_json_and_cleans_temporary_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "hotkeys.json"
+            qs._atomic_write_json(target, {"quickadd:choice:test": []})
+            self.assertEqual(json.loads(target.read_text(encoding="utf-8")), {"quickadd:choice:test": []})
+            self.assertEqual(list(Path(tmp).glob(".opm-*.tmp")), [])
+
+
 if __name__ == "__main__":
     unittest.main()
