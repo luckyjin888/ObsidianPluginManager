@@ -24,7 +24,7 @@
 - CLI 未注册时，可尝试创建当前用户级命令入口；执行前展示双版本说明并要求输入完整的 `YES`。
 - 程序先启动或聚焦 Obsidian，等待应用就绪后再执行无修改的 `obsidian help` 检查；如果 CLI 未启用，立即显示中文设置示意图并安全停止。
 - 将 Obsidian Git 与 8 个推荐社区插件纳入同一张 9 项管理清单。
-- 新增优质开源插件推荐库：QuickAdd、Tasks、Excalidraw、Linter、Advanced Tables、Templater、Codeblock Customizer；可按 ID 多选或选择全部。
+- 新增优质开源插件推荐库：QuickAdd、Tasks、Excalidraw、Linter、Advanced Tables、Templater、Codeblock Customizer、PDF++；可按 ID 多选或选择全部。
 - 安装前实时核对 Obsidian 官方社区目录、GitHub 源码仓库、SPDX 开源许可证和仓库归档状态；未通过核验的插件跳过。
 - 安装与启用合并为一次批次授权：未安装的插件安装后启用，已安装但未启用的只启用，已启用的自动跳过。
 - 新增独立的 GitHub Releases REST API 更新检查器：可选使用本机环境变量中的只读 Token，使用 ETag / Last-Modified 条件请求和用户级本地缓存；只通知版本变化，不自动安装或更新插件。
