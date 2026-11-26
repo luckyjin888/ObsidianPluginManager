@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# ObsidianPluginManager 0.6.5
+# ObsidianPluginManager 0.6.6
 # GPL-3.0-only
 """Cross-platform, consent-first Obsidian plugin inventory and heuristic audit."""
 from __future__ import annotations
@@ -10,7 +10,7 @@ from pathlib import Path
 from quickadd_shortcuts import configure_quickadd_shortcuts
 from datetime import datetime, timezone
 
-VERSION = "0.6.5"
+VERSION = "0.6.6"
 MIN_CLI = (1, 12, 7)
 REGISTRY_URL = "https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugins.json"
 NETWORK_TIMEOUT = 30
@@ -1197,7 +1197,7 @@ def offer_obsidian_plugins(vault):
 
     say("\n" + "=" * 58)
     say("Obsidian 社区插件统一管理")
-    say("本清单包含 Obsidian Git 和 7 个推荐插件，共 8 个。")
+    say("本清单包含 Obsidian Git 和 8 个推荐插件，共 9 个。")
     say("安装与启用采用同一次授权；已安装且启用的插件自动跳过。")
     say("-" * 58)
     for index, item in enumerate(catalog, 1):
@@ -1213,7 +1213,7 @@ def offer_obsidian_plugins(vault):
     actionable = [item for item in catalog
                   if plugin_action(item["id"], installed_ids, enabled_ids) != "skip"]
     if not actionable:
-        say("\n8 个插件均已安装并启用，无需操作。")
+        say("\n9 个插件均已安装并启用，无需操作。")
         return
 
     say("\n请选择本次希望安装并启用的插件；已完成的插件不会重复操作。")
@@ -1314,6 +1314,8 @@ RECOMMENDED_PLUGINS = [
      "repo":"tgrosinger/advanced-tables-obsidian", "risk":"官方说明该插件仍属实验性，可能存在导致当前笔记数据丢失的缺陷；先备份再使用"},
     {"id":"codeblock-customizer", "name":"Codeblock Customizer", "purpose":"自定义 Obsidian Markdown 代码块在编辑和阅读模式中的显示效果",
      "repo":"mugiwara85/CodeblockCustomizer", "risk":"第三方插件；会调整代码块显示与交互，先在独立测试 Vault 验证阅读/编辑视图、复制、滚动和移动端兼容性"},
+    {"id":"pdf-plus", "name":"PDF++", "purpose":"增强 PDF 阅读、文本高亮、批注、PDF 链接与 Markdown 笔记联动",
+     "repo":"RyotaUshio/obsidian-pdf-plus", "risk":"依赖 Obsidian 私有 API，Obsidian 更新可能导致兼容性问题；PDF 直接编辑为实验功能，可能损坏文件，默认不要启用直接编辑，使用前备份 PDF"},
     {"id":"templater-obsidian", "name":"Templater", "purpose":"动态模板，可运行 JavaScript 和系统命令",
      "repo":"SilentVoid13/Templater", "risk":"高风险：可执行任意 JavaScript 和系统命令；仅建议高级用户使用"}
 ]
