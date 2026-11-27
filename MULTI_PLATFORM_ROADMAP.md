@@ -114,3 +114,10 @@ P1, P2, and P3 are complete at the code/CI-foundation level. P4.1–P4.3 are imp
 - The helper reports `created` only after exact serialized-byte read-back and SHA-256 envelope validation; identical existing backups are reported as already present.
 - Added fake-Vault tests for successful creation, idempotent identical backup, path collision, corrupted read-back, folder failure, create failure, and read failure.
 - Immediate Vault read-back is not proof of remote sync durability or cross-device availability. No restore/rollback UI exists; the helper is not connected to the policy writer and Save remains disabled.
+
+
+### P5.6.2 test correction
+
+- The first persistence-test run failed because the fake Vault fixture implemented the helper port rather than the public Obsidian Vault API expected by the adapter.
+- Updated the fixture to model `getAbstractFileByPath()`, `createFolder()`, `create()`, and `read()`, including structural file/folder objects.
+- Awaiting a fresh CI run for the corrected fixture. Previous persistence test failures are not counted as passing.
