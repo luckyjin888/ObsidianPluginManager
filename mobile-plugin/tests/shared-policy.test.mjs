@@ -10,7 +10,7 @@ const bundled = await build({
   write: false,
 });
 const encoded = Buffer.from(bundled.outputFiles[0].text).toString("base64");
-const { parseSharedPluginPolicy, findPolicyConflictCandidates, fingerprintSharedPolicy, compareSharedPolicyPluginIds } = await import(`data:text/javascript;base64,${encoded}`);
+const { parseSharedPluginPolicy, findPolicyConflictCandidates, fingerprintSharedPolicy, compareSharedPolicyPluginIds, buildSharedPolicyResolutionPreview } = await import(`data:text/javascript;base64,${encoded}`);
 
 test("accepts a valid minimal policy", () => {
   const result = parseSharedPluginPolicy(JSON.stringify({
@@ -115,4 +115,60 @@ test("compares candidate policy lists without mutating either policy", () => {
   assert.deepEqual(diff.onlyInCurrent, ["templater"]);
   assert.deepEqual(current.plugins.map((entry) => entry.id), ["quickadd", "templater"]);
   assert.deepEqual(candidate.plugins.map((entry) => entry.id), ["quickadd", "dataview"]);
+});
+
+
+test("requires an explicit choice for every ID in a conflict resolution preview", () => {
+  const current = { schema_version: 1, revision: "a", plugins: [{ id: "quickadd" }] };
+  const candidate = { schema_version: 1, revision: "b", plugins: [{ id: "dataview" }] };
+  const result = buildSharedPolicyResolutionPreview(current, candidate, { quickadd: "current" }, "merged-1");
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.unresolvedIds, ["dataview"]);
+  assert.equal(result.json, null);
+});
+
+test("builds deterministic in-memory resolution from explicit per-ID choices", () => {
+  const current = {
+    schema_version: 1, revision: "a",
+    plugins: [{ id: "quickadd", note: "keep current note" }, { id: "templater" }],
+  };
+  const candidate = {
+    schema_version: 1, revision: "b",
+    plugins: [{ id: "quickadd", note: "use candidate note" }, { id: "dataview" }],
+  };
+  const beforeCurrent = JSON.stringify(current);
+  const beforeCandidate = JSON.stringify(candidate);
+  const result = buildSharedPolicyResolutionPreview(current, candidate, {
+    quickadd: "candidate",
+    templater: "remove",
+    dataview: "candidate",
+  }, "merged-2");
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.policy.plugins, [
+    { id: "dataview" },
+    { id: "quickadd", note: "use candidate note" },
+  ]);
+  assert.match(result.json, /"revision": "merged-2"/);
+  assert.equal(JSON.stringify(current), beforeCurrent);
+  assert.equal(JSON.stringify(candidate), beforeCandidate);
+});
+
+test("rejects choices that select an entry absent from the chosen source", () => {
+  const current = { schema_version: 1, revision: "a", plugins: [{ id: "quickadd" }] };
+  const candidate = { schema_version: 1, revision: "b", plugins: [] };
+  const result = buildSharedPolicyResolutionPreview(current, candidate, {
+    quickadd: "candidate",
+  }, "merged-3");
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.invalidChoices, ["quickadd"]);
+  assert.equal(result.json, null);
+});
+
+test("rejects invalid choices and invalid revision values", () => {
+  const empty = { schema_version: 1, revision: "a", plugins: [] };
+  const invalidChoice = buildSharedPolicyResolutionPreview(empty, empty, {}, "merged-4");
+  assert.equal(invalidChoice.ok, true);
+  const invalidRevision = buildSharedPolicyResolutionPreview(empty, empty, {}, "");
+  assert.equal(invalidRevision.ok, false);
+  assert.deepEqual(invalidRevision.invalidChoices, ["<revision>"]);
 });
