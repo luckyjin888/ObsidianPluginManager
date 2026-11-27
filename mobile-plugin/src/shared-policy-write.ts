@@ -30,6 +30,7 @@ export interface SharedPolicyBackupVaultAdapter<TFileLike> {
   getFile(path: string): TFileLike | null;
   create(path: string, content: string): Promise<TFileLike>;
   read(file: TFileLike): Promise<string>;
+  listFiles(): Array<{ path: string; file: TFileLike; size: number }>;
 }
 
 /** Public Obsidian Vault adapter for creating new backup files without overwriting. */
@@ -56,6 +57,13 @@ export function createObsidianVaultBackupAdapter(
     },
     create: (path, content) => vault.create(path, content),
     read: (file) => vault.read(file),
+    listFiles: () => {
+      const folder = vault.getAbstractFileByPath(SHARED_POLICY_BACKUP_DIRECTORY);
+      if (!isVaultFolder(folder)) return [];
+      return folder.children
+        .filter(isVaultFile)
+        .map((file) => ({ path: file.path, file, size: file.stat.size }));
+    },
   };
 }
 
@@ -264,4 +272,82 @@ export async function persistSharedPolicyBackup<TFileLike>(
       message: error instanceof Error ? error.message : "Unknown backup persistence failure.",
     };
   }
+}
+
+
+export type SharedPolicyBackupScanItem =
+  | { status: "valid"; path: string; size: number; backup: SharedPolicyBackupEnvelope; policyValid: true }
+  | { status: "invalid-policy"; path: string; size: number; backup: SharedPolicyBackupEnvelope; policyErrors: string[] }
+  | { status: "invalid-backup"; path: string; size: number; errors: string[] }
+  | { status: "oversized"; path: string; size: number; errors: string[] };
+
+/**
+ * Read-only scan of backup files. It never changes the Vault and preserves
+ * invalid/oversized entries as visible diagnostics rather than skipping them.
+ */
+export async function scanSharedPolicyBackups<TFileLike>(
+  vault: SharedPolicyBackupVaultAdapter<TFileLike>,
+): Promise<SharedPolicyBackupScanItem[]> {
+  let files: Array<{ path: string; file: TFileLike; size: number }>;
+  try {
+    files = vault.listFiles().sort((a, b) => b.path.localeCompare(a.path));
+  } catch {
+    return [{
+      status: "invalid-backup",
+      path: SHARED_POLICY_BACKUP_DIRECTORY,
+      size: 0,
+      errors: ["Backup directory could not be listed."],
+    }];
+  }
+  const results: SharedPolicyBackupScanItem[] = [];
+  for (const entry of files) {
+    if (entry.size > MAX_SHARED_POLICY_BACKUP_BYTES) {
+      results.push({
+        status: "oversized",
+        path: entry.path,
+        size: entry.size,
+        errors: ["Backup exceeds the 128 KiB scan limit; it was not read."],
+      });
+      continue;
+    }
+    try {
+      const raw = await vault.read(entry.file);
+      const checked = await validateSharedPolicyBackupEnvelope(raw);
+      if (!checked.ok) {
+        results.push({
+          status: "invalid-backup",
+          path: entry.path,
+          size: entry.size,
+          errors: checked.errors,
+        });
+        continue;
+      }
+      const policy = parseSharedPluginPolicy(checked.backup.original_content);
+      if (!policy.ok || !policy.policy) {
+        results.push({
+          status: "invalid-policy",
+          path: entry.path,
+          size: entry.size,
+          backup: checked.backup,
+          policyErrors: policy.errors,
+        });
+        continue;
+      }
+      results.push({
+        status: "valid",
+        path: entry.path,
+        size: entry.size,
+        backup: checked.backup,
+        policyValid: true,
+      });
+    } catch (error) {
+      results.push({
+        status: "invalid-backup",
+        path: entry.path,
+        size: entry.size,
+        errors: [error instanceof Error ? error.message : "Backup read failed."],
+      });
+    }
+  }
+  return results;
 }
