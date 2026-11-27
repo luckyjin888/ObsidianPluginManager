@@ -1,4 +1,4 @@
-import { TFile, TFolder, type Vault } from "obsidian";
+import type { TFile, TFolder, Vault } from "obsidian";
 import { parseSharedPluginPolicy } from "./shared-policy";
 
 /**
@@ -33,15 +33,26 @@ export interface SharedPolicyBackupVaultAdapter<TFileLike> {
 }
 
 /** Public Obsidian Vault adapter for creating new backup files without overwriting. */
+function isVaultFolder(item: unknown): item is TFolder {
+  return typeof item === "object" && item !== null &&
+    Array.isArray((item as TFolder).children);
+}
+
+function isVaultFile(item: unknown): item is TFile {
+  return typeof item === "object" && item !== null &&
+    typeof (item as TFile).extension === "string" &&
+    typeof (item as TFile).stat === "object";
+}
+
 export function createObsidianVaultBackupAdapter(
   vault: Pick<Vault, "getAbstractFileByPath" | "createFolder" | "create" | "read">,
 ): SharedPolicyBackupVaultAdapter<TFile> {
   return {
-    folderExists: (path) => vault.getAbstractFileByPath(path) instanceof TFolder,
+    folderExists: (path) => isVaultFolder(vault.getAbstractFileByPath(path)),
     createFolder: (path) => vault.createFolder(path),
     getFile: (path) => {
       const item = vault.getAbstractFileByPath(path);
-      return item instanceof TFile ? item : null;
+      return isVaultFile(item) ? item : null;
     },
     create: (path, content) => vault.create(path, content),
     read: (file) => vault.read(file),
