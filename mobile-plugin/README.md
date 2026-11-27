@@ -74,3 +74,8 @@ The catalogue adds **Verify downloaded release files** after release metadata in
 This step does not execute downloaded code, retain files, create plugin folders, or write to the vault. A successful verification is not an installation. Redirect handling is delegated to Obsidian's `requestUrl`; its response API does not expose the final redirected URL, so this stage cannot independently attest the final CDN hostname. The source asset URL is still restricted to the expected GitHub repository release path. Staging, backups, rollback, and explicit confirmation remain disabled.
 
 **Runtime version:** The verifier uses the officially exported Obsidian `apiVersion` value to compare the running app's API version against manifest `minAppVersion`. This is the public API version and follows the desktop app release cycle; it is not an undocumented `App.version` property.
+
+
+## Shared plugin policy preview (read-only)
+
+The command **Preview shared plugin policy (read-only)** looks for `PluginManager/shared-policy.json` in the current Vault. If present, it validates a strict schema (maximum 64 KiB and 200 entries) and displays desired plugin IDs with compatibility evidence from this device's bundled catalogue. Unknown IDs remain inert. The preview does not create or edit the file, install plugins, inspect installed/enabled state, fetch URLs from policy content, or copy plugin binaries/settings between devices. A missing policy file is reported without creating one.
