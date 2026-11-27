@@ -121,3 +121,13 @@ P1, P2, and P3 are complete at the code/CI-foundation level. P4.1–P4.3 are imp
 - The first persistence-test run failed because the fake Vault fixture implemented the helper port rather than the public Obsidian Vault API expected by the adapter.
 - Updated the fixture to model `getAbstractFileByPath()`, `createFolder()`, `create()`, and `read()`, including structural file/folder objects.
 - Awaiting a fresh CI run for the corrected fixture. Previous persistence test failures are not counted as passing.
+
+
+### P5.6.3 — read-only backup inventory and comparison
+
+- Added a Vault backup-directory scanner with size-before-read checks, envelope SHA-256 validation, and embedded policy validation.
+- Invalid, unreadable, oversized, and invalid-policy backups are reported as diagnostics; nothing is deleted or repaired.
+- Added the Obsidian command **Preview shared policy backups (read-only)**.
+- Valid entries show backup path, size, timestamp, digest, policy revision, desired-plugin count, and set-difference counts against the current valid policy.
+- No restore, overwrite, or delete action is exposed. Remote sync durability and device-loss recovery are not proven.
+- CI for this latest work is pending.
