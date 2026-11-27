@@ -1,7 +1,7 @@
 import { Notice, Plugin } from "obsidian";
 import { detectRuntimePlatform, isMobileRuntime } from "./platform";
 import { PluginCatalogModal } from "./catalog-view";
-import { SharedPolicyPreviewModal } from "./shared-policy-view";
+import { SharedPolicyBackupPreviewModal, SharedPolicyPreviewModal } from "./shared-policy-view";
 
 export default class CrossPlatformPluginManager extends Plugin {
   async onload(): Promise<void> {
@@ -19,6 +19,12 @@ export default class CrossPlatformPluginManager extends Plugin {
       id: "preview-shared-plugin-policy",
       name: "Preview shared plugin policy (read-only)",
       callback: () => new SharedPolicyPreviewModal(this.app).open(),
+    });
+
+    this.addCommand({
+      id: "preview-shared-policy-backups",
+      name: "Preview shared policy backups (read-only)",
+      callback: () => new SharedPolicyBackupPreviewModal(this.app).open(),
     });
 
     this.addCommand({
