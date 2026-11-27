@@ -77,7 +77,13 @@ export class SharedPolicyPreviewModal extends Modal {
       }
 
       const raw = await adapter.read(SHARED_POLICY_PATH);
-      const fingerprint = await fingerprintSharedPolicy(raw);
+      let fingerprint = "Unavailable in this runtime";
+      try {
+        fingerprint = await fingerprintSharedPolicy(raw);
+      } catch {
+        // Fingerprinting is supplemental; a missing Web Crypto implementation
+        // must not prevent the read-only policy preview from working.
+      }
       const parsed = parseSharedPluginPolicy(raw);
       if (!parsed.ok || !parsed.policy) {
         contentEl.createEl("h3", { text: "Policy cannot be previewed" });
