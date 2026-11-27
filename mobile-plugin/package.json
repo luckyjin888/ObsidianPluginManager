@@ -7,7 +7,7 @@
     "build": "node esbuild.config.mjs production",
     "package": "python ../tools/package_mobile_plugin.py --source .",
     "dev": "node esbuild.config.mjs",
-    "test:policy": "node --test tests/shared-policy.test.mjs"
+    "test:policy": "node --test tests/*.test.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
