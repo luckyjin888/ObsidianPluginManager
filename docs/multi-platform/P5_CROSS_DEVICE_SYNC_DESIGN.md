@@ -71,6 +71,22 @@ Because the vault adapter has no atomic cross-device compare-and-swap guarantee,
 - Explicit user action is required to add/remove a desired plugin.
 - The policy file may be synced by Obsidian Sync, iCloud, Git, or another user-selected vault sync mechanism; this plugin does not create accounts or transmit policy to a manager-owned server.
 
+
+## Safe-write protocol for a future policy editor
+
+When write support is considered, use the public Obsidian Vault API rather than writing through the adapter or Node filesystem:
+
+1. Read the current file with `vault.cachedRead(file)` and retain the exact baseline string.
+2. Perform any user interaction and merge preparation outside the write callback.
+3. Re-enter `vault.process(file, current => ...)`. Inside its synchronous callback, compare `current` byte-for-byte/string-for-string with the retained baseline.
+4. If they differ, return the current content unchanged and report a stale-preview conflict. Do not apply the candidate.
+5. If they match, return the fully validated candidate JSON string. Do not perform asynchronous work inside the `process` callback.
+6. After the operation, re-read and validate the resulting file before reporting success.
+
+Obsidian documents that `Vault.process()` guarantees the file does not change between its read and write, and specifically recommends comparing the `process()` callback data with a prior `cachedRead()` result when asynchronous work occurs between reading and writing. This is a **local file operation guarantee**, not a distributed lock: it cannot guarantee that another device's sync provider will not later deliver a competing version. The UI must still warn about that limitation, and no automatic merge or conflict-copy deletion is allowed.
+
+No policy writer is implemented by this design update. This protocol must receive tests with a fake Vault/process implementation, including stale baseline, callback invocation, exceptions, invalid candidate, and post-write verification, before any write button is exposed.
+
 ## Required tests before write support
 
 - schema validation and size limits;
