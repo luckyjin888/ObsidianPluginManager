@@ -1,6 +1,7 @@
 import { Modal, App, Notice } from "obsidian";
 import { assessInstallEligibility } from "./installation-policy";
 import { detectRuntimePlatform } from "./platform";
+import { inspectLatestRelease } from "./release-inspector";
 import catalogData from "../../shared/plugin-catalog.json";
 
 type CompatibilityStatus = "verified" | "declared_unverified" | "incompatible" | "unknown";
@@ -104,6 +105,42 @@ export class PluginCatalogModal extends Modal {
             new Notice("Preflight passed. This is not an installation; release integrity and manifest checks are still required.");
           } else {
             new Notice(`Installation blocked: ${decision.reasons.join(" ")}`, 10000);
+          }
+        });
+
+        const releaseButton = item.createEl("button", { text: "Inspect latest release" });
+        const releaseDetails = item.createDiv({ cls: "plugin-catalog-release" });
+        releaseButton.addEventListener("click", async () => {
+          if (!plugin.upstream_url) {
+            new Notice("Release inspection blocked: no upstream repository URL.");
+            return;
+          }
+          releaseButton.disabled = true;
+          releaseButton.setText("Inspecting release…");
+          releaseDetails.empty();
+          try {
+            const report = await inspectLatestRelease(plugin.upstream_url);
+            releaseDetails.createEl("p", {
+              text: `Latest stable release: ${report.tag} · ${report.repository}`,
+            });
+            for (const asset of report.assets) {
+              const digestText = asset.digestVerified ? "SHA-256 digest published" : "SHA-256 digest missing/invalid";
+              releaseDetails.createEl("p", {
+                text: `${asset.name} · ${asset.size.toLocaleString()} bytes · ${digestText}`,
+              });
+            }
+            if (report.installable) {
+              new Notice("Release metadata and SHA-256 digest presence checks passed. Downloaded bytes and manifest are not yet verified; installation remains disabled.");
+            } else {
+              new Notice(`Release inspected but blocked: ${report.reasons.join(" ")}`, 10000);
+            }
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Unknown release inspection error.";
+            releaseDetails.createEl("p", { text: message });
+            new Notice(`Release inspection failed: ${message}`, 10000);
+          } finally {
+            releaseButton.disabled = false;
+            releaseButton.setText("Inspect latest release");
           }
         });
 
