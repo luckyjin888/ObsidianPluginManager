@@ -1,7 +1,8 @@
 import { Modal, App, Notice } from "obsidian";
 import { assessInstallEligibility } from "./installation-policy";
 import { detectRuntimePlatform } from "./platform";
-import { inspectLatestRelease } from "./release-inspector";
+import { inspectLatestRelease, type ReleaseInspection } from "./release-inspector";
+import { verifyLatestReleaseAssets } from "./release-verifier";
 import catalogData from "../../shared/plugin-catalog.json";
 
 type CompatibilityStatus = "verified" | "declared_unverified" | "incompatible" | "unknown";
@@ -110,6 +111,7 @@ export class PluginCatalogModal extends Modal {
 
         const releaseButton = item.createEl("button", { text: "Inspect latest release" });
         const releaseDetails = item.createDiv({ cls: "plugin-catalog-release" });
+        let latestReleaseReport: ReleaseInspection | null = null;
         releaseButton.addEventListener("click", async () => {
           if (!plugin.upstream_url) {
             new Notice("Release inspection blocked: no upstream repository URL.");
@@ -120,6 +122,7 @@ export class PluginCatalogModal extends Modal {
           releaseDetails.empty();
           try {
             const report = await inspectLatestRelease(plugin.upstream_url);
+            latestReleaseReport = report;
             releaseDetails.createEl("p", {
               text: `Latest stable release: ${report.tag} · ${report.repository}`,
             });
@@ -141,6 +144,38 @@ export class PluginCatalogModal extends Modal {
           } finally {
             releaseButton.disabled = false;
             releaseButton.setText("Inspect latest release");
+          }
+        });
+
+        const verifyButton = item.createEl("button", { text: "Verify downloaded release files" });
+        verifyButton.addEventListener("click", async () => {
+          if (!latestReleaseReport) {
+            new Notice("Inspect the latest release metadata first.");
+            return;
+          }
+          verifyButton.disabled = true;
+          verifyButton.setText("Verifying assets…");
+          try {
+            const report = await verifyLatestReleaseAssets(
+              latestReleaseReport,
+              plugin.id,
+              this.app.version,
+            );
+            releaseDetails.createEl("p", {
+              text: report.verified
+                ? `Verified manifest ${report.manifest?.id} v${report.manifest?.version}; no vault files were changed.`
+                : `Asset verification blocked: ${report.reasons.join(" ")}`,
+            });
+            new Notice(report.verified
+              ? "Release bytes and manifest verified. Installation is still not enabled."
+              : "Release verification failed; installation remains blocked.", 10000);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Unknown asset verification error.";
+            releaseDetails.createEl("p", { text: message });
+            new Notice(`Asset verification failed: ${message}`, 10000);
+          } finally {
+            verifyButton.disabled = false;
+            verifyButton.setText("Verify downloaded release files");
           }
         });
 
