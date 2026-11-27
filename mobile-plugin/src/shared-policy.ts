@@ -119,3 +119,20 @@ export async function fingerprintSharedPolicy(raw: string): Promise<string> {
   const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
+
+export interface SharedPolicyPluginDiff {
+  onlyInCandidate: string[];
+  onlyInCurrent: string[];
+}
+
+export function compareSharedPolicyPluginIds(
+  current: SharedPluginPolicy,
+  candidate: SharedPluginPolicy,
+): SharedPolicyPluginDiff {
+  const currentIds = new Set(current.plugins.map((entry) => entry.id));
+  const candidateIds = new Set(candidate.plugins.map((entry) => entry.id));
+  return {
+    onlyInCandidate: [...candidateIds].filter((id) => !currentIds.has(id)).sort(),
+    onlyInCurrent: [...currentIds].filter((id) => !candidateIds.has(id)).sort(),
+  };
+}
