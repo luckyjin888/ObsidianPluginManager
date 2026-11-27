@@ -70,3 +70,13 @@ Only manager-owned runtime assets may be changed: `main.js`, `manifest.json`, an
 ## Current implementation boundary
 
 This document records the approved safety boundary for P4. The current plugin remains a read-only catalogue viewer. No release downloader, installer, backup writer, or plugin lifecycle action is present yet.
+
+## Official API references reviewed
+
+- [Obsidian `requestUrl` API](https://docs.obsidian.md/Reference/TypeScript%20API/requestUrl)
+- [Obsidian Vault API](https://docs.obsidian.md/Plugins/Vault)
+- [Obsidian plugin manifest requirements](https://docs.obsidian.md/Reference/Manifest)
+- [Obsidian mobile development guidance](https://docs.obsidian.md/Plugins/Getting%20started/Mobile%20development)
+- [Obsidian plugin self-critique checklist](https://docs.obsidian.md/oo/plugin)
+
+These references are the basis for using `requestUrl`, `Vault.configDir`, and the generic vault adapter, and for avoiding Node/Electron-only assumptions on mobile.
