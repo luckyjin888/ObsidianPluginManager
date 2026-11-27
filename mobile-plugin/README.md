@@ -52,3 +52,9 @@ Mobile code must not import Node.js or Electron APIs. The build script itself us
 The plugin includes an **Open plugin compatibility catalogue** command. It reads the versioned JSON catalogue bundled from `../shared/plugin-catalog.json`, supports name/ID filtering, and displays the recorded status for Windows, macOS, iOS, iPadOS, and Android.
 
 The view is read-only. It does not install, enable, disable, update, or remove plugins. Compatibility labels reflect the catalogue evidence and do not infer support from the upstream desktop-only flag.
+
+## P4.1 eligibility preflight
+
+The catalogue includes a **Check install eligibility** action. This is a read-only policy gate: it blocks unknown, declared-but-untested, and incompatible platform entries, rejects non-canonical upstream URLs, and requires both iOS and iPadOS catalogue evidence because Obsidian exposes a shared iOS runtime flag for iPhone/iPad.
+
+A passed preflight is **not** permission to install. Release provenance/digest validation, downloaded manifest validation, version checks, staging, backups, rollback, and user confirmation must all be implemented before any file writes are enabled. The current action never downloads or writes files.
