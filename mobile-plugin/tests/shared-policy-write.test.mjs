@@ -162,18 +162,20 @@ function fakeBackupVault(options = {}) {
   const files = new Map();
   const state = { folder: false, creates: 0, folderCreates: 0, reads: 0 };
   const api = {
-    folderExists() { return state.folder; },
+    getAbstractFileByPath(path) {
+      if (path === "PluginManager/backups" && state.folder) return { path, children: [] };
+      return files.get(path) ?? null;
+    },
     async createFolder() {
       state.folderCreates++;
       if (options.throwFolder) throw new Error("injected folder failure");
       state.folder = true;
     },
-    getFile(path) { return files.get(path) ?? null; },
     async create(path, content) {
       state.creates++;
       if (options.throwCreate) throw new Error("injected backup create failure");
       if (files.has(path)) throw new Error("file already exists");
-      const file = { path, content };
+      const file = { path, content, extension: "json", stat: { size: content.length } };
       files.set(path, file);
       return file;
     },
