@@ -10,7 +10,7 @@ const bundled = await build({
   write: false,
 });
 const encoded = Buffer.from(bundled.outputFiles[0].text).toString("base64");
-const { writeSharedPolicyWithBaseline, createObsidianVaultPolicyAdapter, createSharedPolicyBackupEnvelope, validateSharedPolicyBackupEnvelope, buildSharedPolicyBackupFileName, createObsidianVaultBackupAdapter, persistSharedPolicyBackup, scanSharedPolicyBackups, prepareSharedPolicyRestorePreview } = await import(`data:text/javascript;base64,${encoded}`);
+const { writeSharedPolicyWithBaseline, createObsidianVaultPolicyAdapter, createSharedPolicyBackupEnvelope, validateSharedPolicyBackupEnvelope, buildSharedPolicyBackupFileName, createObsidianVaultBackupAdapter, persistSharedPolicyBackup, scanSharedPolicyBackups, prepareSharedPolicyRestorePreview, restoreSharedPolicyWithBackup } = await import(`data:text/javascript;base64,${encoded}`);
 
 const baseline = JSON.stringify({ schema_version: 1, revision: "r1", plugins: [{ id: "quickadd" }] }, null, 2) + "\n";
 const candidate = JSON.stringify({ schema_version: 1, revision: "r2", plugins: [{ id: "quickadd" }, { id: "templater" }] }, null, 2) + "\n";
@@ -321,4 +321,66 @@ test("restore preview rejects invalid backup digest and invalid embedded policy"
   const invalidPolicyBackup = await createSharedPolicyBackupEnvelope("{not a policy", "2026-11-28T03:00:00.000Z");
   const invalidPolicy = await prepareSharedPolicyRestorePreview(invalidPolicyBackup, baseline, baseline);
   assert.equal(invalidPolicy.status, "invalid-policy");
+});
+
+
+test("confirmed restore persists and verifies a fresh backup before writing", async () => {
+  const policy = fakeVault(candidate);
+  const backup = fakeBackupVault();
+  const selected = await createSharedPolicyBackupEnvelope(baseline, "2026-11-28T03:00:00.000Z");
+  const result = await restoreSharedPolicyWithBackup(
+    policy, createObsidianVaultBackupAdapter(backup.adapter), {}, selected,
+    candidate, candidate, "2026-11-28T04:00:00.000Z", true,
+  );
+  assert.equal(result.status, "restored");
+  assert.equal(policy.state.content, baseline);
+  assert.equal(backup.state.creates, 1);
+  assert.equal(backup.state.reads, 1);
+  assert.equal(policy.state.writes, 1);
+});
+
+test("restore requires explicit confirmation and rejects a stale reviewed baseline before backup", async () => {
+  const selected = await createSharedPolicyBackupEnvelope(baseline, "2026-11-28T03:00:00.000Z");
+  const policy = fakeVault(candidate);
+  const backup = fakeBackupVault();
+  const unconfirmed = await restoreSharedPolicyWithBackup(
+    policy, createObsidianVaultBackupAdapter(backup.adapter), {}, selected,
+    candidate, candidate, "2026-11-28T04:00:00.000Z", false,
+  );
+  assert.deepEqual(unconfirmed, { status: "confirmation-required" });
+  assert.equal(backup.state.creates, 0);
+  const stale = await restoreSharedPolicyWithBackup(
+    policy, createObsidianVaultBackupAdapter(backup.adapter), {}, selected,
+    candidate, baseline, "2026-11-28T04:00:00.000Z", true,
+  );
+  assert.equal(stale.status, "stale");
+  assert.equal(backup.state.creates, 0);
+  assert.equal(policy.state.writes, 0);
+});
+
+test("restore aborts when the final Vault.process baseline changed after backup", async () => {
+  const selected = await createSharedPolicyBackupEnvelope(baseline, "2026-11-28T03:00:00.000Z");
+  const concurrent = JSON.stringify({ schema_version: 1, revision: "r9", plugins: [{ id: "dataview" }] });
+  const policy = fakeVault(candidate, { beforeProcess: () => concurrent });
+  const backup = fakeBackupVault();
+  const result = await restoreSharedPolicyWithBackup(
+    policy, createObsidianVaultBackupAdapter(backup.adapter), {}, selected,
+    candidate, candidate, "2026-11-28T04:00:00.000Z", true,
+  );
+  assert.equal(result.status, "stale");
+  assert.equal(policy.state.content, concurrent);
+  assert.equal(policy.state.writes, 0);
+  assert.equal(backup.state.creates, 1);
+});
+
+test("restore reports failed fresh-backup persistence and never writes primary", async () => {
+  const selected = await createSharedPolicyBackupEnvelope(baseline, "2026-11-28T03:00:00.000Z");
+  const policy = fakeVault(candidate);
+  const backup = fakeBackupVault({ throwCreate: true });
+  const result = await restoreSharedPolicyWithBackup(
+    policy, createObsidianVaultBackupAdapter(backup.adapter), {}, selected,
+    candidate, candidate, "2026-11-28T04:00:00.000Z", true,
+  );
+  assert.equal(result.status, "backup-failed");
+  assert.equal(policy.state.writes, 0);
 });
