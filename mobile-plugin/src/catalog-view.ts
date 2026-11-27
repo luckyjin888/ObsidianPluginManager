@@ -1,4 +1,6 @@
-import { Modal, App } from "obsidian";
+import { Modal, App, Notice } from "obsidian";
+import { assessInstallEligibility } from "./installation-policy";
+import { detectRuntimePlatform } from "./platform";
 import catalogData from "../../shared/plugin-catalog.json";
 
 type CompatibilityStatus = "verified" | "declared_unverified" | "incompatible" | "unknown";
@@ -95,6 +97,16 @@ export class PluginCatalogModal extends Modal {
         if (plugin.risk_notes.length > 0) {
           item.createEl("p", { text: `Notes: ${plugin.risk_notes.join(" ")}` });
         }
+        const preflight = item.createEl("button", { text: "Check install eligibility" });
+        preflight.addEventListener("click", () => {
+          const decision = assessInstallEligibility(plugin, detectRuntimePlatform());
+          if (decision.eligible) {
+            new Notice("Preflight passed. This is not an installation; release integrity and manifest checks are still required.");
+          } else {
+            new Notice(`Installation blocked: ${decision.reasons.join(" ")}`, 10000);
+          }
+        });
+
         if (plugin.upstream_url) {
           const link = item.createEl("a", {
             text: "Upstream project",
