@@ -202,7 +202,7 @@ test("persists a new backup without overwriting and verifies exact read-back", a
   assert.equal(checked.backup.original_content, baseline);
 });
 
-test("reuses an identical existing backup and never overwrites a collision", async () => {
+test("reuses an identical backup and refuses to overwrite a corrupted path", async () => {
   const fake = fakeBackupVault();
   const adapter = createObsidianVaultBackupAdapter(fake.adapter);
   const first = await persistSharedPolicyBackup(adapter, baseline, "2026-11-28T02:00:00.000Z");
@@ -210,10 +210,13 @@ test("reuses an identical existing backup and never overwrites a collision", asy
   assert.equal(first.status, "created");
   assert.deepEqual(second, { status: "already-exists", path: first.path });
   assert.equal(fake.state.creates, 1);
-  const collision = await persistSharedPolicyBackup(adapter, candidate, "2026-11-28T02:00:00.000Z");
+
+  fake.files.get(first.path).content = "{unexpected replacement}";
+  const collision = await persistSharedPolicyBackup(adapter, baseline, "2026-11-28T02:00:00.000Z");
   assert.equal(collision.status, "failed");
   assert.match(collision.message, /not overwritten/);
   assert.equal(fake.state.creates, 1);
+  assert.equal(fake.files.get(first.path).content, "{unexpected replacement}");
 });
 
 test("preserves a backup whose read-back verification fails", async () => {
