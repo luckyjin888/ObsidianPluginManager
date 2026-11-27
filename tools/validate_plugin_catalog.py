@@ -25,7 +25,7 @@ def validate_catalog(data: object) -> list[str]:
         errors.append("catalogue root has unknown fields")
     if not isinstance(data.get("catalog_version"), int) or data.get("catalog_version", 0) < 1:
         errors.append("catalog_version must be a positive integer")
-    if not isinstance(data.get("generated_at"), str) or not re.fullmatch(r"\d{4}-\\d{2}-\\d{2}", data.get("generated_at", "")):
+    if not isinstance(data.get("generated_at"), str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", data.get("generated_at", "")):
         errors.append("generated_at must use YYYY-MM-DD")
     policy = data.get("compatibility_policy")
     if not isinstance(policy, dict) or set(policy) != {"statuses", "manifest_warning"}:
@@ -63,7 +63,7 @@ def validate_catalog(data: object) -> list[str]:
         if desktop not in (True, False, None):
             errors.append(f"{prefix}.manifest_is_desktop_only must be boolean or null")
         checked = plugin.get("manifest_checked_at")
-        if checked is not None and (not isinstance(checked, str) or not re.fullmatch(r"\d{4}-\\d{2}-\\d{2}", checked)):
+        if checked is not None and (not isinstance(checked, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", checked)):
             errors.append(f"{prefix}.manifest_checked_at must be YYYY-MM-DD or null")
         platforms = plugin.get("platforms")
         if not isinstance(platforms, dict) or set(platforms) != PLATFORMS:
