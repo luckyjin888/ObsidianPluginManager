@@ -10,7 +10,7 @@ const bundled = await build({
   write: false,
 });
 const encoded = Buffer.from(bundled.outputFiles[0].text).toString("base64");
-const { writeSharedPolicyWithBaseline, createObsidianVaultPolicyAdapter, createSharedPolicyBackupEnvelope, validateSharedPolicyBackupEnvelope, buildSharedPolicyBackupFileName } = await import(`data:text/javascript;base64,${encoded}`);
+const { writeSharedPolicyWithBaseline, createObsidianVaultPolicyAdapter, createSharedPolicyBackupEnvelope, validateSharedPolicyBackupEnvelope, buildSharedPolicyBackupFileName, createObsidianVaultBackupAdapter, persistSharedPolicyBackup } = await import(`data:text/javascript;base64,${encoded}`);
 
 const baseline = JSON.stringify({ schema_version: 1, revision: "r1", plugins: [{ id: "quickadd" }] }, null, 2) + "\n";
 const candidate = JSON.stringify({ schema_version: 1, revision: "r2", plugins: [{ id: "quickadd" }, { id: "templater" }] }, null, 2) + "\n";
@@ -155,4 +155,80 @@ test("backup filename is deterministic and rejects unsafe inputs", () => {
   );
   assert.equal(buildSharedPolicyBackupFileName("not-a-date", digest), null);
   assert.equal(buildSharedPolicyBackupFileName("2026-11-28T01:30:00.000Z", "../bad"), null);
+});
+
+
+function fakeBackupVault(options = {}) {
+  const files = new Map();
+  const state = { folder: false, creates: 0, folderCreates: 0, reads: 0 };
+  const api = {
+    folderExists() { return state.folder; },
+    async createFolder() {
+      state.folderCreates++;
+      if (options.throwFolder) throw new Error("injected folder failure");
+      state.folder = true;
+    },
+    getFile(path) { return files.get(path) ?? null; },
+    async create(path, content) {
+      state.creates++;
+      if (options.throwCreate) throw new Error("injected backup create failure");
+      if (files.has(path)) throw new Error("file already exists");
+      const file = { path, content };
+      files.set(path, file);
+      return file;
+    },
+    async read(file) {
+      state.reads++;
+      if (options.throwRead) throw new Error("injected backup read failure");
+      return options.corruptRead ? "{corrupted" : file.content;
+    },
+  };
+  return { adapter: api, files, state };
+}
+
+test("persists a new backup without overwriting and verifies exact read-back", async () => {
+  const fake = fakeBackupVault();
+  const adapter = createObsidianVaultBackupAdapter(fake.adapter);
+  const result = await persistSharedPolicyBackup(adapter, baseline, "2026-11-28T02:00:00.000Z");
+  assert.equal(result.status, "created");
+  assert.equal(fake.state.folderCreates, 1);
+  assert.equal(fake.state.creates, 1);
+  assert.equal(fake.state.reads, 1);
+  const raw = fake.files.get(result.path).content;
+  const checked = await validateSharedPolicyBackupEnvelope(raw);
+  assert.equal(checked.ok, true);
+  assert.equal(checked.backup.original_content, baseline);
+});
+
+test("reuses an identical existing backup and never overwrites a collision", async () => {
+  const fake = fakeBackupVault();
+  const adapter = createObsidianVaultBackupAdapter(fake.adapter);
+  const first = await persistSharedPolicyBackup(adapter, baseline, "2026-11-28T02:00:00.000Z");
+  const second = await persistSharedPolicyBackup(adapter, baseline, "2026-11-28T02:00:00.000Z");
+  assert.equal(first.status, "created");
+  assert.deepEqual(second, { status: "already-exists", path: first.path });
+  assert.equal(fake.state.creates, 1);
+  const collision = await persistSharedPolicyBackup(adapter, candidate, "2026-11-28T02:00:00.000Z");
+  assert.equal(collision.status, "failed");
+  assert.match(collision.message, /not overwritten/);
+  assert.equal(fake.state.creates, 1);
+});
+
+test("preserves a backup whose read-back verification fails", async () => {
+  const fake = fakeBackupVault({ corruptRead: true });
+  const adapter = createObsidianVaultBackupAdapter(fake.adapter);
+  const result = await persistSharedPolicyBackup(adapter, baseline, "2026-11-28T02:00:00.000Z");
+  assert.equal(result.status, "verification-failed");
+  assert.equal(fake.state.creates, 1);
+  assert.equal(fake.files.size, 1);
+});
+
+test("reports backup folder, create, and read failures without touching the policy", async () => {
+  for (const options of [{ throwFolder: true }, { throwCreate: true }, { throwRead: true }]) {
+    const fake = fakeBackupVault(options);
+    const adapter = createObsidianVaultBackupAdapter(fake.adapter);
+    const result = await persistSharedPolicyBackup(adapter, baseline, "2026-11-28T02:00:00.000Z");
+    assert.equal(result.status, "failed");
+    assert.equal(fake.state.creates <= 1, true);
+  }
 });
