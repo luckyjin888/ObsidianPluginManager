@@ -103,9 +103,6 @@ The plugin now has a separate verification action that downloads each allowliste
 
 No downloaded bytes are written to the vault, executed, or persisted. A successful P4.3 verification is not install permission. One API limitation remains: Obsidian's `RequestUrlResponse` exposes status, headers, and body but not the final URL after redirects. The requested source URL is restricted to the expected GitHub repository release path, but the final CDN hostname cannot be independently asserted by this code. This must be addressed or explicitly accepted in the final threat model before enabling writes.
 
-P4.3 limitation: the current typed public Obsidian `App` API does not expose a supported runtime-version property. The verifier validates the manifest's `minAppVersion` syntax but fails closed pending a reliable runtime version source; it does not claim that the running app satisfies that minimum.
-
-
 ## P4.4 transaction protocol — implementation gate and design
 
 P4.4 will be implemented as a separate transaction module and will remain disabled until every precondition below is satisfied.
@@ -145,3 +142,8 @@ P4.4 will be implemented as a separate transaction module and will remain disabl
 ### Current state
 
 This section is a design only. No transaction writer, backup, rollback, or vault mutation is enabled. The unresolved runtime-version and redirect-target limitations above remain hard blockers, so P4.4 implementation must not bypass them.
+
+
+## P4.3 runtime version check — resolved
+
+The mobile plugin imports the officially exported `apiVersion` from `obsidian` and compares it against the verified manifest's `minAppVersion`. The official API definition documents `apiVersion` as the app's API version, following the desktop release cycle. The implementation deliberately does not use an undocumented `App.version` property or third-party internal typings. See the [official Obsidian API type definition](https://github.com/obsidianmd/obsidian-api).
