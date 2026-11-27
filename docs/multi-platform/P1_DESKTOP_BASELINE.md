@@ -17,12 +17,13 @@ The current project does not contain a TypeScript/Obsidian mobile plugin package
 
 ## Existing automated test inventory
 
-A source inventory of the current `tests/` directory found **120 unittest test methods** across 10 test modules:
+The `main` baseline contains **120 unittest test methods** across 10 modules. P1 adds a separate four-test desktop entry-point regression guard, bringing the feature branch inventory to **124 test methods across 11 modules**.
 
-| Test module | Test methods |
+| Test module | Test methods on feature branch |
 |---|---:|
 | `test_audit.py` | 10 |
 | `test_cli_guidance.py` | 10 |
+| `test_desktop_entrypoints.py` (new P1 guard) | 4 |
 | `test_installer_rate_limit_budget.py` | 1 |
 | `test_interactions.py` | 8 |
 | `test_obsidian_startup.py` | 12 |
@@ -31,9 +32,11 @@ A source inventory of the current `tests/` directory found **120 unittest test m
 | `test_ssl.py` | 14 |
 | `test_vault_init.py` | 9 |
 | `test_windows.py` | 11 |
-| **Total** | **120** |
+| **Total** | **124** |
 
-These tests include Windows install discovery and CLI selection, macOS/Linux install-layout checks, Vault directory safety, Obsidian startup and CLI readiness, plugin inventory, consent behavior, QuickAdd configuration safety, HTTPS/TLS validation, and update-subscription caching/rate limits.
+The new guard checks that the Python core, Windows PowerShell launcher, macOS/Linux Bash launcher, and separate update-subscription utility remain present, and that the launchers still point to the existing Python core. It does not replace platform-specific smoke testing.
+
+The existing tests include Windows install discovery and CLI selection, macOS/Linux install-layout checks, Vault directory safety, Obsidian startup and CLI readiness, plugin inventory, consent behavior, QuickAdd configuration safety, HTTPS/TLS validation, and update-subscription caching/rate limits.
 
 ## Existing GitHub Actions baseline
 
@@ -45,17 +48,19 @@ The existing workflow `.github/workflows/tests.yml` runs a 3 × 3 matrix:
 
 Each job checks the Bash launcher executable bit, installs optional TLS providers, compiles `obsidian_manager.py`, and runs unittest discovery. Bash syntax validation runs on non-Windows runners.
 
-### Observed PR #14 baseline run
+### Observed initial PR #14 run
 
 The initial Draft PR commit `717501b738dd8a4da807d0065db00e955a0972a9` triggered GitHub Actions run [45964211338](https://github.com/luckyjin888/ObsidianPluginManager/actions/runs/45964211338).
 
 - Result: **9/9 jobs passed**
 - Python compilation: passed in the matrix
-- Existing unittest suite: passed in the matrix
+- Original unittest suite: passed in the matrix
 - Bash launcher executable-mode check: passed in the matrix
 - Bash syntax check: passed on Ubuntu/macOS; intentionally skipped on Windows
 
-This is CI evidence for the unchanged desktop baseline. It is not a claim that every real Windows/macOS installation layout or Obsidian version has been manually tested on physical machines.
+This initial run validates the original 120-test baseline. The new four-test guard was added afterward and must be confirmed by the next CI run.
+
+This is CI evidence for the desktop baseline. It is not a claim that every real Windows/macOS installation layout or Obsidian version has been manually tested on physical machines.
 
 ## Non-regression rules for the mobile work
 
@@ -68,6 +73,6 @@ This is CI evidence for the unchanged desktop baseline. It is not a claim that e
 
 ## P1 outcome
 
-The existing automated desktop baseline is inventoried and the first PR CI run is green. No existing desktop source files have been changed by this P1 record.
+The desktop baseline is inventoried and a dedicated regression guard has been added. The initial CI run is green for the original test suite; the next CI run must validate the new guard on the full matrix.
 
 **Remaining validation limitation:** CI uses hosted operating-system runners and mocks/fixtures for many application behaviors. Before release, perform hands-on smoke tests with the user's actual Windows and macOS Obsidian installations.
