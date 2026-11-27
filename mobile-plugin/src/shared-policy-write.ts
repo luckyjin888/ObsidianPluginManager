@@ -220,7 +220,7 @@ export async function persistSharedPolicyBackup<TFileLike>(
 ): Promise<SharedPolicyBackupPersistResult> {
   try {
     const envelope = await createSharedPolicyBackupEnvelope(originalContent, createdAt);
-    const serialized = JSON.stringify(envelope, null, 2) + "\\n";
+    const serialized = JSON.stringify(envelope, null, 2) + "\n";
     if (new TextEncoder().encode(serialized).byteLength > MAX_SHARED_POLICY_BACKUP_BYTES) {
       return { status: "failed", message: "Backup exceeds the 128 KiB size limit." };
     }
