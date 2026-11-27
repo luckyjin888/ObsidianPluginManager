@@ -79,3 +79,6 @@ This step does not execute downloaded code, retain files, create plugin folders,
 ## Shared plugin policy preview (read-only)
 
 The command **Preview shared plugin policy (read-only)** looks for `PluginManager/shared-policy.json` in the current Vault. If present, it validates a strict schema (maximum 64 KiB and 200 entries) and displays desired plugin IDs with compatibility evidence from this device's bundled catalogue. Unknown IDs remain inert. The preview does not create or edit the file, install plugins, inspect installed/enabled state, fetch URLs from policy content, or copy plugin binaries/settings between devices. A missing policy file is reported without creating one.
+
+
+The preview also scans sibling filenames for possible conflict copies and displays a SHA-256 fingerprint of the exact policy text when Web Crypto is available. These are advisory diagnostics only: sync providers use different naming conventions, and a fingerprint does not lock the file or prevent concurrent edits. Review possible copies manually; the plugin never deletes or reconciles them automatically.
