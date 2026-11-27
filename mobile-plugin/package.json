@@ -1,0 +1,17 @@
+{
+  "name": "obsidian-cross-platform-plugin-manager",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mobile-safe Obsidian plugin foundation",
+  "scripts": {
+    "build": "node esbuild.config.mjs production",
+    "dev": "node esbuild.config.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "builtin-modules": "^3.3.0",
+    "esbuild": "^0.24.0",
+    "obsidian": "latest",
+    "typescript": "^5.7.2"
+  }
+}
