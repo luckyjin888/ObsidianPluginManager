@@ -58,3 +58,10 @@ The view is read-only. It does not install, enable, disable, update, or remove p
 The catalogue includes a **Check install eligibility** action. This is a read-only policy gate: it blocks unknown, declared-but-untested, and incompatible platform entries, rejects non-canonical upstream URLs, and requires both iOS and iPadOS catalogue evidence because Obsidian exposes a shared iOS runtime flag for iPhone/iPad.
 
 A passed preflight is **not** permission to install. Release provenance/digest validation, downloaded manifest validation, version checks, staging, backups, rollback, and user confirmation must all be implemented before any file writes are enabled. The current action never downloads or writes files.
+
+
+## P4.2 latest-release inspection (metadata only)
+
+The catalogue now offers **Inspect latest release** for an upstream GitHub repository. It uses Obsidian's public `requestUrl` API to inspect the repository's latest published stable GitHub Release. It accepts semantic-version tags, requires `manifest.json` and `main.js`, permits only those files plus optional `styles.css`, validates GitHub release-asset URLs, and enforces per-file/total size limits (256 KiB / 20 MiB / 2 MiB; 25 MiB total).
+
+The inspector reports whether GitHub publishes a syntactically valid SHA-256 asset digest. If a digest is missing or invalid, the release is marked **not installable**. Even when digest metadata is present, the downloaded bytes have not yet been fetched or hashed, the manifest has not yet been parsed, and no installation is possible. HTTP 404, 403, and 429 responses fail closed; there is no branch/source-archive fallback. No files are downloaded or written to the vault.
