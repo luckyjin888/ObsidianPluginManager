@@ -1,6 +1,6 @@
 import { App, Modal, Notice, TFile, TFolder } from "obsidian";
 import { detectRuntimePlatform, type RuntimePlatform } from "./platform";
-import { compareSharedPolicyPluginIds, findPolicyConflictCandidates, fingerprintSharedPolicy, MAX_SHARED_POLICY_BYTES, parseSharedPluginPolicy, SHARED_POLICY_PATH } from "./shared-policy";
+import { buildSharedPolicyResolutionPreview, compareSharedPolicyPluginIds, findPolicyConflictCandidates, fingerprintSharedPolicy, MAX_SHARED_POLICY_BYTES, parseSharedPluginPolicy, SHARED_POLICY_PATH } from "./shared-policy";
 import catalogData from "../../shared/plugin-catalog.json";
 
 type PlatformKey = "windows" | "macos" | "ios" | "ipados" | "android";
@@ -173,6 +173,70 @@ export class SharedPolicyPreviewModal extends Modal {
               text: diff.onlyInCurrent.length
                 ? `Only in current policy: ${diff.onlyInCurrent.join(", ")}`
                 : "Only in current policy: none",
+            });
+
+            const resolution = comparison.createDiv({ cls: "shared-policy-resolution-preview" });
+            resolution.createEl("h4", { text: "Prepare an explicit resolution (preview only)" });
+            resolution.createEl("p", {
+              text: "Choose a source or Remove for every plugin ID. Nothing is saved; this only generates JSON in memory.",
+              cls: "setting-item-description",
+            });
+            const ids = [...new Set([
+              ...policy.plugins.map((entry) => entry.id),
+              ...candidateParsed.policy.plugins.map((entry) => entry.id),
+            ])].sort();
+            const selectors = new Map<string, HTMLSelectElement>();
+            for (const id of ids) {
+              const row = resolution.createDiv({ cls: "setting-item" });
+              row.createEl("div", { text: id, cls: "setting-item-name" });
+              const select = row.createEl("select");
+              select.createEl("option", { text: "Choose how to resolve…", attr: { value: "" } });
+              if (policy.plugins.some((entry) => entry.id === id)) {
+                select.createEl("option", { text: "Keep current policy entry", attr: { value: "current" } });
+              }
+              if (candidateParsed.policy.plugins.some((entry) => entry.id === id)) {
+                select.createEl("option", { text: "Keep candidate entry", attr: { value: "candidate" } });
+              }
+              select.createEl("option", { text: "Remove this plugin from desired list", attr: { value: "remove" } });
+              selectors.set(id, select);
+            }
+
+            const revisionLabel = resolution.createEl("label", { text: "New policy revision" });
+            const revisionInput = revisionLabel.createEl("input", { type: "text" });
+            revisionInput.value = `${policy.revision}-resolved`;
+            revisionInput.maxLength = 100;
+            const previewButton = resolution.createEl("button", { text: "Preview proposed resolution" });
+            const output = resolution.createEl("textarea");
+            output.setAttribute("readonly", "readonly");
+            output.setAttribute("aria-label", "Proposed shared policy JSON preview");
+            output.rows = 12;
+            output.style.width = "100%";
+            previewButton.addEventListener("click", () => {
+              const choices: Record<string, "current" | "candidate" | "remove"> = {};
+              for (const [id, select] of selectors) {
+                if (select.value === "current" || select.value === "candidate" || select.value === "remove") {
+                  choices[id] = select.value;
+                }
+              }
+              const preview = buildSharedPolicyResolutionPreview(
+                policy,
+                candidateParsed.policy!,
+                choices,
+                revisionInput.value,
+              );
+              if (!preview.ok || !preview.json) {
+                const missing = preview.unresolvedIds.length
+                  ? ` Unresolved: ${preview.unresolvedIds.join(", ")}.`
+                  : "";
+                const invalid = preview.invalidChoices.length
+                  ? ` Invalid: ${preview.invalidChoices.join(", ")}.`
+                  : "";
+                output.value = `No preview generated.${missing}${invalid}`;
+                new Notice("Choose a resolution for every plugin ID and provide a valid revision.", 6000);
+                return;
+              }
+              output.value = preview.json;
+              new Notice("Resolution preview generated in memory only. No Vault file was changed.", 5000);
             });
           } catch {
             comparison.createEl("p", { text: "Could not read this candidate. It has not been changed." });
