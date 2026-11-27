@@ -105,3 +105,12 @@ P1, P2, and P3 are complete at the code/CI-foundation level. P4.1–P4.3 are imp
 - Added deterministic sanitized backup filename generation.
 - Added tests for exact-byte round trip, tamper detection, unsupported fields, malformed timestamps, and unsafe filename inputs.
 - This is in-memory only: no backup file is created, no durable read-back verification exists, and no restore/rollback path is enabled. Writes remain disabled.
+
+
+### P5.6.2 — Vault backup persistence helper (not wired to policy writes)
+
+- Added a public Vault adapter using `getAbstractFileByPath()`, `createFolder()`, `create()`, and `read()`.
+- Added a helper that creates a versioned backup file under `PluginManager/backups/`, refuses to overwrite a different existing file, and reads the new file back.
+- The helper reports `created` only after exact serialized-byte read-back and SHA-256 envelope validation; identical existing backups are reported as already present.
+- Added fake-Vault tests for successful creation, idempotent identical backup, path collision, corrupted read-back, folder failure, create failure, and read failure.
+- Immediate Vault read-back is not proof of remote sync durability or cross-device availability. No restore/rollback UI exists; the helper is not connected to the policy writer and Save remains disabled.
