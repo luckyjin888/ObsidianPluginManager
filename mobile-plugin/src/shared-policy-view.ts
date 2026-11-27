@@ -140,11 +140,6 @@ export class SharedPolicyPreviewModal extends Modal {
         cls: "setting-item-description",
       });
 
-      if (policy.plugins.length === 0) {
-        contentEl.createEl("p", { text: "The shared policy currently has no desired plugins." });
-        return;
-      }
-
       if (possibleConflicts.length > 0) {
         contentEl.createEl("h3", { text: "Read-only comparison of possible copies" });
         for (const path of possibleConflicts) {
@@ -183,6 +178,10 @@ export class SharedPolicyPreviewModal extends Modal {
             comparison.createEl("p", { text: "Could not read this candidate. It has not been changed." });
           }
         }
+      }
+
+      if (policy.plugins.length === 0) {
+        contentEl.createEl("p", { text: "The shared policy currently has no desired plugins." });
       }
 
       const list = contentEl.createDiv({ cls: "shared-policy-preview-list" });
