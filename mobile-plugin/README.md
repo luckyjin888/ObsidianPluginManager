@@ -82,3 +82,6 @@ The command **Preview shared plugin policy (read-only)** looks for `PluginManage
 
 
 The preview also scans sibling filenames for possible conflict copies and displays a SHA-256 fingerprint of the exact policy text when Web Crypto is available. These are advisory diagnostics only: sync providers use different naming conventions, and a fingerprint does not lock the file or prevent concurrent edits. Review possible copies manually; the plugin never deletes or reconciles them automatically.
+
+
+When a possible conflict copy is found, the preview can read a bounded candidate JSON file and show plugin IDs present only in that candidate versus only in the current policy. This is a comparison aid, not an automatic merge: both files remain untouched, and the user must reconcile them manually. Files larger than the policy size limit are skipped before reading.
