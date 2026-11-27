@@ -1,4 +1,4 @@
-import { Modal, App, Notice } from "obsidian";
+import { Modal, App, Notice, apiVersion } from "obsidian";
 import { assessInstallEligibility } from "./installation-policy";
 import { detectRuntimePlatform } from "./platform";
 import { inspectLatestRelease, type ReleaseInspection } from "./release-inspector";
@@ -159,7 +159,7 @@ export class PluginCatalogModal extends Modal {
             const report = await verifyLatestReleaseAssets(
               latestReleaseReport,
               plugin.id,
-              null,
+              apiVersion,
             );
             releaseDetails.createEl("p", {
               text: report.verified
