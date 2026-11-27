@@ -1,3 +1,4 @@
+import type { TFile, Vault } from "obsidian";
 import { parseSharedPluginPolicy } from "./shared-policy";
 
 /**
@@ -5,8 +6,22 @@ import { parseSharedPluginPolicy } from "./shared-policy";
  * This helper is intentionally not wired to any command or UI.
  */
 export interface SharedPolicyVaultProcessAdapter<TFileLike> {
-  process(file: TFileLike, fn: (current: string) => string): Promise<void>;
+  process(file: TFileLike, fn: (current: string) => string): Promise<unknown>;
   read(file: TFileLike): Promise<string>;
+}
+
+/**
+ * Thin adapter over the documented Obsidian Vault API. Vault.process() returns
+ * a Promise<string> in the public API; Promise<unknown> in the port keeps the
+ * helper independent from that concrete return value.
+ */
+export function createObsidianVaultPolicyAdapter(
+  vault: Pick<Vault, "process" | "read">,
+): SharedPolicyVaultProcessAdapter<TFile> {
+  return {
+    process: (file, callback) => vault.process(file, callback),
+    read: (file) => vault.read(file),
+  };
 }
 
 export type SharedPolicyWriteResult =
