@@ -76,3 +76,103 @@ export async function writeSharedPolicyWithBaseline<TFileLike>(
     };
   }
 }
+
+
+export const SHARED_POLICY_BACKUP_DIRECTORY = "PluginManager/backups";
+export const MAX_SHARED_POLICY_BACKUP_BYTES = 128 * 1024;
+
+export interface SharedPolicyBackupEnvelope {
+  schema_version: 1;
+  target_path: string;
+  created_at: string;
+  original_content: string;
+  original_sha256: string;
+}
+
+export type SharedPolicyBackupValidation =
+  | { ok: true; backup: SharedPolicyBackupEnvelope }
+  | { ok: false; errors: string[] };
+
+/**
+ * Creates a deterministic, checksummed recovery envelope in memory.
+ * The caller must persist it separately and verify it before mutating the
+ * primary policy. This function does not create folders or write Vault files.
+ */
+export async function createSharedPolicyBackupEnvelope(
+  originalContent: string,
+  createdAt: string,
+): Promise<SharedPolicyBackupEnvelope> {
+  const digest = await globalThis.crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(originalContent),
+  );
+  const original_sha256 = Array.from(
+    new Uint8Array(digest),
+    (byte) => byte.toString(16).padStart(2, "0"),
+  ).join("");
+  return {
+    schema_version: 1,
+    target_path: "PluginManager/shared-policy.json",
+    created_at: createdAt,
+    original_content: originalContent,
+    original_sha256,
+  };
+}
+
+/** Strictly validates a backup envelope and its exact original bytes. */
+export async function validateSharedPolicyBackupEnvelope(
+  raw: string,
+): Promise<SharedPolicyBackupValidation> {
+  if (new TextEncoder().encode(raw).byteLength > MAX_SHARED_POLICY_BACKUP_BYTES) {
+    return { ok: false, errors: ["Backup exceeds the 128 KiB size limit."] };
+  }
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    return { ok: false, errors: ["Backup is not valid JSON."] };
+  }
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return { ok: false, errors: ["Backup root must be an object."] };
+  }
+  const item = value as Record<string, unknown>;
+  if (Object.keys(item).sort().join(",") !== "created_at,original_content,original_sha256,schema_version,target_path") {
+    return { ok: false, errors: ["Backup has missing or unsupported fields."] };
+  }
+  if (item.schema_version !== 1 || item.target_path !== "PluginManager/shared-policy.json") {
+    return { ok: false, errors: ["Backup schema or target path is unsupported."] };
+  }
+  if (typeof item.created_at !== "string" || !/^\\d{4}-\\d{2}-\\d{2}T/.test(item.created_at) ||
+      !Number.isFinite(Date.parse(item.created_at))) {
+    return { ok: false, errors: ["Backup created_at must be a valid ISO timestamp."] };
+  }
+  if (typeof item.original_content !== "string" || typeof item.original_sha256 !== "string" ||
+      !/^[a-f0-9]{64}$/.test(item.original_sha256)) {
+    return { ok: false, errors: ["Backup content or SHA-256 digest is invalid."] };
+  }
+  const digest = await globalThis.crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(item.original_content),
+  );
+  const actual = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  if (actual !== item.original_sha256) {
+    return { ok: false, errors: ["Backup content does not match its SHA-256 digest."] };
+  }
+  return {
+    ok: true,
+    backup: {
+      schema_version: 1,
+      target_path: "PluginManager/shared-policy.json",
+      created_at: item.created_at,
+      original_content: item.original_content,
+      original_sha256: item.original_sha256,
+    },
+  };
+}
+
+/** Stable filename component; caller supplies an ISO timestamp and verified digest. */
+export function buildSharedPolicyBackupFileName(createdAt: string, sha256: string): string | null {
+  if (!Number.isFinite(Date.parse(createdAt)) || !/^[a-f0-9]{64}$/.test(sha256)) return null;
+  const stamp = createdAt.replace(/[^0-9TZ]/g, "-");
+  return `shared-policy-${stamp}-${sha256.slice(0, 12)}.backup.json`;
+}
