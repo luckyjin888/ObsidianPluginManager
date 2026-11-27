@@ -280,9 +280,11 @@ test("read-only backup scan skips oversized entries before reading", async () =>
 });
 
 test("read-only backup scan reports unreadable backup files", async () => {
-  const fake = fakeBackupVault({ throwRead: true });
+  const options = {};
+  const fake = fakeBackupVault(options);
   const adapter = createObsidianVaultBackupAdapter(fake.adapter);
-  await persistSharedPolicyBackup(createObsidianVaultBackupAdapter(fake.adapter), baseline, "2026-11-28T02:00:00.000Z");
+  await persistSharedPolicyBackup(adapter, baseline, "2026-11-28T02:00:00.000Z");
+  options.throwRead = true;
   fake.state.reads = 0;
   const items = await scanSharedPolicyBackups(adapter);
   assert.equal(items[0].status, "invalid-backup");
