@@ -45,9 +45,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - name: Install mobile plugin dependencies
         run: npm install --no-audit --no-fund
       - name: Type-check mobile plugin
         run: npx tsc --noEmit
       - name: Build mobile plugin bundle
         run: npm run build
+      - name: Package installable ZIP
+        run: npm run package
+      - name: Upload installable ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: cross-platform-manager-0.1.0
+          path: mobile-plugin/dist/cross-platform-manager-0.1.0.zip
+          if-no-files-found: error
+          retention-days: 14
