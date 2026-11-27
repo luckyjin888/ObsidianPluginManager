@@ -136,3 +136,68 @@ export function compareSharedPolicyPluginIds(
     onlyInCurrent: [...currentIds].filter((id) => !candidateIds.has(id)).sort(),
   };
 }
+
+
+export type PolicyResolutionChoice = "current" | "candidate" | "remove";
+
+export interface SharedPolicyResolutionPreview {
+  ok: boolean;
+  policy: SharedPluginPolicy | null;
+  json: string | null;
+  unresolvedIds: string[];
+  invalidChoices: string[];
+}
+
+/**
+ * Builds a deterministic in-memory merge preview only.
+ * Every ID in either input must have an explicit source/removal choice.
+ * No Vault access or file mutation occurs here.
+ */
+export function buildSharedPolicyResolutionPreview(
+  current: SharedPluginPolicy,
+  candidate: SharedPluginPolicy,
+  choices: Record<string, PolicyResolutionChoice>,
+  revision: string,
+): SharedPolicyResolutionPreview {
+  const currentEntries = new Map(current.plugins.map((entry) => [entry.id, entry]));
+  const candidateEntries = new Map(candidate.plugins.map((entry) => [entry.id, entry]));
+  const allIds = [...new Set([...currentEntries.keys(), ...candidateEntries.keys()])].sort();
+  const unresolvedIds = allIds.filter((id) => !Object.prototype.hasOwnProperty.call(choices, id));
+  const invalidChoices: string[] = [];
+  const selected: SharedPolicyEntry[] = [];
+
+  for (const id of allIds) {
+    const choice = choices[id];
+    if (choice === undefined) continue;
+    if (choice !== "current" && choice !== "candidate" && choice !== "remove") {
+      invalidChoices.push(id);
+      continue;
+    }
+    if (choice === "remove") continue;
+    const source = choice === "current" ? currentEntries : candidateEntries;
+    const entry = source.get(id);
+    if (!entry) {
+      invalidChoices.push(id);
+      continue;
+    }
+    selected.push({ id, ...(entry.note !== undefined ? { note: entry.note } : {}) });
+  }
+
+  if (revision.length < 1 || revision.length > 100) invalidChoices.push("<revision>");
+  if (unresolvedIds.length || invalidChoices.length) {
+    return { ok: false, policy: null, json: null, unresolvedIds, invalidChoices };
+  }
+
+  const policy: SharedPluginPolicy = { schema_version: 1, revision, plugins: selected };
+  const validation = parseSharedPluginPolicy(JSON.stringify(policy));
+  if (!validation.ok || !validation.policy) {
+    return { ok: false, policy: null, json: null, unresolvedIds: [], invalidChoices: ["<validation>"] };
+  }
+  return {
+    ok: true,
+    policy: validation.policy,
+    json: JSON.stringify(validation.policy, null, 2) + "\n",
+    unresolvedIds: [],
+    invalidChoices: [],
+  };
+}
