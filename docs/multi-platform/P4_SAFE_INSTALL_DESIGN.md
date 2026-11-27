@@ -147,3 +147,22 @@ This section is a design only. No transaction writer, backup, rollback, or vault
 ## P4.3 runtime version check — resolved
 
 The mobile plugin imports the officially exported `apiVersion` from `obsidian` and compares it against the verified manifest's `minAppVersion`. The official API definition documents `apiVersion` as the app's API version, following the desktop release cycle. The implementation deliberately does not use an undocumented `App.version` property or third-party internal typings. See the [official Obsidian API type definition](https://github.com/obsidianmd/obsidian-api).
+
+
+## Redirect handling and integrity trust decision
+
+Obsidian's public `requestUrl` follows redirects, while `RequestUrlResponse` exposes status, headers, and body but not the final response URL. The plugin therefore cannot independently assert the final CDN hostname using this API. This is a known API limitation, not a verified property.
+
+For public GitHub Release assets, the selected integrity trust model is:
+
+1. Fetch release metadata only from the canonical `https://api.github.com/repos/{owner}/{repo}/releases/latest` endpoint over HTTPS.
+2. Accept only the allowlisted asset names and the exact repository-scoped GitHub Release download URL returned in that metadata.
+3. Require GitHub's published `sha256:<hex>` digest for every asset.
+4. Download bytes through Obsidian's supported `requestUrl` API and verify exact byte length and SHA-256 against that metadata before parsing or staging.
+5. Treat any missing digest, byte-length mismatch, digest mismatch, unexpected asset, or manifest mismatch as a hard failure.
+
+The final CDN hostname is **not** attested. Instead, the security property relied upon is content integrity: a redirect destination cannot substitute different bytes without failing the SHA-256 comparison, assuming the HTTPS GitHub API metadata and its published digest are trusted. The CDN is a transport location, not an independent source of release identity. This does not protect against compromise of the upstream GitHub repository/account, GitHub's release metadata, or the trusted API/TLS path; those remain in the threat model.
+
+Do not describe this as redirect-host verification. If future requirements demand host attestation, a supported transport exposing the final URL on every target platform must be introduced and separately tested. The current implementation must continue to fail closed on every content-integrity check.
+
+This decision removes final-hostname inspection as a blocker to the *design* of a guarded transaction, but it does not authorize vault writes by itself. Adapter contract tests, fault injection, explicit user confirmation, and device validation remain mandatory.
