@@ -95,3 +95,10 @@ The mobile plugin now inspects the latest stable release through Obsidian's publ
 - Treat 404, 403, 429, and other non-success HTTP statuses as explicit failures; never fall back to a branch archive or mirror.
 
 **Important:** a published digest is not yet a verified digest. The current code does not download assets, hash their bytes, compare the downloaded manifest to the catalogue ID/release version, or write anything to the vault. P4.3 and P4.4 remain mandatory before any write path can be enabled.
+
+
+## P4.3 implementation boundary — downloaded-byte verification only
+
+The plugin now has a separate verification action that downloads each allowlisted asset into memory via Obsidian's public `requestUrl` API, checks the byte length against the release metadata, calculates SHA-256 using Web Crypto, and compares it with the GitHub-published digest. It parses only the digest-verified `manifest.json` and checks exact plugin ID, release version, minimum Obsidian version, and an explicit `isDesktopOnly: false` declaration.
+
+No downloaded bytes are written to the vault, executed, or persisted. A successful P4.3 verification is not install permission. One API limitation remains: Obsidian's `RequestUrlResponse` exposes status, headers, and body but not the final URL after redirects. The requested source URL is restricted to the expected GitHub repository release path, but the final CDN hostname cannot be independently asserted by this code. This must be addressed or explicitly accepted in the final threat model before enabling writes.
