@@ -136,3 +136,12 @@ This confirms only that the current Vault API returned matching bytes on immedia
 ### Test-fixture correction
 
 The first backup-persistence test run exposed a mismatch in the fake Vault fixture: it implemented the helper port directly instead of the public Obsidian Vault surface consumed by `createObsidianVaultBackupAdapter()`. The fixture now exposes `getAbstractFileByPath()`, `createFolder()`, `create()`, and `read()`, with file/folder-shaped objects. This correction makes the adapter delegation tests exercise the intended public API shape; it does not increase the evidence level to a real Obsidian runtime test.
+
+
+## Read-only backup inventory and comparison (P5.6.3)
+
+A read-only scanner now lists files in `PluginManager/backups/`, checks each entry against the 128 KiB limit before reading, validates the backup envelope and SHA-256 digest, and validates the embedded original policy JSON. Oversized, unreadable, corrupt, and digest-invalid entries remain visible as diagnostics; they are not deleted or repaired. Valid backups are sorted by path (newest-first for the timestamp-based filename format).
+
+The Obsidian modal exposes this as the command **Preview shared policy backups (read-only)**. For each valid backup it shows the path, byte size, creation timestamp, original digest, policy revision, desired-plugin count, and set-difference counts against the current valid policy. If the current policy is missing or invalid, comparison is marked unavailable. This is an inventory and comparison only: it has no restore, overwrite, or delete controls.
+
+The scanner relies on the backup directory's visible Vault children and file metadata. Filename ordering is a convenience, not a trusted clock or proof of backup chronology. The modal does not verify remote sync completion, and it does not restore any file. Restore/rollback requires a separate reviewed transaction protocol and explicit user confirmation.
