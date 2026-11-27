@@ -142,7 +142,7 @@ export async function validateSharedPolicyBackupEnvelope(
   if (item.schema_version !== 1 || item.target_path !== "PluginManager/shared-policy.json") {
     return { ok: false, errors: ["Backup schema or target path is unsupported."] };
   }
-  if (typeof item.created_at !== "string" || !/^\\d{4}-\\d{2}-\\d{2}T/.test(item.created_at) ||
+  if (typeof item.created_at !== "string" || !/^\d{4}-\d{2}-\d{2}T/.test(item.created_at) ||
       !Number.isFinite(Date.parse(item.created_at))) {
     return { ok: false, errors: ["Backup created_at must be a valid ISO timestamp."] };
   }
