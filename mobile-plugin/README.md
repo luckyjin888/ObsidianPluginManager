@@ -73,4 +73,4 @@ The catalogue adds **Verify downloaded release files** after release metadata in
 
 This step does not execute downloaded code, retain files, create plugin folders, or write to the vault. A successful verification is not an installation. Redirect handling is delegated to Obsidian's `requestUrl`; its response API does not expose the final redirected URL, so this stage cannot independently attest the final CDN hostname. The source asset URL is still restricted to the expected GitHub repository release path. Staging, backups, rollback, and explicit confirmation remain disabled.
 
-**Runtime-version limitation:** Obsidian's typed public `App` API does not expose a supported runtime-version property. P4.3 therefore validates the manifest's `minAppVersion` format but fails closed and asks for a manual comparison; it does not claim the running app version has been checked.
+**Runtime version:** The verifier uses the officially exported Obsidian `apiVersion` value to compare the running app's API version against manifest `minAppVersion`. This is the public API version and follows the desktop app release cycle; it is not an undocumented `App.version` property.
