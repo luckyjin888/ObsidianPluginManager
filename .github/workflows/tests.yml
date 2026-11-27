@@ -27,6 +27,8 @@ jobs:
         run: python -m py_compile obsidian_manager.py
       - name: Validate shared plugin catalogue
         run: python tools/validate_plugin_catalog.py
+      - name: Validate mobile plugin manifest
+        run: python tools/validate_mobile_manifest.py
       - name: Run unit tests
         run: python -m unittest discover -s tests -v
       - name: Check Bash launcher syntax
