@@ -1,5 +1,5 @@
 {
-  "name": "obsidian-cross-platform-plugin-manager",
+  "name": "cross-platform-manager",
   "version": "0.1.0",
   "private": true,
   "description": "Mobile-safe Obsidian plugin foundation",
