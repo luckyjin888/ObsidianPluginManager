@@ -96,3 +96,12 @@ P1, P2, and P3 are complete at the code/CI-foundation level. P4.1–P4.3 are imp
 
 - Documented that returning the unchanged current string from a stale `Vault.process()` callback does not prove the adapter performs no write, timestamp update, sync notification, or file event.
 - The helper reports `stale` and does not report success, but this no-op side-effect behavior must be verified against real Obsidian adapters before any Save UX is enabled.
+
+
+### P5.6.1 — backup/recovery format foundation (not persisted)
+
+- Added a strict versioned backup envelope preserving the exact original policy bytes, target path, timestamp, and SHA-256 digest.
+- Added validation for envelope size, schema/fields/path, timestamp, digest format, and content integrity.
+- Added deterministic sanitized backup filename generation.
+- Added tests for exact-byte round trip, tamper detection, unsupported fields, malformed timestamps, and unsafe filename inputs.
+- This is in-memory only: no backup file is created, no durable read-back verification exists, and no restore/rollback path is enabled. Writes remain disabled.
