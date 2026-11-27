@@ -1,4 +1,4 @@
-import type { TFile, Vault } from "obsidian";
+import { TFile, TFolder, type Vault } from "obsidian";
 import { parseSharedPluginPolicy } from "./shared-policy";
 
 /**
@@ -20,6 +20,30 @@ export function createObsidianVaultPolicyAdapter(
 ): SharedPolicyVaultProcessAdapter<TFile> {
   return {
     process: (file, callback) => vault.process(file, callback),
+    read: (file) => vault.read(file),
+  };
+}
+
+export interface SharedPolicyBackupVaultAdapter<TFileLike> {
+  folderExists(path: string): boolean;
+  createFolder(path: string): Promise<unknown>;
+  getFile(path: string): TFileLike | null;
+  create(path: string, content: string): Promise<TFileLike>;
+  read(file: TFileLike): Promise<string>;
+}
+
+/** Public Obsidian Vault adapter for creating new backup files without overwriting. */
+export function createObsidianVaultBackupAdapter(
+  vault: Pick<Vault, "getAbstractFileByPath" | "createFolder" | "create" | "read">,
+): SharedPolicyBackupVaultAdapter<TFile> {
+  return {
+    folderExists: (path) => vault.getAbstractFileByPath(path) instanceof TFolder,
+    createFolder: (path) => vault.createFolder(path),
+    getFile: (path) => {
+      const item = vault.getAbstractFileByPath(path);
+      return item instanceof TFile ? item : null;
+    },
+    create: (path, content) => vault.create(path, content),
     read: (file) => vault.read(file),
   };
 }
@@ -175,4 +199,58 @@ export function buildSharedPolicyBackupFileName(createdAt: string, sha256: strin
   if (!Number.isFinite(Date.parse(createdAt)) || !/^[a-f0-9]{64}$/.test(sha256)) return null;
   const stamp = createdAt.replace(/[^0-9TZ]/g, "-");
   return `shared-policy-${stamp}-${sha256.slice(0, 12)}.backup.json`;
+}
+
+
+export type SharedPolicyBackupPersistResult =
+  | { status: "created"; path: string }
+  | { status: "already-exists"; path: string }
+  | { status: "failed"; message: string }
+  | { status: "verification-failed"; path: string; message: string };
+
+/**
+ * Persist a new immutable backup file, then read it back and validate exact
+ * serialized content. Existing paths are never overwritten. This confirms
+ * Vault-level read-back only; it does not prove remote sync durability.
+ */
+export async function persistSharedPolicyBackup<TFileLike>(
+  vault: SharedPolicyBackupVaultAdapter<TFileLike>,
+  originalContent: string,
+  createdAt: string,
+): Promise<SharedPolicyBackupPersistResult> {
+  try {
+    const envelope = await createSharedPolicyBackupEnvelope(originalContent, createdAt);
+    const serialized = JSON.stringify(envelope, null, 2) + "\\n";
+    if (new TextEncoder().encode(serialized).byteLength > MAX_SHARED_POLICY_BACKUP_BYTES) {
+      return { status: "failed", message: "Backup exceeds the 128 KiB size limit." };
+    }
+    const fileName = buildSharedPolicyBackupFileName(createdAt, envelope.original_sha256);
+    if (!fileName) return { status: "failed", message: "Backup timestamp or digest is invalid." };
+    if (!vault.folderExists(SHARED_POLICY_BACKUP_DIRECTORY)) {
+      await vault.createFolder(SHARED_POLICY_BACKUP_DIRECTORY);
+    }
+    const path = `${SHARED_POLICY_BACKUP_DIRECTORY}/${fileName}`;
+    const existing = vault.getFile(path);
+    if (existing) {
+      const existingRaw = await vault.read(existing);
+      if (existingRaw === serialized) return { status: "already-exists", path };
+      return { status: "failed", message: "Backup path already exists with different content; it was not overwritten." };
+    }
+    const created = await vault.create(path, serialized);
+    const actual = await vault.read(created);
+    const checked = await validateSharedPolicyBackupEnvelope(actual);
+    if (actual !== serialized || !checked.ok || checked.backup.original_content !== originalContent) {
+      return {
+        status: "verification-failed",
+        path,
+        message: "Created backup could not be read back byte-for-byte and validated. The file was preserved for inspection.",
+      };
+    }
+    return { status: "created", path };
+  } catch (error) {
+    return {
+      status: "failed",
+      message: error instanceof Error ? error.message : "Unknown backup persistence failure.",
+    };
+  }
 }
