@@ -1,6 +1,6 @@
-# Mobile Obsidian plugin foundation
+# Cross-platform Manager plugin foundation
 
-This directory contains the TypeScript Obsidian plugin foundation for the cross-platform manager.
+This directory contains the TypeScript Obsidian plugin foundation for the cross-platform manager. Its community-plugin ID is `cross-platform-manager`, following the current Obsidian manifest naming rules.
 
 ## Current scope
 
