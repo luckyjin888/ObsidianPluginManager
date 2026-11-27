@@ -25,7 +25,7 @@ Extend ObsidianPluginManager to support a shared plugin-management workflow acro
 
 - [x] **P1 — Baseline and regression protection**: inventory existing desktop behavior and tests. Baseline recorded in [P1 Desktop Regression Baseline](docs/multi-platform/P1_DESKTOP_BASELINE.md). Initial PR CI run passed all 9 OS/Python matrix jobs.
 - [x] **P2 — Shared catalogue and compatibility model**: versioned schema, nine-entry seed catalogue, compatibility evidence policy, dependency-free validator, seven unit tests, and CI validation step. Latest P2 commit `0790ce0bac7fcde2054b1017d12b912077cc274c` passed all 9 OS/Python matrix jobs.
-- [ ] **P3 — Mobile plugin foundation**: TypeScript plugin scaffold, platform detection using supported Obsidian APIs, and a reproducible bundle/type-check workflow.
+- [ ] **P3 — Mobile plugin foundation (in progress)**: TypeScript plugin scaffold, platform detection, reproducible bundle/type-check workflow, and a read-only searchable catalogue view. Initial mobile build passed; the new catalogue UI requires a fresh CI run and device smoke tests.
 - [ ] **P4 — Safe installation workflow**: validate source/version/platform, back up affected files, and provide rollback behavior.
 - [ ] **P5 — Cross-device policy sync**: synchronize desired plugin policy while preserving device-specific settings and enabled state.
 - [ ] **P6 — CI and device validation**: keep Python CI; expand TypeScript build/type checks and static checks that prevent Node/Electron-only APIs from entering the mobile bundle. Record simulator and physical-device tests separately.
@@ -60,6 +60,6 @@ A manifest value such as `isDesktopOnly: false` is not proof of successful opera
 
 ## Current status
 
-P1 and P2 are complete in this feature branch. P2's latest CI run passed all nine matrix jobs. P3 implementation is in progress; no mobile real-device compatibility is claimed yet. The initial CI run is green; hands-on smoke testing on physical Windows and macOS installations remains a release validation task.
+P1 and P2 are complete in this feature branch. The P3 CI run for commit `ddbebc6faf6ab26d02f3b16eb73046ad3b8642e7` passed the mobile TypeScript build and all nine OS/Python matrix jobs. P3 now includes a read-only searchable catalogue view; this newer change still requires CI and real-device smoke testing. No mobile real-device compatibility is claimed yet.
 
 The PR must remain a draft until all implementation phases and acceptance criteria are complete.
