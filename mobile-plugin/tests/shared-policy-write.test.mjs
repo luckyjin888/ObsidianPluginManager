@@ -384,3 +384,27 @@ test("restore reports failed fresh-backup persistence and never writes primary",
   assert.equal(result.status, "backup-failed");
   assert.equal(policy.state.writes, 0);
 });
+
+
+test("restore attempts conditional rollback after post-write read-back mismatch", async () => {
+  let contentNow = candidate;
+  let reads = 0;
+  const policy = {
+    async process(_file, callback) { contentNow = callback(contentNow); },
+    async read() {
+      reads++;
+      if (reads === 1) return "{transient read corruption}";
+      return contentNow;
+    },
+  };
+  const backup = fakeBackupVault();
+  const selected = await createSharedPolicyBackupEnvelope(baseline, "2026-11-28T03:00:00.000Z");
+  const result = await restoreSharedPolicyWithBackup(
+    policy, createObsidianVaultBackupAdapter(backup.adapter), {}, selected,
+    candidate, candidate, "2026-11-28T04:00:00.000Z", true,
+  );
+  assert.equal(result.status, "verification-failed");
+  assert.equal(result.rollback, "restored");
+  assert.equal(contentNow, candidate);
+  assert.equal(reads, 2);
+});
