@@ -90,3 +90,9 @@ P1, P2, and P3 are complete at the code/CI-foundation level. P4.1–P4.3 are imp
 - Added a delegation contract test proving the same file and synchronous callback are forwarded and that post-write verification uses Vault.read().
 - This is a mocked adapter contract test, not an Obsidian runtime, device filesystem, or multi-device sync test.
 - Policy writes remain disabled in the UI; real-device testing and backup/recovery design are still required.
+
+
+### P5.5.2 — stale-process side-effect caveat
+
+- Documented that returning the unchanged current string from a stale `Vault.process()` callback does not prove the adapter performs no write, timestamp update, sync notification, or file event.
+- The helper reports `stale` and does not report success, but this no-op side-effect behavior must be verified against real Obsidian adapters before any Save UX is enabled.
