@@ -10,7 +10,7 @@ const bundled = await build({
   write: false,
 });
 const encoded = Buffer.from(bundled.outputFiles[0].text).toString("base64");
-const { parseSharedPluginPolicy } = await import(`data:text/javascript;base64,${encoded}`);
+const { parseSharedPluginPolicy, findPolicyConflictCandidates, fingerprintSharedPolicy } = await import(`data:text/javascript;base64,${encoded}`);
 
 test("accepts a valid minimal policy", () => {
   const result = parseSharedPluginPolicy(JSON.stringify({
@@ -75,4 +75,26 @@ test("rejects more than 200 entries", () => {
   }));
   assert.equal(result.ok, false);
   assert.match(result.errors.join(" "), /more than 200/);
+});
+
+test("surfaces possible conflict copies without treating the primary file as a conflict", () => {
+  const candidates = findPolicyConflictCandidates([
+    "PluginManager/shared-policy.json",
+    "PluginManager/shared-policy (conflicted copy 2026-11-28).json",
+    "PluginManager/shared-policy.conflict.json",
+    "PluginManager/other.json",
+  ]);
+  assert.deepEqual(candidates, [
+    "PluginManager/shared-policy (conflicted copy 2026-11-28).json",
+    "PluginManager/shared-policy.conflict.json",
+  ]);
+});
+
+test("fingerprint is stable for identical policy text and changes with content", async () => {
+  const first = await fingerprintSharedPolicy('{"schema_version":1}');
+  const same = await fingerprintSharedPolicy('{"schema_version":1}');
+  const changed = await fingerprintSharedPolicy('{"schema_version":2}');
+  assert.equal(first, same);
+  assert.notEqual(first, changed);
+  assert.match(first, /^[a-f0-9]{64}$/);
 });
