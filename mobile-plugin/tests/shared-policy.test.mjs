@@ -165,10 +165,16 @@ test("rejects choices that select an entry absent from the chosen source", () =>
 });
 
 test("rejects invalid choices and invalid revision values", () => {
-  const empty = { schema_version: 1, revision: "a", plugins: [] };
-  const invalidChoice = buildSharedPolicyResolutionPreview(empty, empty, {}, "merged-4");
-  assert.equal(invalidChoice.ok, true);
-  const invalidRevision = buildSharedPolicyResolutionPreview(empty, empty, {}, "");
+  const current = { schema_version: 1, revision: "a", plugins: [{ id: "quickadd" }] };
+  const candidate = { schema_version: 1, revision: "b", plugins: [] };
+  const invalidChoice = buildSharedPolicyResolutionPreview(current, candidate, {
+    quickadd: "automatic",
+  }, "merged-4");
+  assert.equal(invalidChoice.ok, false);
+  assert.deepEqual(invalidChoice.invalidChoices, ["quickadd"]);
+  const invalidRevision = buildSharedPolicyResolutionPreview(current, candidate, {
+    quickadd: "current",
+  }, "");
   assert.equal(invalidRevision.ok, false);
   assert.deepEqual(invalidRevision.invalidChoices, ["<revision>"]);
 });
