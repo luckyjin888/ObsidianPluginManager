@@ -1,6 +1,6 @@
 # P5 — Cross-device policy synchronization design
 
-Status: read-only preview foundation plus conservative conflict-copy hints and content fingerprint implemented. No synchronization writer is enabled.
+Status: read-only preview, conservative conflict-copy hints, content fingerprint, and explicit per-plugin resolution preview UI implemented. No synchronization writer is enabled.
 
 ## Goal
 
@@ -98,7 +98,7 @@ A pure helper now builds an in-memory resolution preview from two valid policies
 - Missing choices, invalid choices, invalid revisions, or invalid resulting policy data produce no JSON output.
 - The result is a deterministic JSON preview only. It does not write the Vault, change either input object, install plugins, or authorize installation.
 
-This helper is a foundation for a later confirmation UI. It does not yet provide interactive per-plugin controls or a Save action. A future UI must show the complete resulting list and require a separate final confirmation before any write path is implemented.
+The interactive preview UI is implemented in `mobile-plugin/src/shared-policy-view.ts`. For each valid candidate copy, the user must choose current, candidate, or remove for every plugin ID. Source choices are offered only when that source contains the ID. The revision is editable, and the resulting deterministic JSON is displayed in a read-only text area. Missing choices or invalid revisions prevent preview generation. The UI reports that the result is in memory only. There is deliberately no Save button and no Vault write path. This is not a synchronization action or an installation authorization.
 
 ## Required tests before write support
 
@@ -114,4 +114,4 @@ This helper is a foundation for a later confirmation UI. It does not yet provide
 
 ## Implementation boundary
 
-The read-only preview and pure explicit-resolution preview helper are implemented in `mobile-plugin/src/shared-policy.ts` and `mobile-plugin/src/shared-policy-view.ts`. It reads only `PluginManager/shared-policy.json` through the public Vault API, checks the file size before reading, validates a strict bounded JSON shape, displays desired IDs with this device's bundled-catalogue compatibility evidence, reports similarly named sibling files as possible conflict copies, and displays a SHA-256 fingerprint when Web Crypto is available. For valid primary policies it also reads bounded candidate files and displays a read-only set difference of plugin IDs; it never merges or changes either copy. A separate pure helper can construct a proposed merged JSON string from explicit per-ID choices, but this result remains in memory and is not saved. The scan is heuristic and the fingerprint is not a lock; neither can guarantee race-free multi-device editing. It does not create or modify the file, fetch arbitrary sources, infer installed/enabled state, or synchronize plugin folders/binaries. Policy writes remain disabled pending conflict reconciliation UX, adapter tests, and an honest limitation warning.
+The read-only preview, pure explicit-resolution helper, and interactive in-memory resolution preview UI are implemented in `mobile-plugin/src/shared-policy.ts` and `mobile-plugin/src/shared-policy-view.ts`. It reads only `PluginManager/shared-policy.json` through the public Vault API, checks the file size before reading, validates a strict bounded JSON shape, displays desired IDs with this device's bundled-catalogue compatibility evidence, reports similarly named sibling files as possible conflict copies, and displays a SHA-256 fingerprint when Web Crypto is available. For valid primary policies it also reads bounded candidate files and displays a read-only set difference of plugin IDs; it never merges or changes either copy. A separate pure helper can construct a proposed merged JSON string from explicit per-ID choices, but this result remains in memory and is not saved. The scan is heuristic and the fingerprint is not a lock; neither can guarantee race-free multi-device editing. It does not create or modify the file, fetch arbitrary sources, infer installed/enabled state, or synchronize plugin folders/binaries. Policy writes remain disabled pending conflict reconciliation UX, adapter tests, and an honest limitation warning.
