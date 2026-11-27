@@ -1,4 +1,5 @@
 import { App, Modal, Notice, TFile, TFolder } from "obsidian";
+import { createObsidianVaultBackupAdapter, scanSharedPolicyBackups } from "./shared-policy-write";
 import { detectRuntimePlatform, type RuntimePlatform } from "./platform";
 import { buildSharedPolicyResolutionPreview, compareSharedPolicyPluginIds, findPolicyConflictCandidates, fingerprintSharedPolicy, MAX_SHARED_POLICY_BYTES, parseSharedPluginPolicy, SHARED_POLICY_PATH } from "./shared-policy";
 import catalogData from "../../shared/plugin-catalog.json";
@@ -277,6 +278,95 @@ export class SharedPolicyPreviewModal extends Modal {
       const message = error instanceof Error ? error.message : "Unknown Vault adapter read error.";
       contentEl.createEl("p", { text: `Could not read the shared policy: ${message}` });
       new Notice("Shared policy preview failed. No Vault files were changed.", 8000);
+    }
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+}
+
+
+/** Read-only inventory of recovery backups; no restore or delete action exists. */
+export class SharedPolicyBackupPreviewModal extends Modal {
+  constructor(app: App) {
+    super(app);
+  }
+
+  async onOpen(): Promise<void> {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl("h2", { text: "Shared policy backups (read-only)" });
+    contentEl.createEl("p", {
+      text: "This scans PluginManager/backups, validates backup integrity, and compares valid backup policies with the current shared policy. It never restores, edits, or deletes files.",
+      cls: "setting-item-description",
+    });
+
+    try {
+      const adapter = createObsidianVaultBackupAdapter(this.app.vault);
+      const items = await scanSharedPolicyBackups(adapter);
+      if (items.length === 0) {
+        contentEl.createEl("p", { text: "No backup files were found. The scan does not create a backup folder." });
+        return;
+      }
+
+      let currentPolicy: ReturnType<typeof parseSharedPluginPolicy> | null = null;
+      const currentFile = this.app.vault.getAbstractFileByPath(SHARED_POLICY_PATH);
+      if (currentFile instanceof TFile && currentFile.stat.size <= MAX_SHARED_POLICY_BYTES) {
+        currentPolicy = parseSharedPluginPolicy(await this.app.vault.read(currentFile));
+      }
+
+      contentEl.createEl("p", { text: `${items.length} backup file(s) or scan diagnostics found.` });
+      for (const entry of items) {
+        const card = contentEl.createDiv({ cls: "plugin-catalog-item" });
+        card.createEl("h3", { text: entry.path });
+        card.createEl("p", { text: `Size: ${entry.size} bytes` });
+
+        if (entry.status === "oversized") {
+          card.createEl("p", { text: "Skipped before reading: exceeds the size limit." });
+          for (const error of entry.errors) card.createEl("p", { text: error });
+          continue;
+        }
+        if (entry.status === "invalid-backup") {
+          card.createEl("p", { text: "Backup envelope invalid or unreadable. No file was changed." });
+          for (const error of entry.errors) card.createEl("p", { text: error });
+          continue;
+        }
+        if (entry.status === "invalid-policy") {
+          card.createEl("p", { text: `Backup integrity valid · Created ${entry.backup.created_at}` });
+          card.createEl("p", { text: `SHA-256: ${entry.backup.original_sha256}` });
+          card.createEl("p", { text: "The embedded original content is not a valid shared policy." });
+          for (const error of entry.policyErrors) card.createEl("p", { text: error });
+          continue;
+        }
+
+        const parsedBackup = parseSharedPluginPolicy(entry.backup.original_content);
+        card.createEl("p", { text: `Integrity: valid · Created: ${entry.backup.created_at}` });
+        card.createEl("p", { text: `Original SHA-256: ${entry.backup.original_sha256}` });
+        if (parsedBackup.ok && parsedBackup.policy) {
+          card.createEl("p", {
+            text: `Backup policy revision: ${parsedBackup.policy.revision} · ${parsedBackup.policy.plugins.length} desired plugins`,
+          });
+          if (currentPolicy?.ok && currentPolicy.policy) {
+            const diff = compareSharedPolicyPluginIds(currentPolicy.policy, parsedBackup.policy);
+            card.createEl("p", {
+              text: `Compared with current policy: ${diff.onlyInCandidate.length} plugin(s) only in backup; ${diff.onlyInCurrent.length} plugin(s) only in current`,
+            });
+          } else {
+            card.createEl("p", {
+              text: "Current shared policy is missing, oversized, or invalid; comparison is unavailable.",
+            });
+          }
+        }
+        card.createEl("p", {
+          text: "Preview only. No restore, overwrite, or delete action is available.",
+          cls: "setting-item-description",
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown backup scan error.";
+      contentEl.createEl("p", { text: `Could not scan backups: ${message}` });
+      new Notice("Backup inventory failed. No Vault files were changed.", 8000);
     }
   }
 
