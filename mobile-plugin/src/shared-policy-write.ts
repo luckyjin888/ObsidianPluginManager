@@ -351,3 +351,43 @@ export async function scanSharedPolicyBackups<TFileLike>(
   }
   return results;
 }
+
+export type SharedPolicyRestorePreviewResult =
+  | { status: "ready"; target_path: string; backup_created_at: string; backup_sha256: string; restored_policy_revision: string; restored_plugin_count: number; restore_content: string }
+  | { status: "stale"; message: string }
+  | { status: "invalid-backup"; errors: string[] }
+  | { status: "invalid-policy"; errors: string[] };
+
+/**
+ * Builds a restore preview only. The caller supplies the exact current content
+ * captured when the user began reviewing and the freshly re-read content.
+ * Any intervening edit (including missing/present transitions) blocks preview.
+ * This function never writes or creates a Vault file.
+ */
+export async function prepareSharedPolicyRestorePreview(
+  backup: SharedPolicyBackupEnvelope,
+  reviewedCurrentContent: string | null,
+  currentContentNow: string | null,
+): Promise<SharedPolicyRestorePreviewResult> {
+  if (reviewedCurrentContent !== currentContentNow) {
+    return {
+      status: "stale",
+      message: "The current shared policy changed after it was reviewed. Reload and compare again before considering recovery.",
+    };
+  }
+  const checked = await validateSharedPolicyBackupEnvelope(JSON.stringify(backup));
+  if (!checked.ok) return { status: "invalid-backup", errors: checked.errors };
+  const parsed = parseSharedPluginPolicy(checked.backup.original_content);
+  if (!parsed.ok || !parsed.policy) {
+    return { status: "invalid-policy", errors: parsed.errors };
+  }
+  return {
+    status: "ready",
+    target_path: checked.backup.target_path,
+    backup_created_at: checked.backup.created_at,
+    backup_sha256: checked.backup.original_sha256,
+    restored_policy_revision: parsed.policy.revision,
+    restored_plugin_count: parsed.policy.plugins.length,
+    restore_content: checked.backup.original_content,
+  };
+}
