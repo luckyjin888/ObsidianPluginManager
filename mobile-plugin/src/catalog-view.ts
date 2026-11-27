@@ -159,7 +159,7 @@ export class PluginCatalogModal extends Modal {
             const report = await verifyLatestReleaseAssets(
               latestReleaseReport,
               plugin.id,
-              this.app.version,
+              null,
             );
             releaseDetails.createEl("p", {
               text: report.verified
