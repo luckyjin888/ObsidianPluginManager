@@ -46,7 +46,7 @@ function compareVersions(left: string, right: string): number | null {
 export async function verifyLatestReleaseAssets(
   release: ReleaseInspection,
   expectedPluginId: string,
-  obsidianVersion: string | null,
+  obsidianVersion: string,
 ): Promise<AssetVerificationReport> {
   const reasons: string[] = [];
   if (!release.ok || !release.tag || !release.installable) {
@@ -107,8 +107,6 @@ export async function verifyLatestReleaseAssets(
   }
   if (typeof manifest.minAppVersion !== "string" || !parseVersion(manifest.minAppVersion)) {
     reasons.push("Manifest minAppVersion is missing or invalid.");
-  } else if (obsidianVersion === null) {
-    reasons.push("The public Obsidian API does not expose a supported runtime-version accessor; compare minAppVersion manually before installation.");
   } else {
     const comparison = compareVersions(obsidianVersion, manifest.minAppVersion);
     if (comparison === null) reasons.push("Obsidian or minAppVersion is not a supported semantic version.");
