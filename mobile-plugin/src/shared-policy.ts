@@ -96,3 +96,26 @@ export function parseSharedPluginPolicy(raw: string): SharedPolicyValidation {
     errors: [],
   };
 }
+
+/**
+ * Conservative sibling-name heuristic. Any similarly named file is surfaced
+ * for manual review; this is not proof that a sync provider created a conflict.
+ */
+export function findPolicyConflictCandidates(paths: string[]): string[] {
+  const exactPath = SHARED_POLICY_PATH.toLowerCase();
+  const exactName = "shared-policy.json";
+  return paths.filter((path) => {
+    const normalized = path.replace(/\\/g, "/").toLowerCase();
+    const name = normalized.split("/").pop() ?? "";
+    return normalized !== exactPath && name !== exactName &&
+      name.includes("shared-policy") &&
+      (name.endsWith(".json") || name.includes("conflict") || name.includes("conflicted"));
+  }).sort();
+}
+
+/** SHA-256 fingerprint for display/comparison; it does not lock the file. */
+export async function fingerprintSharedPolicy(raw: string): Promise<string> {
+  const bytes = new TextEncoder().encode(raw);
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
