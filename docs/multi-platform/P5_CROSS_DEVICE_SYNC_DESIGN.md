@@ -131,3 +131,8 @@ A separate public-Vault adapter and helper now support creating a new backup fil
 The adapter uses only public Vault operations (`getAbstractFileByPath`, `createFolder`, `create`, and `read`) and structural checks for file/folder objects. Contract tests use a fake Vault to cover successful persistence, duplicate reuse, conflicting filename collision, read-back corruption, folder creation failure, file creation failure, and read failure.
 
 This confirms only that the current Vault API returned matching bytes on immediate read-back. It does not prove that Obsidian Sync/iCloud/Git has uploaded the backup, that another device can retrieve it, or that it survives provider-level rollback or device loss. It is not yet called by the primary policy writer, and no restore or rollback operation is exposed. No user-facing Save action is enabled.
+
+
+### Test-fixture correction
+
+The first backup-persistence test run exposed a mismatch in the fake Vault fixture: it implemented the helper port directly instead of the public Obsidian Vault surface consumed by `createObsidianVaultBackupAdapter()`. The fixture now exposes `getAbstractFileByPath()`, `createFolder()`, `create()`, and `read()`, with file/folder-shaped objects. This correction makes the adapter delegation tests exercise the intended public API shape; it does not increase the evidence level to a real Obsidian runtime test.
