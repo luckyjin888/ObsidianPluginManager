@@ -61,3 +61,11 @@ A manifest value such as `isDesktopOnly: false` is not proof of successful opera
 ## Current status
 
 P1, P2, and P3 are complete at the code/CI-foundation level. P4.1–P4.3 are implemented; P4.3 now checks the running Obsidian API version through the official `apiVersion` export. P4.4 remains design-only. Redirect-host attestation is unavailable through the public API; the documented integrity model relies on canonical GitHub API metadata plus exact downloaded-byte SHA-256 verification. Adapter contract tests, fault injection, and physical-device validation remain outstanding. Physical-device testing on Windows, macOS, iPhone, iPad, and Android remains outstanding. The PR must remain a draft until all implementation phases and acceptance criteria are complete.
+
+
+### P5.4 — explicit conflict-resolution preview foundation
+
+- Added a pure in-memory builder requiring an explicit per-plugin choice (keep current, keep candidate, or remove).
+- Missing choices and invalid source selections are rejected; notes follow the explicitly selected source.
+- Produces deterministic preview JSON only; no UI Save action or Vault write is enabled.
+- Added tests for incomplete choices, invalid choices, source selection, note selection, deterministic output, and input immutability.
