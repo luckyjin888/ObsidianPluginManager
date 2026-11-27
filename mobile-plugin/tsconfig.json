@@ -17,7 +17,8 @@
     "noEmit": true,
     "moduleResolution": "node",
     "isolatedModules": true,
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true
   },
   "include": [
     "src/**/*.ts"
