@@ -104,3 +104,44 @@ The plugin now has a separate verification action that downloads each allowliste
 No downloaded bytes are written to the vault, executed, or persisted. A successful P4.3 verification is not install permission. One API limitation remains: Obsidian's `RequestUrlResponse` exposes status, headers, and body but not the final URL after redirects. The requested source URL is restricted to the expected GitHub repository release path, but the final CDN hostname cannot be independently asserted by this code. This must be addressed or explicitly accepted in the final threat model before enabling writes.
 
 P4.3 limitation: the current typed public Obsidian `App` API does not expose a supported runtime-version property. The verifier validates the manifest's `minAppVersion` syntax but fails closed pending a reliable runtime version source; it does not claim that the running app satisfies that minimum.
+
+
+## P4.4 transaction protocol — implementation gate and design
+
+P4.4 will be implemented as a separate transaction module and will remain disabled until every precondition below is satisfied.
+
+### Preconditions (all mandatory)
+
+1. The runtime platform is known and the selected catalogue entry is exactly `verified` for that platform (iOS-family devices require both iOS and iPadOS evidence).
+2. The release metadata is from the canonical upstream repository and the stable release has the exact allowlisted assets.
+3. Every downloaded asset's bytes match its published SHA-256 digest and expected byte length.
+4. The manifest plugin ID and version match the selected catalogue entry and release tag.
+5. A trustworthy runtime Obsidian version is available and satisfies `minAppVersion`. Until a supported source exists, this condition is false and the transaction must not begin.
+6. The user explicitly confirms the exact plugin ID, version, target path, and replacement of any existing installation.
+7. The user has been told that activation remains a separate manual action in Obsidian's Community Plugins settings.
+
+### Transaction sequence
+
+1. Resolve the plugin directory using `app.vault.configDir` and the generic `app.vault.adapter`; never assume the configuration directory is named `.obsidian` and never cast to a desktop filesystem adapter.
+2. Check adapter capabilities and path existence. Refuse if the target path is ambiguous, a file instead of a directory, or the adapter cannot safely read/write binary files and enumerate required paths.
+3. Create a uniquely named staging directory beneath the plugin manager's own staging area using adapter APIs. Write only the three allowlisted verified files.
+4. Read every staged file back and re-check byte length and SHA-256 before touching the installed plugin directory.
+5. If a target installation exists, create a backup in a separate backup area and verify the copied files. Never overwrite or delete the only known-good copy.
+6. Re-check the user confirmation and target state immediately before replacement to reduce time-of-check/time-of-use risk.
+7. Copy staged files into the target directory. Since the public adapter contract does not promise an atomic multi-file directory swap on every mobile backend, treat each step as fallible and journal completed operations.
+8. On any failure, restore the backup (or remove only files created by this transaction if no prior installation existed), verify the restored bytes, and preserve the backup if recovery is uncertain.
+9. Keep backups until the user explicitly removes them. Never delete `data.json`, unknown files, or user settings as part of an update.
+10. Do not enable, disable, or reload the plugin programmatically. Show the manual next step only after successful file placement.
+
+### Failure and recovery rules
+
+- A failed stage write must leave the current installation untouched.
+- A failed backup must abort before replacement.
+- A failed replacement must attempt rollback and report whether rollback itself was verified.
+- If rollback cannot be verified, preserve all remaining staged/backup material and clearly instruct the user not to retry until inspected.
+- Never claim atomicity. Never silently retry destructive operations.
+- Adapter-specific contract tests and injected failures are required for mkdir, exists, readBinary, writeBinary, list, remove, and rename/copy behavior actually used by the implementation.
+
+### Current state
+
+This section is a design only. No transaction writer, backup, rollback, or vault mutation is enabled. The unresolved runtime-version and redirect-target limitations above remain hard blockers, so P4.4 implementation must not bypass them.
