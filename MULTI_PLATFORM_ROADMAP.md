@@ -24,7 +24,7 @@ Extend ObsidianPluginManager to support a shared plugin-management workflow acro
 ## Delivery phases
 
 - [x] **P1 — Baseline and regression protection**: inventory existing desktop behavior and tests. Baseline recorded in [P1 Desktop Regression Baseline](docs/multi-platform/P1_DESKTOP_BASELINE.md). Initial PR CI run passed all 9 OS/Python matrix jobs.
-- [ ] **P2 — Shared catalogue and compatibility model**: define a versioned schema and validate plugin metadata.
+- [ ] **P2 — Shared catalogue and compatibility model**: implemented the versioned schema, nine-entry seed catalogue, compatibility evidence policy, dependency-free validator, seven unit tests, and CI validation step. Awaiting the new CI run before marking complete. Details: [P2 Plugin Catalogue](docs/multi-platform/P2_PLUGIN_CATALOG.md).
 - [ ] **P3 — Mobile plugin foundation**: add the TypeScript plugin scaffold and platform detection using supported Obsidian APIs.
 - [ ] **P4 — Safe installation workflow**: validate source/version/platform, back up affected files, and provide rollback behavior.
 - [ ] **P5 — Cross-device policy sync**: synchronize desired plugin policy while preserving device-specific settings and enabled state.
