@@ -1,4 +1,4 @@
-import { App, Modal, Notice } from "obsidian";
+import { App, Modal, Notice, TFile, TFolder } from "obsidian";
 import { detectRuntimePlatform, type RuntimePlatform } from "./platform";
 import { findPolicyConflictCandidates, fingerprintSharedPolicy, parseSharedPluginPolicy, SHARED_POLICY_PATH } from "./shared-policy";
 import catalogData from "../../shared/plugin-catalog.json";
@@ -57,10 +57,9 @@ export class SharedPolicyPreviewModal extends Modal {
       cls: "setting-item-description",
     });
 
-    const adapter = this.app.vault.adapter;
     try {
-      const exists = await adapter.exists(SHARED_POLICY_PATH);
-      if (!exists) {
+      const policyFile = this.app.vault.getAbstractFileByPath(SHARED_POLICY_PATH);
+      if (!(policyFile instanceof TFile)) {
         contentEl.createEl("p", {
           text: "No shared policy file exists yet. This command will not create one.",
         });
@@ -70,13 +69,16 @@ export class SharedPolicyPreviewModal extends Modal {
       let possibleConflicts: string[] = [];
       let conflictScanAvailable = true;
       try {
-        const siblings = await adapter.list("PluginManager");
-        possibleConflicts = findPolicyConflictCandidates(siblings.files);
+        const policyFolder = this.app.vault.getAbstractFileByPath("PluginManager");
+        const siblingPaths = policyFolder instanceof TFolder
+          ? policyFolder.children.map((child) => child.path)
+          : [];
+        possibleConflicts = findPolicyConflictCandidates(siblingPaths);
       } catch {
         conflictScanAvailable = false;
       }
 
-      const raw = await adapter.read(SHARED_POLICY_PATH);
+      const raw = await this.app.vault.read(policyFile);
       let fingerprint = "Unavailable in this runtime";
       try {
         fingerprint = await fingerprintSharedPolicy(raw);
