@@ -2,7 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+- 将 PDF++（`pdf-plus`）加入社区插件安装/启用目录与 GitHub Releases 更新订阅；记录其 MIT 上游仓库、Obsidian 最低版本要求及私有 API/实验性 PDF 编辑风险。
+
 ### Changed
+- 版本更新至 0.6.6。
 - 版本更新至 0.6.5。
 
 ### Added

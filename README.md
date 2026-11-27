@@ -2,7 +2,7 @@
 
 一个以安全、透明、用户确认优先为原则的 Obsidian 插件盘点与初步审查工具。
 
-**版本：** 0.6.5  
+**版本：** 0.6.6  
 **核心：** Python 3  
 **启动入口：** macOS/Linux 使用 Bash；Windows 使用 PowerShell  
 **许可证：** GNU GPL-3.0-only
@@ -23,8 +23,8 @@
 - 输出发现的线索与无法确认项；不把“没有命中规则”说成“安全”。
 - CLI 未注册时，可尝试创建当前用户级命令入口；执行前展示双版本说明并要求输入完整的 `YES`。
 - 程序先启动或聚焦 Obsidian，等待应用就绪后再执行无修改的 `obsidian help` 检查；如果 CLI 未启用，立即显示中文设置示意图并安全停止。
-- 将 Obsidian Git 与 7 个推荐社区插件纳入同一张 8 项管理清单。
-- 新增优质开源插件推荐库：QuickAdd、Tasks、Excalidraw、Linter、Advanced Tables、Templater、Codeblock Customizer；可按 ID 多选或选择全部。
+- 将 Obsidian Git 与 8 个推荐社区插件纳入同一张 9 项管理清单。
+- 新增优质开源插件推荐库：QuickAdd、Tasks、Excalidraw、Linter、Advanced Tables、Templater、Codeblock Customizer、PDF++；可按 ID 多选或选择全部。
 - 安装前实时核对 Obsidian 官方社区目录、GitHub 源码仓库、SPDX 开源许可证和仓库归档状态；未通过核验的插件跳过。
 - 安装与启用合并为一次批次授权：未安装的插件安装后启用，已安装但未启用的只启用，已启用的自动跳过。
 - 新增独立的 GitHub Releases REST API 更新检查器：可选使用本机环境变量中的只读 Token，使用 ETag / Last-Modified 条件请求和用户级本地缓存；只通知版本变化，不自动安装或更新插件。
@@ -161,7 +161,7 @@ conda install ca-certificates certifi openssl
 
 ## 社区插件统一安装与启用
 
-程序将 Obsidian Git 与 7 个推荐插件放在同一张清单中，共 8 个插件。每次运行先检查所选 Vault 中的安装状态（插件目录内的 `manifest.json`）和启用状态（`.obsidian/community-plugins.json`）。
+程序将 Obsidian Git 与 8 个推荐插件放在同一张清单中，共 9 个插件。每次运行先检查所选 Vault 中的安装状态（插件目录内的 `manifest.json`）和启用状态（`.obsidian/community-plugins.json`）。
 
 | 插件 | ID | 用途 | 特别风险 |
 |---|---|---|---|
@@ -173,6 +173,7 @@ conda install ca-certificates certifi openssl
 | Advanced Tables | `table-editor-obsidian` | Markdown 表格编辑 | 仍属实验性，可能有数据丢失缺陷，先备份 |
 | Templater | `templater-obsidian` | 动态模板 | 高风险：可执行 JavaScript 和系统命令 |
 | Codeblock Customizer | `codeblock-customizer` | 增强代码块显示与自定义样式 | 可修改代码块的显示方式；安装前核对来源与许可证 |
+| PDF++ | `pdf-plus` | 增强 PDF 阅读、高亮批注、PDF 链接与 Markdown 笔记联动 | 依赖 Obsidian 私有 API，版本更新可能影响兼容性；PDF 直接编辑属实验功能，可能损坏文件，默认不要启用，先备份 |
 
 ### 统一操作规则
 

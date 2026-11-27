@@ -17,7 +17,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-VERSION = "0.2.2"
+VERSION = "0.2.3"
 CACHE_SOURCE = "github-releases-api-v1"
 USER_AGENT = f"ObsidianPluginManager-ReleaseWatcher/{VERSION}"
 TIMEOUT = 15
@@ -34,6 +34,7 @@ PLUGINS = (
     ("Advanced Tables", "tgrosinger/advanced-tables-obsidian"),
     ("Templater", "SilentVoid13/Templater"),
     ("Codeblock Customizer", "mugiwara85/CodeblockCustomizer"),
+    ("PDF++", "RyotaUshio/obsidian-pdf-plus"),
 )
 
 
