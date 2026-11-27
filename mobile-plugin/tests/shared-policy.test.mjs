@@ -10,7 +10,7 @@ const bundled = await build({
   write: false,
 });
 const encoded = Buffer.from(bundled.outputFiles[0].text).toString("base64");
-const { parseSharedPluginPolicy, findPolicyConflictCandidates, fingerprintSharedPolicy } = await import(`data:text/javascript;base64,${encoded}`);
+const { parseSharedPluginPolicy, findPolicyConflictCandidates, fingerprintSharedPolicy, compareSharedPolicyPluginIds } = await import(`data:text/javascript;base64,${encoded}`);
 
 test("accepts a valid minimal policy", () => {
   const result = parseSharedPluginPolicy(JSON.stringify({
@@ -97,4 +97,22 @@ test("fingerprint is stable for identical policy text and changes with content",
   assert.equal(first, same);
   assert.notEqual(first, changed);
   assert.match(first, /^[a-f0-9]{64}$/);
+});
+
+test("compares candidate policy lists without mutating either policy", () => {
+  const current = {
+    schema_version: 1,
+    revision: "current",
+    plugins: [{ id: "quickadd" }, { id: "templater" }],
+  };
+  const candidate = {
+    schema_version: 1,
+    revision: "conflict-copy",
+    plugins: [{ id: "quickadd" }, { id: "dataview" }],
+  };
+  const diff = compareSharedPolicyPluginIds(current, candidate);
+  assert.deepEqual(diff.onlyInCandidate, ["dataview"]);
+  assert.deepEqual(diff.onlyInCurrent, ["templater"]);
+  assert.deepEqual(current.plugins.map((entry) => entry.id), ["quickadd", "templater"]);
+  assert.deepEqual(candidate.plugins.map((entry) => entry.id), ["quickadd", "dataview"]);
 });
