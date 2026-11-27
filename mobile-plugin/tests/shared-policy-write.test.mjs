@@ -10,7 +10,7 @@ const bundled = await build({
   write: false,
 });
 const encoded = Buffer.from(bundled.outputFiles[0].text).toString("base64");
-const { writeSharedPolicyWithBaseline } = await import(`data:text/javascript;base64,${encoded}`);
+const { writeSharedPolicyWithBaseline, createObsidianVaultPolicyAdapter } = await import(`data:text/javascript;base64,${encoded}`);
 
 const baseline = JSON.stringify({ schema_version: 1, revision: "r1", plugins: [{ id: "quickadd" }] }, null, 2) + "\n";
 const candidate = JSON.stringify({ schema_version: 1, revision: "r2", plugins: [{ id: "quickadd" }, { id: "templater" }] }, null, 2) + "\n";
@@ -91,4 +91,30 @@ test("rejects adapters that never invoke the process callback", async () => {
   const result = await writeSharedPolicyWithBaseline(vault, {}, baseline, candidate);
   assert.equal(result.status, "failed");
   assert.match(result.message, /without invoking its callback/);
+});
+
+
+test("Obsidian Vault adapter delegates process and read to the public API", async () => {
+  const calls = [];
+  const file = { path: "PluginManager/shared-policy.json" };
+  const vaultApi = {
+    async process(receivedFile, callback) {
+      calls.push(["process", receivedFile]);
+      const next = callback(baseline);
+      calls.push(["candidate", next]);
+      return next;
+    },
+    async read(receivedFile) {
+      calls.push(["read", receivedFile]);
+      return candidate;
+    },
+  };
+  const adapter = createObsidianVaultPolicyAdapter(vaultApi);
+  const result = await writeSharedPolicyWithBaseline(adapter, file, baseline, candidate);
+  assert.deepEqual(result, { status: "written" });
+  assert.deepEqual(calls, [
+    ["process", file],
+    ["candidate", candidate],
+    ["read", file],
+  ]);
 });
