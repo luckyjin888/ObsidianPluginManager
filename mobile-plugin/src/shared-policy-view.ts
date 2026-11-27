@@ -87,15 +87,6 @@ export class SharedPolicyPreviewModal extends Modal {
         // must not prevent the read-only policy preview from working.
       }
       const parsed = parseSharedPluginPolicy(raw);
-      if (!parsed.ok || !parsed.policy) {
-        contentEl.createEl("h3", { text: "Policy cannot be previewed" });
-        for (const error of parsed.errors) contentEl.createEl("p", { text: error });
-        contentEl.createEl("p", {
-          text: "The original file has been left untouched. Fix it manually or restore a valid synced copy.",
-        });
-        return;
-      }
-
       if (!conflictScanAvailable) {
         contentEl.createEl("p", {
           text: "Could not inspect sibling files for possible sync conflict copies. Check the PluginManager folder manually.",
@@ -113,6 +104,19 @@ export class SharedPolicyPreviewModal extends Modal {
         });
       }
 
+      contentEl.createEl("p", {
+        text: `Current file SHA-256: ${fingerprint}`,
+        cls: "setting-item-description",
+      });
+      if (!parsed.ok || !parsed.policy) {
+        contentEl.createEl("h3", { text: "Policy cannot be previewed" });
+        for (const error of parsed.errors) contentEl.createEl("p", { text: error });
+        contentEl.createEl("p", {
+          text: "The original file has been left untouched. Fix it manually or restore a valid synced copy.",
+        });
+        return;
+      }
+
       const policy = parsed.policy;
       const runtime = detectRuntimePlatform();
       const platformKey = localPlatformKey(runtime);
@@ -121,10 +125,6 @@ export class SharedPolicyPreviewModal extends Modal {
       });
       contentEl.createEl("p", {
         text: `This device: ${runtime}. Compatibility is evaluated locally and is not synchronized.`,
-        cls: "setting-item-description",
-      });
-      contentEl.createEl("p", {
-        text: `Current file SHA-256: ${fingerprint}`,
         cls: "setting-item-description",
       });
       contentEl.createEl("p", {
