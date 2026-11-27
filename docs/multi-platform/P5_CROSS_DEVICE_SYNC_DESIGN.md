@@ -87,6 +87,19 @@ Obsidian documents that `Vault.process()` guarantees the file does not change be
 
 No policy writer is implemented by this design update. This protocol must receive tests with a fake Vault/process implementation, including stale baseline, callback invocation, exceptions, invalid candidate, and post-write verification, before any write button is exposed.
 
+
+## Explicit resolution preview (read-only)
+
+A pure helper now builds an in-memory resolution preview from two valid policies and a per-plugin choice map:
+
+- Every plugin ID present in either copy requires an explicit choice: keep the current entry, keep the candidate entry, or remove the ID.
+- If an ID exists in only one source, choosing the other source is invalid.
+- When the same ID has different notes, choosing a source also explicitly chooses that source's note.
+- Missing choices, invalid choices, invalid revisions, or invalid resulting policy data produce no JSON output.
+- The result is a deterministic JSON preview only. It does not write the Vault, change either input object, install plugins, or authorize installation.
+
+This helper is a foundation for a later confirmation UI. It does not yet provide interactive per-plugin controls or a Save action. A future UI must show the complete resulting list and require a separate final confirmation before any write path is implemented.
+
 ## Required tests before write support
 
 - schema validation and size limits;
@@ -101,4 +114,4 @@ No policy writer is implemented by this design update. This protocol must receiv
 
 ## Implementation boundary
 
-The read-only preview is implemented in `mobile-plugin/src/shared-policy.ts` and `mobile-plugin/src/shared-policy-view.ts`. It reads only `PluginManager/shared-policy.json` through the public Vault API, checks the file size before reading, validates a strict bounded JSON shape, displays desired IDs with this device's bundled-catalogue compatibility evidence, reports similarly named sibling files as possible conflict copies, and displays a SHA-256 fingerprint when Web Crypto is available. For valid primary policies it also reads bounded candidate files and displays a read-only set difference of plugin IDs; it never merges or changes either copy. The scan is heuristic and the fingerprint is not a lock; neither can guarantee race-free multi-device editing. It does not create or modify the file, fetch arbitrary sources, infer installed/enabled state, or synchronize plugin folders/binaries. Policy writes remain disabled pending conflict reconciliation UX, adapter tests, and an honest limitation warning.
+The read-only preview and pure explicit-resolution preview helper are implemented in `mobile-plugin/src/shared-policy.ts` and `mobile-plugin/src/shared-policy-view.ts`. It reads only `PluginManager/shared-policy.json` through the public Vault API, checks the file size before reading, validates a strict bounded JSON shape, displays desired IDs with this device's bundled-catalogue compatibility evidence, reports similarly named sibling files as possible conflict copies, and displays a SHA-256 fingerprint when Web Crypto is available. For valid primary policies it also reads bounded candidate files and displays a read-only set difference of plugin IDs; it never merges or changes either copy. A separate pure helper can construct a proposed merged JSON string from explicit per-ID choices, but this result remains in memory and is not saved. The scan is heuristic and the fingerprint is not a lock; neither can guarantee race-free multi-device editing. It does not create or modify the file, fetch arbitrary sources, infer installed/enabled state, or synchronize plugin folders/binaries. Policy writes remain disabled pending conflict reconciliation UX, adapter tests, and an honest limitation warning.
