@@ -1,6 +1,6 @@
 import { App, Modal, Notice, TFile, TFolder } from "obsidian";
 import { detectRuntimePlatform, type RuntimePlatform } from "./platform";
-import { findPolicyConflictCandidates, fingerprintSharedPolicy, parseSharedPluginPolicy, SHARED_POLICY_PATH } from "./shared-policy";
+import { compareSharedPolicyPluginIds, findPolicyConflictCandidates, fingerprintSharedPolicy, MAX_SHARED_POLICY_BYTES, parseSharedPluginPolicy, SHARED_POLICY_PATH } from "./shared-policy";
 import catalogData from "../../shared/plugin-catalog.json";
 
 type PlatformKey = "windows" | "macos" | "ios" | "ipados" | "android";
@@ -78,6 +78,14 @@ export class SharedPolicyPreviewModal extends Modal {
         conflictScanAvailable = false;
       }
 
+      if (policyFile.stat.size > MAX_SHARED_POLICY_BYTES) {
+        contentEl.createEl("h3", { text: "Policy file is too large to preview" });
+        contentEl.createEl("p", {
+          text: `The file is ${policyFile.stat.size} bytes; the limit is ${MAX_SHARED_POLICY_BYTES} bytes. It has not been modified.`,
+        });
+        return;
+      }
+
       const raw = await this.app.vault.read(policyFile);
       let fingerprint = "Unavailable in this runtime";
       try {
@@ -135,6 +143,46 @@ export class SharedPolicyPreviewModal extends Modal {
       if (policy.plugins.length === 0) {
         contentEl.createEl("p", { text: "The shared policy currently has no desired plugins." });
         return;
+      }
+
+      if (possibleConflicts.length > 0) {
+        contentEl.createEl("h3", { text: "Read-only comparison of possible copies" });
+        for (const path of possibleConflicts) {
+          const candidateFile = this.app.vault.getAbstractFileByPath(path);
+          const comparison = contentEl.createDiv({ cls: "plugin-catalog-item" });
+          comparison.createEl("h4", { text: path });
+          if (!(candidateFile instanceof TFile)) {
+            comparison.createEl("p", { text: "This path is not a readable file in the current Vault." });
+            continue;
+          }
+          if (candidateFile.stat.size > MAX_SHARED_POLICY_BYTES) {
+            comparison.createEl("p", { text: "Skipped: candidate exceeds the 64 KiB size limit." });
+            continue;
+          }
+          try {
+            const candidateRaw = await this.app.vault.read(candidateFile);
+            const candidateParsed = parseSharedPluginPolicy(candidateRaw);
+            if (!candidateParsed.ok || !candidateParsed.policy) {
+              comparison.createEl("p", { text: "Candidate is not a valid shared policy; original file left untouched." });
+              for (const error of candidateParsed.errors) comparison.createEl("p", { text: error });
+              continue;
+            }
+            const diff = compareSharedPolicyPluginIds(policy, candidateParsed.policy);
+            comparison.createEl("p", { text: `Candidate revision: ${candidateParsed.policy.revision}` });
+            comparison.createEl("p", {
+              text: diff.onlyInCandidate.length
+                ? `Only in candidate: ${diff.onlyInCandidate.join(", ")}`
+                : "Only in candidate: none",
+            });
+            comparison.createEl("p", {
+              text: diff.onlyInCurrent.length
+                ? `Only in current policy: ${diff.onlyInCurrent.join(", ")}`
+                : "Only in current policy: none",
+            });
+          } catch {
+            comparison.createEl("p", { text: "Could not read this candidate. It has not been changed." });
+          }
+        }
       }
 
       const list = contentEl.createDiv({ cls: "shared-policy-preview-list" });
