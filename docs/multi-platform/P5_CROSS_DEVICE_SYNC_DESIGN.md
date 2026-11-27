@@ -153,3 +153,21 @@ A pure helper, `prepareSharedPolicyRestorePreview()`, now prepares an in-memory 
 The caller must provide both the exact current content captured when review began and a freshly re-read current content. If these differ—including a file appearing or disappearing—the helper returns `stale` and emits no restore content. This is a local stale-review guard, not a cross-device lock; a sync provider may still deliver a competing version later.
 
 This milestone deliberately does not add a Restore button or call `Vault.process()`. It does not write, overwrite, rename, or delete any file. It is only a tested preparation primitive. Before a real restore action is exposed, the UI must show the selected backup and exact target, require a separate explicit confirmation, create and read-back verify a fresh backup of the current primary content when it exists, recheck the reviewed baseline immediately before writing, define failure recovery if the write or post-write verification fails, and retain all backups. A missing or oversized current file must be handled explicitly; the helper must not silently treat an unreadable file as an empty baseline.
+
+## Confirmed restore transaction helper (P5.6.5, isolated; no UI command)
+
+An isolated `restoreSharedPolicyWithBackup()` helper now exercises the guarded restore transaction for an already-existing primary policy file. It requires an explicit confirmation flag, the exact reviewed current content, a fresh current-content comparison, a selected backup envelope, and a caller-supplied timestamp.
+
+Ordering is deliberate:
+
+1. Reject unless explicit confirmation is true.
+2. Reject if the reviewed content differs from the freshly supplied current content.
+3. Revalidate the selected backup envelope and embedded policy.
+4. Persist a new backup of the exact current primary bytes and require successful Vault read-back verification (or an identical already-existing backup).
+5. Call `Vault.process()` and compare the callback's current bytes with the reviewed baseline immediately before replacement.
+6. Re-read and verify the restored bytes.
+7. If post-write verification fails, attempt a conditional rollback only when the current file still equals the restore candidate; verify the rollback read-back. If the file contains another value, do not overwrite it.
+
+The helper returns distinct statuses for missing confirmation, stale baseline, invalid backup/policy, fresh-backup failure, write failure, verification failure, and rollback failure. The helper is not wired to a command or modal. It does not create a missing primary policy file; this transaction currently requires an existing file handle. It cannot guarantee atomicity across devices or remote sync durability. A sync provider may deliver a competing version after the local transaction. A rollback is best-effort, conditional, and may fail; the verified pre-restore backup remains the recovery source if that happens.
+
+The fake-Vault tests cover explicit-confirmation enforcement, stale review rejection before backup, a last-moment concurrent change inside `Vault.process()`, backup persistence failure preventing primary writes, successful restore after verified backup, and conditional rollback after a read-back mismatch. These are contract/fault-injection tests only. They do not establish actual Obsidian runtime behavior or device/sync-provider correctness. The helper remains isolated and there is still no user-facing restore action.
