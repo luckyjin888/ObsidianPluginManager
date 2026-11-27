@@ -10,7 +10,7 @@ const bundled = await build({
   write: false,
 });
 const encoded = Buffer.from(bundled.outputFiles[0].text).toString("base64");
-const { writeSharedPolicyWithBaseline, createObsidianVaultPolicyAdapter, createSharedPolicyBackupEnvelope, validateSharedPolicyBackupEnvelope, buildSharedPolicyBackupFileName, createObsidianVaultBackupAdapter, persistSharedPolicyBackup, scanSharedPolicyBackups } = await import(`data:text/javascript;base64,${encoded}`);
+const { writeSharedPolicyWithBaseline, createObsidianVaultPolicyAdapter, createSharedPolicyBackupEnvelope, validateSharedPolicyBackupEnvelope, buildSharedPolicyBackupFileName, createObsidianVaultBackupAdapter, persistSharedPolicyBackup, scanSharedPolicyBackups, prepareSharedPolicyRestorePreview } = await import(`data:text/javascript;base64,${encoded}`);
 
 const baseline = JSON.stringify({ schema_version: 1, revision: "r1", plugins: [{ id: "quickadd" }] }, null, 2) + "\n";
 const candidate = JSON.stringify({ schema_version: 1, revision: "r2", plugins: [{ id: "quickadd" }, { id: "templater" }] }, null, 2) + "\n";
@@ -289,4 +289,36 @@ test("read-only backup scan reports unreadable backup files", async () => {
   const items = await scanSharedPolicyBackups(adapter);
   assert.equal(items[0].status, "invalid-backup");
   assert.equal(fake.state.reads, 1);
+});
+
+
+test("restore preview accepts a verified backup only when current content still matches reviewed baseline", async () => {
+  const backup = await createSharedPolicyBackupEnvelope(baseline, "2026-11-28T03:00:00.000Z");
+  const result = await prepareSharedPolicyRestorePreview(backup, candidate, candidate);
+  assert.equal(result.status, "ready");
+  assert.equal(result.target_path, "PluginManager/shared-policy.json");
+  assert.equal(result.backup_created_at, "2026-11-28T03:00:00.000Z");
+  assert.equal(result.restored_policy_revision, "r1");
+  assert.equal(result.restored_plugin_count, 1);
+  assert.equal(result.restore_content, baseline);
+});
+
+test("restore preview blocks if the current policy changed or appeared/disappeared after review", async () => {
+  const backup = await createSharedPolicyBackupEnvelope(baseline, "2026-11-28T03:00:00.000Z");
+  const changed = await prepareSharedPolicyRestorePreview(backup, candidate, baseline);
+  assert.equal(changed.status, "stale");
+  const appeared = await prepareSharedPolicyRestorePreview(backup, null, candidate);
+  assert.equal(appeared.status, "stale");
+  const disappeared = await prepareSharedPolicyRestorePreview(backup, candidate, null);
+  assert.equal(disappeared.status, "stale");
+});
+
+test("restore preview rejects invalid backup digest and invalid embedded policy", async () => {
+  const backup = await createSharedPolicyBackupEnvelope(baseline, "2026-11-28T03:00:00.000Z");
+  const tampered = { ...backup, original_content: candidate };
+  const invalidDigest = await prepareSharedPolicyRestorePreview(tampered, baseline, baseline);
+  assert.equal(invalidDigest.status, "invalid-backup");
+  const invalidPolicyBackup = await createSharedPolicyBackupEnvelope("{not a policy", "2026-11-28T03:00:00.000Z");
+  const invalidPolicy = await prepareSharedPolicyRestorePreview(invalidPolicyBackup, baseline, baseline);
+  assert.equal(invalidPolicy.status, "invalid-policy");
 });
