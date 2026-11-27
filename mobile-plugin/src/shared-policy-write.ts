@@ -498,10 +498,43 @@ export async function restoreSharedPolicyWithBackup<TFileLike>(
       };
     }
   } catch (error) {
-    return {
-      status: "write-failed",
-      message: error instanceof Error ? error.message : "Unknown restore write/read failure.",
-      backup_path: currentBackup.path,
-    };
+    const message = error instanceof Error ? error.message : "Unknown restore write/read failure.";
+    // A process/read exception may occur after the adapter has already changed
+    // the file. Re-read before deciding whether a conditional rollback is safe.
+    try {
+      const afterFailure = await policyVault.read(file);
+      if (afterFailure === checked.backup.original_content) {
+        let rollbackInvoked = false;
+        let rollbackStale = false;
+        await policyVault.process(file, (current) => {
+          rollbackInvoked = true;
+          if (current !== checked.backup.original_content) {
+            rollbackStale = true;
+            return current;
+          }
+          return reviewedCurrentContent;
+        });
+        if (!rollbackInvoked || rollbackStale) {
+          return { status: "rollback-failed", message, backup_path: currentBackup.path };
+        }
+        const verifiedRollback = await policyVault.read(file);
+        if (verifiedRollback !== reviewedCurrentContent) {
+          return { status: "rollback-failed", message, backup_path: currentBackup.path };
+        }
+        return {
+          status: "verification-failed",
+          actual: afterFailure,
+          backup_path: currentBackup.path,
+          rollback: "restored",
+        };
+      }
+      return {
+        status: "write-failed",
+        message,
+        backup_path: currentBackup.path,
+      };
+    } catch {
+      return { status: "rollback-failed", message, backup_path: currentBackup.path };
+    }
   }
 }
