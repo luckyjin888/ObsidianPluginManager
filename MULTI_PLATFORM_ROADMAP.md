@@ -23,13 +23,13 @@ Extend ObsidianPluginManager to support a shared plugin-management workflow acro
 
 ## Delivery phases
 
-- **P1 — Baseline and regression protection**: inventory existing desktop behavior and tests; add regression coverage before changing shared behavior.
-- **P2 — Shared catalogue and compatibility model**: define a versioned schema and validate plugin metadata.
-- **P3 — Mobile plugin foundation**: add the TypeScript plugin scaffold and platform detection using supported Obsidian APIs.
-- **P4 — Safe installation workflow**: validate source/version/platform, back up affected files, and provide rollback behavior.
-- **P5 — Cross-device policy sync**: synchronize desired plugin policy while preserving device-specific settings and enabled state.
-- **P6 — CI and device validation**: keep Python CI; add TypeScript build/type checks and static checks that prevent Node/Electron-only APIs from entering the mobile bundle. Record simulator and physical-device tests separately.
-- **P7 — Documentation and release readiness**: document setup, limitations, compatibility evidence, and upgrade/rollback steps.
+- [x] **P1 — Baseline and regression protection**: inventory existing desktop behavior and tests. Baseline recorded in [P1 Desktop Regression Baseline](docs/multi-platform/P1_DESKTOP_BASELINE.md). Initial PR CI run passed all 9 OS/Python matrix jobs.
+- [ ] **P2 — Shared catalogue and compatibility model**: define a versioned schema and validate plugin metadata.
+- [ ] **P3 — Mobile plugin foundation**: add the TypeScript plugin scaffold and platform detection using supported Obsidian APIs.
+- [ ] **P4 — Safe installation workflow**: validate source/version/platform, back up affected files, and provide rollback behavior.
+- [ ] **P5 — Cross-device policy sync**: synchronize desired plugin policy while preserving device-specific settings and enabled state.
+- [ ] **P6 — CI and device validation**: keep Python CI; add TypeScript build/type checks and static checks that prevent Node/Electron-only APIs from entering the mobile bundle. Record simulator and physical-device tests separately.
+- [ ] **P7 — Documentation and release readiness**: document setup, limitations, compatibility evidence, and upgrade/rollback steps.
 
 ## Compatibility policy
 
@@ -60,4 +60,6 @@ A manifest value such as `isDesktopOnly: false` is not proof of successful opera
 
 ## Current status
 
-This draft records the agreed direction and staged plan only. Implementation has not yet been completed. The pull request must remain a draft until the acceptance criteria are met.
+P1 desktop baseline inventory is complete. No existing desktop source files were changed by P1. The initial CI run is green; hands-on smoke testing on physical Windows and macOS installations remains a release validation task.
+
+The PR must remain a draft until all implementation phases and acceptance criteria are complete.
