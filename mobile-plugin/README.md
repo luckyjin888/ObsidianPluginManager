@@ -85,3 +85,8 @@ The preview also scans sibling filenames for possible conflict copies and displa
 
 
 When a possible conflict copy is found, the preview can read a bounded candidate JSON file and show plugin IDs present only in that candidate versus only in the current policy. This is a comparison aid, not an automatic merge: both files remain untouched, and the user must reconcile them manually. Files larger than the policy size limit are skipped before reading.
+
+
+### Future write-safety boundary
+
+The design specifies `Vault.cachedRead()` followed by `Vault.process()` with an exact baseline comparison inside the synchronous process callback. If the current content differs from the baseline, a future editor must abort rather than overwrite. Obsidian documents this as protection against a file changing between its read and write; it is not a distributed lock and cannot prevent a sync provider from delivering another device's version later. No policy writer is enabled.
