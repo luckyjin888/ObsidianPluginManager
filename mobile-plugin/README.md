@@ -90,3 +90,8 @@ When a possible conflict copy is found, the preview can read a bounded candidate
 ### Future write-safety boundary
 
 The design specifies `Vault.cachedRead()` followed by `Vault.process()` with an exact baseline comparison inside the synchronous process callback. If the current content differs from the baseline, a future editor must abort rather than overwrite. Obsidian documents this as protection against a file changing between its read and write; it is not a distributed lock and cannot prevent a sync provider from delivering another device's version later. No policy writer is enabled.
+
+
+### Conflict resolution preview foundation
+
+A tested helper can build an in-memory proposed policy from two valid policy copies. Each plugin ID requires an explicit choice to keep the current entry, keep the candidate entry, or remove it. Notes follow the chosen source. Missing or invalid choices are rejected. The helper returns preview JSON only and does not save to the Vault; interactive resolution controls and writing remain future work.
