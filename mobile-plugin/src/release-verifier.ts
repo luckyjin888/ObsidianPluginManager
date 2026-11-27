@@ -20,7 +20,7 @@ interface PluginManifest {
   isDesktopOnly?: unknown;
 }
 
-const VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+const VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 
 function parseVersion(value: string): [number, number, number] | null {
   const match = value.match(VERSION);
