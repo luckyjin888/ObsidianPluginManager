@@ -1,6 +1,6 @@
 import { App, Modal, Notice } from "obsidian";
 import { detectRuntimePlatform, type RuntimePlatform } from "./platform";
-import { parseSharedPluginPolicy, SHARED_POLICY_PATH } from "./shared-policy";
+import { findPolicyConflictCandidates, fingerprintSharedPolicy, parseSharedPluginPolicy, SHARED_POLICY_PATH } from "./shared-policy";
 import catalogData from "../../shared/plugin-catalog.json";
 
 type PlatformKey = "windows" | "macos" | "ios" | "ipados" | "android";
@@ -67,7 +67,17 @@ export class SharedPolicyPreviewModal extends Modal {
         return;
       }
 
+      let possibleConflicts: string[] = [];
+      let conflictScanAvailable = true;
+      try {
+        const siblings = await adapter.list("PluginManager");
+        possibleConflicts = findPolicyConflictCandidates(siblings.files);
+      } catch {
+        conflictScanAvailable = false;
+      }
+
       const raw = await adapter.read(SHARED_POLICY_PATH);
+      const fingerprint = await fingerprintSharedPolicy(raw);
       const parsed = parseSharedPluginPolicy(raw);
       if (!parsed.ok || !parsed.policy) {
         contentEl.createEl("h3", { text: "Policy cannot be previewed" });
@@ -78,6 +88,23 @@ export class SharedPolicyPreviewModal extends Modal {
         return;
       }
 
+      if (!conflictScanAvailable) {
+        contentEl.createEl("p", {
+          text: "Could not inspect sibling files for possible sync conflict copies. Check the PluginManager folder manually.",
+        });
+      } else if (possibleConflicts.length > 0) {
+        contentEl.createEl("h3", { text: "Possible sync conflict copies found" });
+        contentEl.createEl("p", {
+          text: "These similarly named files may be conflict copies or backups. They are not modified or deleted. Compare them manually before making changes.",
+        });
+        for (const path of possibleConflicts) contentEl.createEl("p", { text: path });
+      } else {
+        contentEl.createEl("p", {
+          text: "No similarly named conflict candidates were found. This filename scan cannot guarantee that the sync provider has no hidden or differently named conflicts.",
+          cls: "setting-item-description",
+        });
+      }
+
       const policy = parsed.policy;
       const runtime = detectRuntimePlatform();
       const platformKey = localPlatformKey(runtime);
@@ -86,6 +113,14 @@ export class SharedPolicyPreviewModal extends Modal {
       });
       contentEl.createEl("p", {
         text: `This device: ${runtime}. Compatibility is evaluated locally and is not synchronized.`,
+        cls: "setting-item-description",
+      });
+      contentEl.createEl("p", {
+        text: `Current file SHA-256: ${fingerprint}`,
+        cls: "setting-item-description",
+      });
+      contentEl.createEl("p", {
+        text: "This fingerprint identifies the exact text read for this preview. It is not a lock and does not prevent another device from changing the file.",
         cls: "setting-item-description",
       });
 
