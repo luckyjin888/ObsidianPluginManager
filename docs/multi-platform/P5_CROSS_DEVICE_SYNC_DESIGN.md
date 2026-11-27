@@ -1,6 +1,6 @@
 # P5 — Cross-device policy synchronization design
 
-Status: design baseline only. No synchronization reader/writer is enabled yet.
+Status: read-only preview foundation implemented. No synchronization writer is enabled.
 
 ## Goal
 
@@ -85,4 +85,4 @@ Because the vault adapter has no atomic cross-device compare-and-swap guarantee,
 
 ## Implementation boundary
 
-This document is a design only. No shared policy file is created or modified by the plugin. No plugin folders or binaries are synchronized. Read-only policy preview and schema tests must precede any policy writer.
+The first read-only preview foundation is implemented in `mobile-plugin/src/shared-policy.ts` and `mobile-plugin/src/shared-policy-view.ts`. It reads only `PluginManager/shared-policy.json`, validates a strict bounded JSON shape, and displays desired IDs with this device's bundled-catalogue compatibility evidence. It does not create or modify the file, fetch arbitrary sources, infer installed/enabled state, or synchronize plugin folders/binaries. Policy writes remain disabled until conflict handling and adapter tests are implemented.
