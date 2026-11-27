@@ -5,6 +5,7 @@
   "description": "Mobile-safe Obsidian plugin foundation",
   "scripts": {
     "build": "node esbuild.config.mjs production",
+    "package": "python ../tools/package_mobile_plugin.py --source .",
     "dev": "node esbuild.config.mjs"
   },
   "devDependencies": {
