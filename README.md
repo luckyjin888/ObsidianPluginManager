@@ -49,6 +49,14 @@ python3 plugin_update_subscription.py
 
 建议 macOS 快捷键为 `⌘ + ⇧ + C`（普通代码块）、`⌘ + ⇧ + J`（JSON）和 `⌘ + ⇧ + P`（Python）。运行管理器完成插件安装/启用流程后，如果 QuickAdd 已安装并启用，程序会额外提供一次明确授权的快捷键配置。它通过 QuickAdd 官方 package-import 命令新增三个无脚本 Capture choices，再合并写入 Vault 的 `.obsidian/hotkeys.json`。快捷键为 `Mod+Shift+C/J/P`（macOS 对应 `⌘+⇧+C/J/P`）。安装器要求 QuickAdd 2.30.0 或更高版本；若快捷键冲突、配置部分存在、JSON 异常或目标为符号链接，会停止而不覆盖。修改前备份现有 QuickAdd `data.json` 和 `hotkeys.json`；已有 QuickAdd 选项不会被覆盖。写入快捷键前会要求完全退出 Obsidian，避免退出时旧配置覆盖新文件；写入后自动重新启动 Obsidian。旧版手动模板仍保留在 `examples/quickadd-templates/`。
 
+## 多设备共享插件意愿清单（只读预览）
+
+移动端 Obsidian 插件位于 `mobile-plugin/`。共享清单只保存用户希望哪些插件出现在清单中的意愿；每台设备独立判断兼容性和本机安装状态。设备之间不会同步插件二进制文件、插件设置、启用状态、凭据或本地安装结果。
+
+当检测到有效的冲突候选清单时，界面允许用户逐个插件明确选择保留当前版本、保留候选版本或移除该条目，并生成内存中的 JSON 预览。每项都必须明确选择；预览不会保存到 Vault，没有自动合并、覆盖或删除冲突副本的行为。实际安装/启用仍是独立流程，并受平台兼容性检查和用户授权约束。
+
+当前移动插件构建与共享策略测试已纳入 CI。自动构建通过不等于已在 iPhone、iPad 或 Android 真机验证；原有 Windows/macOS Python 桌面程序仍保留。
+
 ## 环境要求
 
 - Python 3.10 或更高版本。
