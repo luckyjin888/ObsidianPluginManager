@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/luckyjin888/ObsidianPluginManager/blob/main/shared/plugin-catalog.schema.json",
+  "title": "Obsidian Plugin Manager shared catalogue",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["catalog_version", "generated_at", "compatibility_policy", "plugins"],
+  "properties": {
+    "catalog_version": { "type": "integer", "minimum": 1 },
+    "generated_at": { "type": "string", "format": "date" },
+    "compatibility_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["statuses", "manifest_warning"],
+      "properties": {
+        "statuses": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "enum": ["verified", "declared_unverified", "incompatible", "unknown"] },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "manifest_warning": { "type": "string", "minLength": 1 }
+      }
+    },
+    "plugins": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/plugin" }
+    }
+  },
+  "$defs": {
+    "platformStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "evidence"],
+      "properties": {
+        "status": { "enum": ["verified", "declared_unverified", "incompatible", "unknown"] },
+        "evidence": { "type": "string" },
+        "verified_on": { "type": ["string", "null"], "format": "date" },
+        "device": { "type": ["string", "null"] },
+        "obsidian_version": { "type": ["string", "null"] },
+        "notes": { "type": "string" }
+      }
+    },
+    "plugin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "name", "upstream_url", "manifest_is_desktop_only",
+        "manifest_checked_at", "platforms", "risk_level", "risk_notes",
+        "license", "catalog_notes"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+        "name": { "type": "string", "minLength": 1 },
+        "upstream_url": { "type": ["string", "null"], "format": "uri" },
+        "manifest_is_desktop_only": { "type": ["boolean", "null"] },
+        "manifest_checked_at": { "type": ["string", "null"], "format": "date" },
+        "platforms": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["windows", "macos", "ios", "ipados", "android"],
+          "properties": {
+            "windows": { "$ref": "#/$defs/platformStatus" },
+            "macos": { "$ref": "#/$defs/platformStatus" },
+            "ios": { "$ref": "#/$defs/platformStatus" },
+            "ipados": { "$ref": "#/$defs/platformStatus" },
+            "android": { "$ref": "#/$defs/platformStatus" }
+          }
+        },
+        "risk_level": { "enum": ["low", "medium", "high", "unknown"] },
+        "risk_notes": { "type": "array", "items": { "type": "string" } },
+        "license": { "type": ["string", "null"] },
+        "catalog_notes": { "type": "string" }
+      }
+    }
+  }
+}
