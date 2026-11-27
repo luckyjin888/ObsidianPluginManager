@@ -65,3 +65,10 @@ A passed preflight is **not** permission to install. Release provenance/digest v
 The catalogue now offers **Inspect latest release** for an upstream GitHub repository. It uses Obsidian's public `requestUrl` API to inspect the repository's latest published stable GitHub Release. It accepts semantic-version tags, requires `manifest.json` and `main.js`, permits only those files plus optional `styles.css`, validates GitHub release-asset URLs, and enforces per-file/total size limits (256 KiB / 20 MiB / 2 MiB; 25 MiB total).
 
 The inspector reports whether GitHub publishes a syntactically valid SHA-256 asset digest. If a digest is missing or invalid, the release is marked **not installable**. Even when digest metadata is present, the downloaded bytes have not yet been fetched or hashed, the manifest has not yet been parsed, and no installation is possible. HTTP 404, 403, and 429 responses fail closed; there is no branch/source-archive fallback. No files are downloaded or written to the vault.
+
+
+## P4.3 downloaded-byte verification (no vault writes)
+
+The catalogue adds **Verify downloaded release files** after release metadata inspection. It downloads only the allowlisted release assets into memory, checks the downloaded byte length against GitHub metadata, computes SHA-256 with Web Crypto, compares the result with GitHub's published digest, parses the digest-verified manifest, and checks plugin ID, release version, `minAppVersion` against the running Obsidian version, and an explicit `isDesktopOnly: false` declaration.
+
+This step does not execute downloaded code, retain files, create plugin folders, or write to the vault. A successful verification is not an installation. Redirect handling is delegated to Obsidian's `requestUrl`; its response API does not expose the final redirected URL, so this stage cannot independently attest the final CDN hostname. The source asset URL is still restricted to the expected GitHub repository release path. Staging, backups, rollback, and explicit confirmation remain disabled.
