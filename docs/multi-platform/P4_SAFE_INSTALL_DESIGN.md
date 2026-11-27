@@ -1,6 +1,6 @@
 # P4 — Safe installation design
 
-Status: design baseline; no installation or enablement code is implemented yet.
+Status: design baseline plus P4.1 eligibility preflight and P4.2 latest-release metadata inspection. No installation or enablement code is implemented yet.
 
 ## Goals
 
@@ -80,3 +80,18 @@ This document records the approved safety boundary for P4. The current plugin re
 - [Obsidian plugin self-critique checklist](https://docs.obsidian.md/oo/plugin)
 
 These references are the basis for using `requestUrl`, `Vault.configDir`, and the generic vault adapter, and for avoiding Node/Electron-only assumptions on mobile.
+
+
+## P4.2 implementation boundary — release metadata only
+
+The mobile plugin now inspects the latest stable release through Obsidian's public `requestUrl` API and GitHub's `/releases/latest` endpoint. This step is metadata-only:
+
+- Accept canonical HTTPS `github.com/{owner}/{repo}` upstream URLs only.
+- Require a published, non-draft, non-prerelease release with a semantic-version tag.
+- Require `manifest.json` and `main.js`; allow only optional `styles.css` in addition.
+- Enforce 256 KiB manifest, 20 MiB main bundle, 2 MiB stylesheet, and 25 MiB aggregate limits.
+- Constrain every asset URL to that repository's GitHub Releases download path.
+- Inspect GitHub's `sha256:<64 hex>` digest metadata. Missing or malformed digests block install eligibility.
+- Treat 404, 403, 429, and other non-success HTTP statuses as explicit failures; never fall back to a branch archive or mirror.
+
+**Important:** a published digest is not yet a verified digest. The current code does not download assets, hash their bytes, compare the downloaded manifest to the catalogue ID/release version, or write anything to the vault. P4.3 and P4.4 remain mandatory before any write path can be enabled.
