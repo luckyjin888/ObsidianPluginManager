@@ -391,3 +391,117 @@ export async function prepareSharedPolicyRestorePreview(
     restore_content: checked.backup.original_content,
   };
 }
+
+export type SharedPolicyRestoreTransactionResult =
+  | { status: "restored"; backup_path: string }
+  | { status: "confirmation-required" }
+  | { status: "stale"; current: string; backup_path?: string }
+  | { status: "backup-failed"; result: SharedPolicyBackupPersistResult }
+  | { status: "invalid-backup"; errors: string[] }
+  | { status: "invalid-policy"; errors: string[] }
+  | { status: "write-failed"; message: string; backup_path: string }
+  | { status: "verification-failed"; actual: string; backup_path: string; rollback: "restored" | "failed" | "not-needed" }
+  | { status: "rollback-failed"; message: string; backup_path: string };
+
+/**
+ * Executes an explicitly confirmed restore of an existing policy file.
+ * A verified backup of the exact current bytes is persisted before the write.
+ * Vault.process performs the final local baseline comparison. If post-write
+ * verification fails, a best-effort rollback is attempted only if the file
+ * still contains the restore candidate; concurrent content is never replaced.
+ *
+ * This remains an isolated helper: it is not wired to UI/commands and does not
+ * provide cross-device compare-and-swap or remote sync durability.
+ */
+export async function restoreSharedPolicyWithBackup<TFileLike>(
+  policyVault: SharedPolicyVaultProcessAdapter<TFileLike>,
+  backupVault: SharedPolicyBackupVaultAdapter<TFileLike>,
+  file: TFileLike,
+  selectedBackup: SharedPolicyBackupEnvelope,
+  reviewedCurrentContent: string,
+  currentContentNow: string,
+  createdAt: string,
+  explicitlyConfirmed: boolean,
+): Promise<SharedPolicyRestoreTransactionResult> {
+  if (!explicitlyConfirmed) return { status: "confirmation-required" };
+  if (reviewedCurrentContent !== currentContentNow) {
+    return { status: "stale", current: currentContentNow };
+  }
+
+  const checked = await validateSharedPolicyBackupEnvelope(JSON.stringify(selectedBackup));
+  if (!checked.ok) return { status: "invalid-backup", errors: checked.errors };
+  const restorePolicy = parseSharedPluginPolicy(checked.backup.original_content);
+  if (!restorePolicy.ok || !restorePolicy.policy) {
+    return { status: "invalid-policy", errors: restorePolicy.errors };
+  }
+
+  const currentBackup = await persistSharedPolicyBackup(backupVault, reviewedCurrentContent, createdAt);
+  if (currentBackup.status !== "created" && currentBackup.status !== "already-exists") {
+    return { status: "backup-failed", result: currentBackup };
+  }
+
+  let callbackInvoked = false;
+  let staleCurrent: string | null = null;
+  try {
+    await policyVault.process(file, (current) => {
+      callbackInvoked = true;
+      if (current !== reviewedCurrentContent) {
+        staleCurrent = current;
+        return current;
+      }
+      return checked.backup.original_content;
+    });
+    if (!callbackInvoked) {
+      return { status: "write-failed", message: "Vault.process completed without invoking its callback.", backup_path: currentBackup.path };
+    }
+    if (staleCurrent !== null) {
+      return { status: "stale", current: staleCurrent, backup_path: currentBackup.path };
+    }
+
+    const actual = await policyVault.read(file);
+    if (actual === checked.backup.original_content) {
+      return { status: "restored", backup_path: currentBackup.path };
+    }
+
+    let rollbackInvoked = false;
+    let rollbackStale = false;
+    try {
+      await policyVault.process(file, (current) => {
+        rollbackInvoked = true;
+        if (current !== checked.backup.original_content) {
+          rollbackStale = true;
+          return current;
+        }
+        return reviewedCurrentContent;
+      });
+      if (!rollbackInvoked || rollbackStale) {
+        return {
+          status: "verification-failed",
+          actual,
+          backup_path: currentBackup.path,
+          rollback: "failed",
+        };
+      }
+      const afterRollback = await policyVault.read(file);
+      return {
+        status: "verification-failed",
+        actual,
+        backup_path: currentBackup.path,
+        rollback: afterRollback === reviewedCurrentContent ? "restored" : "failed",
+      };
+    } catch {
+      return {
+        status: "verification-failed",
+        actual,
+        backup_path: currentBackup.path,
+        rollback: "failed",
+      };
+    }
+  } catch (error) {
+    return {
+      status: "write-failed",
+      message: error instanceof Error ? error.message : "Unknown restore write/read failure.",
+      backup_path: currentBackup.path,
+    };
+  }
+}
