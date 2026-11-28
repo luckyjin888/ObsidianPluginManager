@@ -1,0 +1,376 @@
+import { App, Modal, Notice, TFile, TFolder } from "obsidian";
+import { createObsidianVaultBackupAdapter, scanSharedPolicyBackups } from "./shared-policy-write";
+import { detectRuntimePlatform, type RuntimePlatform } from "./platform";
+import { buildSharedPolicyResolutionPreview, compareSharedPolicyPluginIds, findPolicyConflictCandidates, fingerprintSharedPolicy, MAX_SHARED_POLICY_BYTES, parseSharedPluginPolicy, SHARED_POLICY_PATH } from "./shared-policy";
+import catalogData from "../../shared/plugin-catalog.json";
+
+type PlatformKey = "windows" | "macos" | "ios" | "ipados" | "android";
+type CompatibilityStatus = "verified" | "declared_unverified" | "incompatible" | "unknown";
+
+interface CataloguePlugin {
+  id: string;
+  name: string;
+  platforms: Record<PlatformKey, { status: CompatibilityStatus; evidence: string }>;
+}
+
+interface PluginCatalogue {
+  plugins: CataloguePlugin[];
+}
+
+const catalogue = catalogData as PluginCatalogue;
+
+function localPlatformKey(platform: RuntimePlatform): PlatformKey | null {
+  if (platform === "ios") return "ios";
+  if (platform === "android") return "android";
+  if (platform === "macos") return "macos";
+  if (platform === "windows") return "windows";
+  return null;
+}
+
+function statusText(status: CompatibilityStatus): string {
+  switch (status) {
+    case "verified": return "Verified on this platform";
+    case "declared_unverified": return "Declared but not tested";
+    case "incompatible": return "Marked incompatible";
+    default: return "Compatibility unknown";
+  }
+}
+
+/**
+ * Read-only preview. It never creates, modifies, or deletes a Vault file.
+ * Missing/invalid policy data is reported without attempting a repair.
+ */
+export class SharedPolicyPreviewModal extends Modal {
+  constructor(app: App) {
+    super(app);
+  }
+
+  async onOpen(): Promise<void> {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl("h2", { text: "Shared plugin policy (read-only)" });
+    contentEl.createEl("p", {
+      text: `Source: ${SHARED_POLICY_PATH}`,
+      cls: "setting-item-description",
+    });
+    contentEl.createEl("p", {
+      text: "This preview reads only the desired plugin list. It does not install plugins, change settings, or write to your Vault.",
+      cls: "setting-item-description",
+    });
+
+    try {
+      const policyFile = this.app.vault.getAbstractFileByPath(SHARED_POLICY_PATH);
+      if (!(policyFile instanceof TFile)) {
+        contentEl.createEl("p", {
+          text: "No shared policy file exists yet. This command will not create one.",
+        });
+        return;
+      }
+
+      let possibleConflicts: string[] = [];
+      let conflictScanAvailable = true;
+      try {
+        const policyFolder = this.app.vault.getAbstractFileByPath("PluginManager");
+        const siblingPaths = policyFolder instanceof TFolder
+          ? policyFolder.children.map((child) => child.path)
+          : [];
+        possibleConflicts = findPolicyConflictCandidates(siblingPaths);
+      } catch {
+        conflictScanAvailable = false;
+      }
+
+      if (policyFile.stat.size > MAX_SHARED_POLICY_BYTES) {
+        contentEl.createEl("h3", { text: "Policy file is too large to preview" });
+        contentEl.createEl("p", {
+          text: `The file is ${policyFile.stat.size} bytes; the limit is ${MAX_SHARED_POLICY_BYTES} bytes. It has not been modified.`,
+        });
+        return;
+      }
+
+      const raw = await this.app.vault.read(policyFile);
+      let fingerprint = "Unavailable in this runtime";
+      try {
+        fingerprint = await fingerprintSharedPolicy(raw);
+      } catch {
+        // Fingerprinting is supplemental; a missing Web Crypto implementation
+        // must not prevent the read-only policy preview from working.
+      }
+      const parsed = parseSharedPluginPolicy(raw);
+      if (!conflictScanAvailable) {
+        contentEl.createEl("p", {
+          text: "Could not inspect sibling files for possible sync conflict copies. Check the PluginManager folder manually.",
+        });
+      } else if (possibleConflicts.length > 0) {
+        contentEl.createEl("h3", { text: "Possible sync conflict copies found" });
+        contentEl.createEl("p", {
+          text: "These similarly named files may be conflict copies or backups. They are not modified or deleted. Compare them manually before making changes.",
+        });
+        for (const path of possibleConflicts) contentEl.createEl("p", { text: path });
+      } else {
+        contentEl.createEl("p", {
+          text: "No similarly named conflict candidates were found. This filename scan cannot guarantee that the sync provider has no hidden or differently named conflicts.",
+          cls: "setting-item-description",
+        });
+      }
+
+      contentEl.createEl("p", {
+        text: `Current file SHA-256: ${fingerprint}`,
+        cls: "setting-item-description",
+      });
+      if (!parsed.ok || !parsed.policy) {
+        contentEl.createEl("h3", { text: "Policy cannot be previewed" });
+        for (const error of parsed.errors) contentEl.createEl("p", { text: error });
+        contentEl.createEl("p", {
+          text: "The original file has been left untouched. Fix it manually or restore a valid synced copy.",
+        });
+        return;
+      }
+
+      const policy = parsed.policy;
+      const runtime = detectRuntimePlatform();
+      const platformKey = localPlatformKey(runtime);
+      contentEl.createEl("p", {
+        text: `Schema v${policy.schema_version} · Revision ${policy.revision} · ${policy.plugins.length} desired plugins`,
+      });
+      contentEl.createEl("p", {
+        text: `This device: ${runtime}. Compatibility is evaluated locally and is not synchronized.`,
+        cls: "setting-item-description",
+      });
+      contentEl.createEl("p", {
+        text: "This fingerprint identifies the exact text read for this preview. It is not a lock and does not prevent another device from changing the file.",
+        cls: "setting-item-description",
+      });
+
+      if (possibleConflicts.length > 0) {
+        contentEl.createEl("h3", { text: "Read-only comparison of possible copies" });
+        for (const path of possibleConflicts) {
+          const candidateFile = this.app.vault.getAbstractFileByPath(path);
+          const comparison = contentEl.createDiv({ cls: "plugin-catalog-item" });
+          comparison.createEl("h4", { text: path });
+          if (!(candidateFile instanceof TFile)) {
+            comparison.createEl("p", { text: "This path is not a readable file in the current Vault." });
+            continue;
+          }
+          if (candidateFile.stat.size > MAX_SHARED_POLICY_BYTES) {
+            comparison.createEl("p", { text: "Skipped: candidate exceeds the 64 KiB size limit." });
+            continue;
+          }
+          try {
+            const candidateRaw = await this.app.vault.read(candidateFile);
+            const candidateParsed = parseSharedPluginPolicy(candidateRaw);
+            if (!candidateParsed.ok || !candidateParsed.policy) {
+              comparison.createEl("p", { text: "Candidate is not a valid shared policy; original file left untouched." });
+              for (const error of candidateParsed.errors) comparison.createEl("p", { text: error });
+              continue;
+            }
+            const diff = compareSharedPolicyPluginIds(policy, candidateParsed.policy);
+            comparison.createEl("p", { text: `Candidate revision: ${candidateParsed.policy.revision}` });
+            comparison.createEl("p", {
+              text: diff.onlyInCandidate.length
+                ? `Only in candidate: ${diff.onlyInCandidate.join(", ")}`
+                : "Only in candidate: none",
+            });
+            comparison.createEl("p", {
+              text: diff.onlyInCurrent.length
+                ? `Only in current policy: ${diff.onlyInCurrent.join(", ")}`
+                : "Only in current policy: none",
+            });
+
+            const resolution = comparison.createDiv({ cls: "shared-policy-resolution-preview" });
+            resolution.createEl("h4", { text: "Prepare an explicit resolution (preview only)" });
+            resolution.createEl("p", {
+              text: "Choose a source or Remove for every plugin ID. Nothing is saved; this only generates JSON in memory.",
+              cls: "setting-item-description",
+            });
+            const ids = [...new Set([
+              ...policy.plugins.map((entry) => entry.id),
+              ...candidateParsed.policy.plugins.map((entry) => entry.id),
+            ])].sort();
+            const selectors = new Map<string, HTMLSelectElement>();
+            for (const id of ids) {
+              const row = resolution.createDiv({ cls: "setting-item" });
+              row.createEl("div", { text: id, cls: "setting-item-name" });
+              const select = row.createEl("select");
+              select.createEl("option", { text: "Choose how to resolve…", attr: { value: "" } });
+              if (policy.plugins.some((entry) => entry.id === id)) {
+                select.createEl("option", { text: "Keep current policy entry", attr: { value: "current" } });
+              }
+              if (candidateParsed.policy.plugins.some((entry) => entry.id === id)) {
+                select.createEl("option", { text: "Keep candidate entry", attr: { value: "candidate" } });
+              }
+              select.createEl("option", { text: "Remove this plugin from desired list", attr: { value: "remove" } });
+              selectors.set(id, select);
+            }
+
+            const revisionLabel = resolution.createEl("label", { text: "New policy revision" });
+            const revisionInput = revisionLabel.createEl("input", { type: "text" });
+            revisionInput.value = `${policy.revision}-resolved`;
+            revisionInput.maxLength = 100;
+            const previewButton = resolution.createEl("button", { text: "Preview proposed resolution" });
+            const output = resolution.createEl("textarea");
+            output.setAttribute("readonly", "readonly");
+            output.setAttribute("aria-label", "Proposed shared policy JSON preview");
+            output.rows = 12;
+            output.style.width = "100%";
+            previewButton.addEventListener("click", () => {
+              const choices: Record<string, "current" | "candidate" | "remove"> = {};
+              for (const [id, select] of selectors) {
+                if (select.value === "current" || select.value === "candidate" || select.value === "remove") {
+                  choices[id] = select.value;
+                }
+              }
+              const preview = buildSharedPolicyResolutionPreview(
+                policy,
+                candidateParsed.policy!,
+                choices,
+                revisionInput.value,
+              );
+              if (!preview.ok || !preview.json) {
+                const missing = preview.unresolvedIds.length
+                  ? ` Unresolved: ${preview.unresolvedIds.join(", ")}.`
+                  : "";
+                const invalid = preview.invalidChoices.length
+                  ? ` Invalid: ${preview.invalidChoices.join(", ")}.`
+                  : "";
+                output.value = `No preview generated.${missing}${invalid}`;
+                new Notice("Choose a resolution for every plugin ID and provide a valid revision.", 6000);
+                return;
+              }
+              output.value = preview.json;
+              new Notice("Resolution preview generated in memory only. No Vault file was changed.", 5000);
+            });
+          } catch {
+            comparison.createEl("p", { text: "Could not read this candidate. It has not been changed." });
+          }
+        }
+      }
+
+      if (policy.plugins.length === 0) {
+        contentEl.createEl("p", { text: "The shared policy currently has no desired plugins." });
+      }
+
+      const list = contentEl.createDiv({ cls: "shared-policy-preview-list" });
+      for (const entry of policy.plugins) {
+        const item = list.createDiv({ cls: "plugin-catalog-item" });
+        const known = catalogue.plugins.find((plugin) => plugin.id === entry.id);
+        item.createEl("h3", { text: known ? known.name : entry.id });
+        item.createEl("p", { text: `Plugin ID: ${entry.id}` });
+        item.createEl("p", {
+          text: known
+            ? platformKey
+              ? statusText(known.platforms[platformKey].status)
+              : "This platform is outside the current five-platform catalogue."
+            : "Unknown to this device's bundled catalogue; inert entry, no source lookup performed.",
+        });
+        if (known && platformKey) {
+          item.createEl("p", {
+            text: `Evidence: ${known.platforms[platformKey].evidence}`,
+            cls: "setting-item-description",
+          });
+        }
+        if (entry.note) item.createEl("p", { text: `Note: ${entry.note}` });
+        item.createEl("p", {
+          text: "Desired by shared policy. Installed/enabled status is not inferred or synchronized.",
+          cls: "setting-item-description",
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown Vault adapter read error.";
+      contentEl.createEl("p", { text: `Could not read the shared policy: ${message}` });
+      new Notice("Shared policy preview failed. No Vault files were changed.", 8000);
+    }
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+}
+
+
+/** Read-only inventory of recovery backups; no restore or delete action exists. */
+export class SharedPolicyBackupPreviewModal extends Modal {
+  constructor(app: App) {
+    super(app);
+  }
+
+  async onOpen(): Promise<void> {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl("h2", { text: "Shared policy backups (read-only)" });
+    contentEl.createEl("p", {
+      text: "This scans PluginManager/backups, validates backup integrity, and compares valid backup policies with the current shared policy. It never restores, edits, or deletes files.",
+      cls: "setting-item-description",
+    });
+
+    try {
+      const adapter = createObsidianVaultBackupAdapter(this.app.vault);
+      const items = await scanSharedPolicyBackups(adapter);
+      if (items.length === 0) {
+        contentEl.createEl("p", { text: "No backup files were found. The scan does not create a backup folder." });
+        return;
+      }
+
+      let currentPolicy: ReturnType<typeof parseSharedPluginPolicy> | null = null;
+      const currentFile = this.app.vault.getAbstractFileByPath(SHARED_POLICY_PATH);
+      if (currentFile instanceof TFile && currentFile.stat.size <= MAX_SHARED_POLICY_BYTES) {
+        currentPolicy = parseSharedPluginPolicy(await this.app.vault.read(currentFile));
+      }
+
+      contentEl.createEl("p", { text: `${items.length} backup file(s) or scan diagnostics found.` });
+      for (const entry of items) {
+        const card = contentEl.createDiv({ cls: "plugin-catalog-item" });
+        card.createEl("h3", { text: entry.path });
+        card.createEl("p", { text: `Size: ${entry.size} bytes` });
+
+        if (entry.status === "oversized") {
+          card.createEl("p", { text: "Skipped before reading: exceeds the size limit." });
+          for (const error of entry.errors) card.createEl("p", { text: error });
+          continue;
+        }
+        if (entry.status === "invalid-backup") {
+          card.createEl("p", { text: "Backup envelope invalid or unreadable. No file was changed." });
+          for (const error of entry.errors) card.createEl("p", { text: error });
+          continue;
+        }
+        if (entry.status === "invalid-policy") {
+          card.createEl("p", { text: `Backup integrity valid · Created ${entry.backup.created_at}` });
+          card.createEl("p", { text: `SHA-256: ${entry.backup.original_sha256}` });
+          card.createEl("p", { text: "The embedded original content is not a valid shared policy." });
+          for (const error of entry.policyErrors) card.createEl("p", { text: error });
+          continue;
+        }
+
+        const parsedBackup = parseSharedPluginPolicy(entry.backup.original_content);
+        card.createEl("p", { text: `Integrity: valid · Created: ${entry.backup.created_at}` });
+        card.createEl("p", { text: `Original SHA-256: ${entry.backup.original_sha256}` });
+        if (parsedBackup.ok && parsedBackup.policy) {
+          card.createEl("p", {
+            text: `Backup policy revision: ${parsedBackup.policy.revision} · ${parsedBackup.policy.plugins.length} desired plugins`,
+          });
+          if (currentPolicy?.ok && currentPolicy.policy) {
+            const diff = compareSharedPolicyPluginIds(currentPolicy.policy, parsedBackup.policy);
+            card.createEl("p", {
+              text: `Compared with current policy: ${diff.onlyInCandidate.length} plugin(s) only in backup; ${diff.onlyInCurrent.length} plugin(s) only in current`,
+            });
+          } else {
+            card.createEl("p", {
+              text: "Current shared policy is missing, oversized, or invalid; comparison is unavailable.",
+            });
+          }
+        }
+        card.createEl("p", {
+          text: "Preview only. No restore, overwrite, or delete action is available.",
+          cls: "setting-item-description",
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown backup scan error.";
+      contentEl.createEl("p", { text: `Could not scan backups: ${message}` });
+      new Notice("Backup inventory failed. No Vault files were changed.", 8000);
+    }
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+}

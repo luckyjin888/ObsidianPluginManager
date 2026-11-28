@@ -1,0 +1,9 @@
+{
+  "id": "cross-platform-manager",
+  "name": "Cross-platform Manager",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Inspect the shared plugin catalogue and current device platform. Installation and sync are not enabled yet.",
+  "author": "ObsidianPluginManager contributors",
+  "isDesktopOnly": false
+}

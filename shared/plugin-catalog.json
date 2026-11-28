@@ -1,0 +1,172 @@
+{
+  "catalog_version": 1,
+  "generated_at": "2026-11-27",
+  "compatibility_policy": {
+    "statuses": ["verified", "declared_unverified", "incompatible", "unknown"],
+    "manifest_warning": "isDesktopOnly=false only means the upstream manifest does not declare the plugin desktop-only. It is not proof that the plugin works on Windows, macOS, iOS, iPadOS, or Android. Do not mark a platform verified without recorded testing evidence."
+  },
+  "plugins": [
+    {
+      "id": "obsidian-git",
+      "name": "Obsidian Git",
+      "upstream_url": "https://github.com/Vinzent03/obsidian-git",
+      "manifest_is_desktop_only": false,
+      "manifest_checked_at": "2026-11-27",
+      "platforms": {
+        "windows": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
+        "macos": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
+        "ios": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
+        "ipados": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
+        "android": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."}
+      },
+      "risk_level": "high",
+      "risk_notes": ["Uses Git-related workflows; mobile filesystem and execution capabilities require dedicated validation."],
+      "license": null,
+      "catalog_notes": "Upstream manifest was previously reviewed as not desktop-only; real platform behavior remains unverified."
+    },
+    {
+      "id": "quickadd",
+      "name": "QuickAdd",
+      "upstream_url": "https://github.com/chhoumann/quickadd",
+      "manifest_is_desktop_only": false,
+      "manifest_checked_at": "2026-11-27",
+      "platforms": {
+        "windows": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
+        "macos": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
+        "ios": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
+        "ipados": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
+        "android": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."}
+      },
+      "risk_level": "medium",
+      "risk_notes": ["User-defined macros and scripts may have platform-specific dependencies; inspect each macro separately."],
+      "license": null,
+      "catalog_notes": "Upstream manifest was previously reviewed as not desktop-only; real platform behavior remains unverified."
+    },
+    {
+      "id": "obsidian-tasks-plugin",
+      "name": "Tasks",
+      "upstream_url": "https://github.com/obsidian-tasks-group/obsidian-tasks",
+      "manifest_is_desktop_only": false,
+      "manifest_checked_at": "2026-11-27",
+      "platforms": {
+        "windows": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
+        "macos": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
+        "ios": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
+        "ipados": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
+        "android": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."}
+      },
+      "risk_level": "low",
+      "risk_notes": [],
+      "license": null,
+      "catalog_notes": "Upstream manifest was previously reviewed as not desktop-only; real platform behavior remains unverified."
+    },
+    {
+      "id": "obsidian-excalidraw-plugin",
+      "name": "Excalidraw",
+      "upstream_url": "https://github.com/zsviczian/obsidian-excalidraw-plugin",
+      "manifest_is_desktop_only": false,
+      "manifest_checked_at": "2026-11-27",
+      "platforms": {
+        "windows": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
+        "macos": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
+        "ios": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
+        "ipados": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
+        "android": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."}
+      },
+      "risk_level": "medium",
+      "risk_notes": ["Canvas, touch input, and export behavior need separate validation on phones and tablets."],
+      "license": null,
+      "catalog_notes": "Upstream manifest was previously reviewed as not desktop-only; real platform behavior remains unverified."
+    },
+    {
+      "id": "obsidian-linter",
+      "name": "Linter",
+      "upstream_url": "https://github.com/platers/obsidian-linter",
+      "manifest_is_desktop_only": false,
+      "manifest_checked_at": "2026-11-27",
+      "platforms": {
+        "windows": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
+        "macos": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
+        "ios": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
+        "ipados": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
+        "android": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."}
+      },
+      "risk_level": "medium",
+      "risk_notes": ["File operations and formatting behavior should be tested against mobile Vault adapters."],
+      "license": null,
+      "catalog_notes": "Upstream manifest was previously reviewed as not desktop-only; real platform behavior remains unverified."
+    },
+    {
+      "id": "table-editor-obsidian",
+      "name": "Advanced Tables",
+      "upstream_url": "https://github.com/tgrosinger/advanced-tables-obsidian",
+      "manifest_is_desktop_only": false,
+      "manifest_checked_at": "2026-11-27",
+      "platforms": {
+        "windows": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
+        "macos": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
+        "ios": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
+        "ipados": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
+        "android": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."}
+      },
+      "risk_level": "low",
+      "risk_notes": ["Keyboard shortcuts and table editing UX need touch-device validation."],
+      "license": null,
+      "catalog_notes": "Upstream manifest was previously reviewed as not desktop-only; real platform behavior remains unverified."
+    },
+    {
+      "id": "templater-obsidian",
+      "name": "Templater",
+      "upstream_url": "https://github.com/SilentVoid13/Templater",
+      "manifest_is_desktop_only": false,
+      "manifest_checked_at": "2026-11-27",
+      "platforms": {
+        "windows": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
+        "macos": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
+        "ios": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
+        "ipados": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
+        "android": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."}
+      },
+      "risk_level": "high",
+      "risk_notes": ["User templates can execute JavaScript and may rely on Node.js APIs; review scripts and mobile compatibility before enabling."],
+      "license": null,
+      "catalog_notes": "Upstream manifest was previously reviewed as not desktop-only; real platform behavior remains unverified."
+    },
+    {
+      "id": "codeblock-customizer",
+      "name": "Codeblock Customizer",
+      "upstream_url": null,
+      "manifest_is_desktop_only": false,
+      "manifest_checked_at": "2026-11-27",
+      "platforms": {
+        "windows": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
+        "macos": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
+        "ios": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
+        "ipados": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
+        "android": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."}
+      },
+      "risk_level": "unknown",
+      "risk_notes": ["Upstream repository and release provenance still need confirmation."],
+      "license": null,
+      "catalog_notes": "Plugin ID and manifest flag are carried forward from the previous review; upstream URL and license are intentionally unresolved."
+    },
+    {
+      "id": "pdf-plus",
+      "name": "PDF++",
+      "upstream_url": "https://github.com/RyotaUshio/obsidian-pdf-plus",
+      "manifest_is_desktop_only": false,
+      "manifest_checked_at": "2026-11-27",
+      "platforms": {
+        "windows": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
+        "macos": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
+        "ios": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
+        "ipados": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
+        "android": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."}
+      },
+      "risk_level": "high",
+      "risk_notes": ["Previously identified reliance on Obsidian internal APIs; must be reviewed against supported mobile APIs before claiming compatibility."],
+      "license": null,
+      "catalog_notes": "Upstream manifest was previously reviewed as not desktop-only; internal API dependencies and real platform behavior remain unverified."
+    }
+  ]
+}

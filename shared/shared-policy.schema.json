@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/luckyjin888/ObsidianPluginManager/blob/main/shared/shared-policy.schema.json",
+  "title": "Obsidian Plugin Manager shared desired policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "revision", "plugins"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "revision": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "plugins": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+          "note": { "type": "string", "maxLength": 500 }
+        }
+      }
+    }
+  }
+}
