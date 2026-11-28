@@ -30,7 +30,7 @@ Allowed statuses:
 
 The initial catalogue carries forward the previous manifest review for the original nine candidate plugins and adds Advanced Audio Recorder as a declared-but-unverified candidate. A value of `manifest_is_desktop_only: false` is stored as upstream metadata only. It does **not** promote any platform to `verified` or `declared_unverified`.
 
-All five platform statuses are currently `unknown` because no device-specific test record has yet been attached to these catalogue entries. This is deliberately conservative.
+The original nine entries retain `unknown` on all five platforms because no device-specific test record has been attached. Advanced Audio Recorder is marked `declared_unverified` on all five platforms because upstream explicitly declares desktop and mobile support, but this project has not recorded device-specific tests. No entry is `verified`; the installer remains blocked. This is deliberately conservative.
 
 ## Initial catalogue coverage
 
