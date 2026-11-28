@@ -60,7 +60,7 @@ A manifest value such as `isDesktopOnly: false` is not proof of successful opera
 
 ## Current status
 
-P1, P2, and P3 are complete at the code/CI-foundation level. P4.1–P4.3 are implemented; P4.4.1 provides a pure install-plan validation gate and P4.4.2 provides an isolated staging helper with exact read-back verification. Run #342 passed all 10 jobs on the previous P4.4.2 head. P4.4 still lacks backup-before-replacement, live target replacement, rollback/recovery, and a verified Obsidian Vault install adapter. P5 now has an explicit Save/Restore management UI wired to backup-first guarded policy writes and confirmed recovery; automated CI and real-device/sync-provider validation are still required. P6 now has an expanded three-OS mobile CI matrix and a source API guard; that expanded matrix has not yet run. No real-device testing has been completed on Windows, macOS, iPhone, iPad, or Android. The PR remains a draft and must not be merged until implementation and acceptance criteria are satisfied.
+P1, P2, and P3 are complete at the code/CI-foundation level. P4.1–P4.3 are implemented; P4.4.1 provides a pure install-plan validation gate and P4.4.2 provides an isolated staging helper with exact read-back verification. Run #342 passed all 10 jobs on the previous P4.4.2 head. P4.4 now includes a backup-first live-file commit helper with exact read-back verification, conditional rollback, a public DataAdapter adapter for configDir paths, and a catalogue install action wired behind verified platform evidence and explicit confirmation. The latest commit's CI has not yet validated this integration; real Obsidian/device filesystem behavior remains unverified. P5 now has an explicit Save/Restore management UI wired to backup-first guarded policy writes and confirmed recovery; automated CI and real-device/sync-provider validation are still required. P6 now has an expanded three-OS mobile CI matrix and a source API guard; that expanded matrix has not yet run. No real-device testing has been completed on Windows, macOS, iPhone, iPad, or Android. The PR remains a draft and must not be merged until implementation and acceptance criteria are satisfied.
 
 ## P4.4.2 — isolated verified staging helper
 
@@ -90,3 +90,14 @@ P1, P2, and P3 are complete at the code/CI-foundation level. P4.1–P4.3 are imp
 
 - Changed mobile helper test invocation from shell-expanded `tests/*.test.mjs` to Node's built-in test discovery (`node --test`) so PowerShell/Windows does not pass an unexpanded wildcard path.
 - Run #343 exposed this Windows-only test-discovery failure; the Ubuntu and macOS mobile jobs and the Python matrix passed. A fresh CI run is required to verify the fix.
+
+
+## P4.4.3–P4.4.5 — backup-first install commit and rollback
+
+- Added a public Obsidian DataAdapter adapter so paths under the configured plugin directory can be accessed without assuming that hidden config files are exposed as normal Vault TFiles.
+- Added a guarded commit helper that validates the plan/staging transaction, re-verifies staged bytes, snapshots all existing allowlisted target files, writes and verifies an immutable backup manifest and backup bytes, and only then replaces the live allowlisted assets.
+- Each live target write is read back and checked against the approved SHA-256. A failed commit attempts rollback only for files this transaction attempted to change; pre-existing unknown files, plugin data/settings, and enablement are not touched.
+- Backup directories are retained after failures for diagnosis; an occupied transaction path is never overwritten.
+- Added the catalogue install action: inspect release, verify downloaded bytes, build a platform-evidence-gated plan, ask for explicit confirmation, stage bytes, commit with backup/rollback, and report backup path. It does not automatically enable the plugin.
+- Added fake-adapter tests for successful replacement, preserved user data/unknown files, explicit confirmation, backup collisions, staged-byte tampering, and mid-commit rollback.
+- CI must pass before this implementation is considered validated. Fake-adapter tests do not establish real-device filesystem behavior.
