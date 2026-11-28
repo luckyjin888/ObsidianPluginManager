@@ -7,9 +7,17 @@ export interface VerifiedReleaseManifest {
   minAppVersion: string;
 }
 
+export interface VerifiedReleaseAssetBytes {
+  name: "manifest.json" | "main.js" | "styles.css";
+  bytes: Uint8Array;
+  sha256: string;
+}
+
 export interface AssetVerificationReport {
   verified: boolean;
   manifest: VerifiedReleaseManifest | null;
+  /** Exact digest-verified bytes; empty unless the entire release passes verification. */
+  verifiedAssets: VerifiedReleaseAssetBytes[];
   reasons: string[];
 }
 
@@ -50,15 +58,16 @@ export async function verifyLatestReleaseAssets(
 ): Promise<AssetVerificationReport> {
   const reasons: string[] = [];
   if (!release.ok || !release.tag || !release.installable) {
-    return { verified: false, manifest: null, reasons: ["Release metadata has not passed its safety checks."] };
+    return { verified: false, manifest: null, verifiedAssets: [], reasons: ["Release metadata has not passed its safety checks."] };
   }
 
   const manifestAsset = release.assets.find((asset) => asset.name === "manifest.json");
   if (!manifestAsset) {
-    return { verified: false, manifest: null, reasons: ["manifest.json is missing."] };
+    return { verified: false, manifest: null, verifiedAssets: [], reasons: ["manifest.json is missing."] };
   }
 
   let manifest: PluginManifest | null = null;
+  const verifiedAssets: VerifiedReleaseAssetBytes[] = [];
   for (const asset of release.assets) {
     if (!asset.digestVerified || !asset.digest || !/^sha256:[a-f0-9]{64}$/i.test(asset.digest)) {
       reasons.push(`${asset.name}: no valid SHA-256 digest metadata.`);
@@ -84,6 +93,11 @@ export async function verifyLatestReleaseAssets(
       reasons.push(`${asset.name}: SHA-256 digest mismatch.`);
       continue;
     }
+    verifiedAssets.push({
+      name: asset.name as VerifiedReleaseAssetBytes["name"],
+      bytes: new Uint8Array(bytes),
+      sha256: actual,
+    });
     if (asset.name === "manifest.json") {
       try {
         const parsed: unknown = JSON.parse(new TextDecoder().decode(bytes));
@@ -99,7 +113,7 @@ export async function verifyLatestReleaseAssets(
 
   if (!manifest) {
     reasons.push("A digest-verified manifest could not be read.");
-    return { verified: false, manifest: null, reasons };
+    return { verified: false, manifest: null, verifiedAssets: [], reasons };
   }
   if (manifest.id !== expectedPluginId) reasons.push("Manifest plugin ID does not match the catalogue entry.");
   if (typeof manifest.version !== "string" || manifest.version.replace(/^v/, "") !== release.version) {
@@ -118,6 +132,7 @@ export async function verifyLatestReleaseAssets(
 
   return {
     verified: reasons.length === 0,
+    verifiedAssets: reasons.length === 0 ? verifiedAssets : [],
     manifest: reasons.length === 0 ? {
       id: manifest.id as string,
       version: manifest.version as string,
