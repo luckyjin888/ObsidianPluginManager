@@ -220,7 +220,7 @@ export class PluginCatalogModal extends Modal {
           installButton.setText("Staging verified files…");
           try {
             const staged = await stageInstallPlan({
-              adapter: createObsidianInstallStagingAdapter(this.app.vault),
+              adapter: createObsidianInstallStagingAdapter(this.app.vault.adapter),
               plan: result.plan,
               transactionId,
               confirmed: true,
@@ -231,7 +231,7 @@ export class PluginCatalogModal extends Modal {
             }
             installButton.setText("Installing with backup…");
             const committed = await commitStagedInstall(
-              createObsidianInstallCommitAdapter(this.app.vault),
+              createObsidianInstallCommitAdapter(this.app.vault.adapter),
               result.plan, staged.files, staged.stagingDirectory, transactionId, true, new Date().toISOString(),
             );
             if (committed.status === "installed") {
