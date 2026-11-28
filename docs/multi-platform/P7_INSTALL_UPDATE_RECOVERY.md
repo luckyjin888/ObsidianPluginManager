@@ -15,7 +15,7 @@ The catalogue records separate evidence for Windows, macOS, iOS, iPadOS and Andr
 - `incompatible`: known dependency or confirmed platform failure.
 - `unknown`: insufficient evidence.
 
-Only `verified` platform evidence is eligible for the automated installation path. A manifest field `isDesktopOnly: false` is not sufficient. Until a platform has real device evidence, the install action intentionally blocks on that platform.
+Only `verified` platform evidence is eligible for the automated installation path. A manifest field `isDesktopOnly: false` is not sufficient. **At the current catalogue snapshot, all nine listed plugins are `unknown` on all five platforms, so every catalogue install action is currently blocked.** This is intentional until real device evidence is recorded.
 
 ## Installing or updating a catalogue plugin
 
