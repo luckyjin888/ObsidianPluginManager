@@ -94,10 +94,18 @@ test("blocks unsafe config paths and plugin identifiers", async () => {
   assert.match(idResult.reasons.join(" "), /Plugin ID/);
 });
 
-test("blocks unknown release assets and duplicate names", async () => {
+test("blocks unknown release assets", async () => {
   const data = input();
   data.assets.push(asset("README.md", "not an install asset"));
   const result = await buildInstallPlan(data);
   assert.equal(result.status, "blocked");
   assert.match(result.reasons.join(" "), /Unexpected release asset/);
+});
+
+test("blocks duplicate release asset names", async () => {
+  const data = input();
+  data.assets.push(asset("main.js", "second bundle"));
+  const result = await buildInstallPlan(data);
+  assert.equal(result.status, "blocked");
+  assert.match(result.reasons.join(" "), /duplicate asset names/);
 });
