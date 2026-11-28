@@ -106,10 +106,8 @@ test("rolls back already attempted files after a mid-commit write failure", asyn
   const adapter = fakeAdapter({
     ".obsidian/plugins/demo/manifest.json": "old-manifest",
     ".obsidian/plugins/demo/main.js": "old-main",
-  }, { failWriteAt: 5 });
+  });
   const { plan, staged } = await fixture(adapter);
-  // Three staging writes occur in fixture; backup files/manifest are writes 4-6.
-  // Use a later injected failure so the first live target write succeeds.
   const originalWrite = adapter.writeBinary.bind(adapter);
   let liveWrites = 0;
   adapter.writeBinary = async (path, data) => {
