@@ -3,6 +3,9 @@ import { assessInstallEligibility } from "./installation-policy";
 import { detectRuntimePlatform } from "./platform";
 import { inspectLatestRelease, type ReleaseInspection } from "./release-inspector";
 import { verifyLatestReleaseAssets } from "./release-verifier";
+import { buildInstallPlan } from "./install-transaction";
+import { createObsidianInstallStagingAdapter, stageInstallPlan } from "./install-staging";
+import { commitStagedInstall, createObsidianInstallCommitAdapter } from "./install-commit";
 import catalogData from "../../shared/plugin-catalog.json";
 
 type CompatibilityStatus = "verified" | "declared_unverified" | "incompatible" | "unknown";
@@ -112,6 +115,7 @@ export class PluginCatalogModal extends Modal {
         const releaseButton = item.createEl("button", { text: "Inspect latest release" });
         const releaseDetails = item.createDiv({ cls: "plugin-catalog-release" });
         let latestReleaseReport: ReleaseInspection | null = null;
+        let latestVerifiedAssets: Awaited<ReturnType<typeof verifyLatestReleaseAssets>> | null = null;
         releaseButton.addEventListener("click", async () => {
           if (!plugin.upstream_url) {
             new Notice("Release inspection blocked: no upstream repository URL.");
@@ -120,6 +124,7 @@ export class PluginCatalogModal extends Modal {
           releaseButton.disabled = true;
           releaseButton.setText("Inspecting release…");
           releaseDetails.empty();
+          latestVerifiedAssets = null;
           try {
             const report = await inspectLatestRelease(plugin.upstream_url);
             latestReleaseReport = report;
@@ -161,6 +166,8 @@ export class PluginCatalogModal extends Modal {
               plugin.id,
               apiVersion,
             );
+            latestVerifiedAssets = report.verified ? report : null;
+            installButton.disabled = !report.verified;
             releaseDetails.createEl("p", {
               text: report.verified
                 ? `Verified manifest ${report.manifest?.id} v${report.manifest?.version}; no vault files were changed.`
@@ -179,6 +186,69 @@ export class PluginCatalogModal extends Modal {
           }
         });
 
+        const installButton = item.createEl("button", { text: "Install verified release" });
+        installButton.disabled = true;
+        installButton.addEventListener("click", async () => {
+          if (!latestReleaseReport || !latestVerifiedAssets?.verified || !latestVerifiedAssets.verifiedAssets.length) {
+            new Notice("Inspect and verify release files before installing.");
+            return;
+          }
+          const runtime = detectRuntimePlatform();
+          if (runtime !== "windows" && runtime !== "macos" && runtime !== "ios" && runtime !== "android") {
+            new Notice("This runtime platform is not supported by the installation workflow.", 8000);
+            return;
+          }
+          const result = await buildInstallPlan({
+            pluginId: plugin.id,
+            releaseVersion: latestReleaseReport.version ?? "",
+            obsidianApiVersion: apiVersion,
+            runtimePlatform: runtime,
+            platformEvidence: plugin.platforms,
+            configDir: this.app.vault.configDir,
+            assets: latestVerifiedAssets.verifiedAssets,
+          });
+          if (result.status !== "ready") {
+            new Notice("Installation blocked: " + result.reasons.join(" "), 10000);
+            return;
+          }
+          const transactionId = globalThis.crypto.randomUUID().replace(/-/g, "");
+          const confirmed = window.confirm(
+            "Install " + plugin.name + " v" + result.plan.releaseVersion + " on " + runtime + "? Existing manifest/main/styles files will be backed up and verified before replacement. Plugin settings/data and enabled state will not be changed. Manual enable/reload may be required.",
+          );
+          if (!confirmed) return;
+          installButton.disabled = true;
+          installButton.setText("Staging verified files…");
+          try {
+            const staged = await stageInstallPlan({
+              adapter: createObsidianInstallStagingAdapter(this.app.vault),
+              plan: result.plan,
+              transactionId,
+              confirmed: true,
+            });
+            if (staged.status !== "staged") {
+              new Notice(staged.status === "blocked" ? "Installation blocked: " + staged.reason : "Staging failed: " + staged.reason + ". Leftovers: " + staged.leftoverPaths.join(", "), 10000);
+              return;
+            }
+            installButton.setText("Installing with backup…");
+            const committed = await commitStagedInstall(
+              createObsidianInstallCommitAdapter(this.app.vault),
+              result.plan, staged.files, staged.stagingDirectory, transactionId, true, new Date().toISOString(),
+            );
+            if (committed.status === "installed") {
+              new Notice("Installed " + plugin.name + " v" + result.plan.releaseVersion + ". Backup retained at " + committed.backupDirectory + ". Plugin enablement was not changed.", 10000);
+              releaseDetails.createEl("p", { text: "Installed " + result.plan.releaseVersion + "; backup retained at " + committed.backupDirectory + ". Enable/reload manually if needed." });
+            } else if (committed.status === "blocked") {
+              new Notice("Installation blocked: " + committed.reason, 10000);
+            } else {
+              new Notice("Installation failed: " + committed.reason + ". Rollback: " + committed.rollback + ". Backup: " + committed.backupDirectory + ". " + committed.rollbackFailures.join(", "), 12000);
+            }
+          } catch (error) {
+            new Notice("Installation failed: " + (error instanceof Error ? error.message : "unknown error"), 10000);
+          } finally {
+            installButton.disabled = false;
+            installButton.setText("Install verified release");
+          }
+        });
         if (plugin.upstream_url) {
           const link = item.createEl("a", {
             text: "Upstream project",
