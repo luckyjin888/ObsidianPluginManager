@@ -57,7 +57,7 @@ python3 plugin_update_subscription.py
 
 插件目录支持检查 GitHub Release、下载并校验文件 SHA-256 与 manifest，并在当前设备具有明确的 `verified` 兼容性证据时，执行备份优先的安装/更新事务。事务只修改 `manifest.json`、`main.js` 和可选的 `styles.css`，保留 `data.json`、设置和未知文件；失败时尝试条件回滚。插件不会自动启用，用户可能需要手动重新加载并启用。
 
-**兼容性门槛：** `isDesktopOnly: false` 不等于移动端已验证；没有对应设备实测证据时，安装流程会主动阻止安装。移动端构建与测试已纳入 Ubuntu、macOS、Windows CI，但 CI 和模拟适配器测试不等于 iPhone、iPad、Android 或桌面真机验证。原有 Windows/macOS Python 桌面程序仍保留。安装、更新和恢复步骤见 [多端安装与恢复指南](docs/multi-platform/P7_INSTALL_UPDATE_RECOVERY.md)。
+**当前兼容性状态：** 现有目录中的 9 个插件，在 Windows、macOS、iOS、iPadOS、Android 五个平台的状态目前全部为 `unknown`，因此自动安装入口会对这些目录条目全部阻止安装，直到补齐对应平台的真实设备验证记录。`isDesktopOnly: false` 不等于移动端已验证；没有对应设备实测证据时，安装流程会主动阻止安装。移动端构建与测试已纳入 Ubuntu、macOS、Windows CI，但 CI 和模拟适配器测试不等于 iPhone、iPad、Android 或桌面真机验证。原有 Windows/macOS Python 桌面程序仍保留。安装、更新和恢复步骤见 [多端安装与恢复指南](docs/multi-platform/P7_INSTALL_UPDATE_RECOVERY.md)。
 
 ## 环境要求
 
