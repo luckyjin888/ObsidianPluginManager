@@ -1197,7 +1197,7 @@ def offer_obsidian_plugins(vault):
 
     say("\n" + "=" * 58)
     say("Obsidian 社区插件统一管理")
-    say("本清单包含 Obsidian Git 和 9 个推荐插件，共 10 个。")
+    say(f"本清单包含 Obsidian Git 和 {len(RECOMMENDED_PLUGINS)} 个推荐插件，共 {len(catalog)} 个。")
     say("安装与启用采用同一次授权；已安装且启用的插件自动跳过。")
     say("-" * 58)
     for index, item in enumerate(catalog, 1):
@@ -1213,7 +1213,7 @@ def offer_obsidian_plugins(vault):
     actionable = [item for item in catalog
                   if plugin_action(item["id"], installed_ids, enabled_ids) != "skip"]
     if not actionable:
-        say("\n10 个插件均已安装并启用，无需操作。")
+        say(f"\n{len(catalog)} 个插件均已安装并启用，无需操作。")
         return
 
     say("\n请选择本次希望安装并启用的插件；已完成的插件不会重复操作。")
@@ -1318,6 +1318,10 @@ RECOMMENDED_PLUGINS = [
      "repo":"RyotaUshio/obsidian-pdf-plus", "risk":"依赖 Obsidian 私有 API，Obsidian 更新可能导致兼容性问题；PDF 直接编辑为实验功能，可能损坏文件，默认不要启用直接编辑，使用前备份 PDF"},
     {"id":"advanced-audio-recorder", "name":"Advanced Audio Recorder", "purpose":"在 Obsidian 内录音、暂停/续录、转写音频，并可调用大模型整理或总结转写内容",
      "repo":"akhmialeuski/advanced-audio-recorder", "risk":"MIT 开源；当前上游要求 Obsidian 1.14.4+。云端转写会把音频发送到用户选择的服务商，AI 后处理会发送转写文本；需授予麦克风权限。上游声明支持桌面和移动端，但管理器尚无五端真机验证记录"},
+    {"id":"large-language-models", "name":"Large Language Models", "purpose":"在 Obsidian 内与 OpenAI GPT、Claude、Gemini、Mistral、Ollama 等云端或本地大模型聊天",
+     "repo":"eharris128/Obsidian-LLM-Plugin", "risk":"MIT 开源；云端模型会收到用户发送的提示词和选定笔记上下文；本地 Ollama/GPT4All 需另行运行；可选 MCP 服务仅桌面端，默认关闭"},
+    {"id":"copilot", "name":"Copilot", "purpose":"在 Obsidian 中接入 OpenCode、Claude Code、Codex 等 AI Agent，并提供 Quick Chat 与 Quick Ask",
+     "repo":"logancyang/obsidian-copilot", "risk":"AGPL-3.0；Agent 可读取和修改 Vault 文件，需审查工具权限；Agent 后端仅桌面端，Quick Chat/Commands/Quick Ask 可用于移动端；部分托管功能收费"},
     {"id":"templater-obsidian", "name":"Templater", "purpose":"动态模板，可运行 JavaScript 和系统命令",
      "repo":"SilentVoid13/Templater", "risk":"高风险：可执行任意 JavaScript 和系统命令；仅建议高级用户使用"}
 ]
