@@ -136,6 +136,9 @@ export async function commitStagedInstall(
       throw new Error("Backup manifest read-back verification failed.");
     }
 
+    // Create the plugin folder only after the backup envelope is safely persisted.
+    await ensureDirectory(adapter, plan.targetDirectory);
+
     // Commit verified staged assets. The backup is complete before this loop.
     for (const item of staged) {
       const targetPath = `${plan.targetDirectory}/${item.name}`;
