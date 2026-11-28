@@ -60,7 +60,7 @@ A manifest value such as `isDesktopOnly: false` is not proof of successful opera
 
 ## Current status
 
-P1, P2, and P3 are complete at the code/CI-foundation level. P4.1–P4.3 are implemented; P4.3 now checks the running Obsidian API version through the official `apiVersion` export. P4.4.1 now provides a pure install-plan validation gate and focused tests, but no staging, backup, replacement, rollback, or Vault write is implemented or enabled. CI for the P4.4.1 commits is pending. Redirect-host attestation is unavailable through the public API; the documented integrity model relies on canonical GitHub API metadata plus exact downloaded-byte SHA-256 verification. Adapter contract tests, fault injection, and physical-device validation remain outstanding. Physical-device testing on Windows, macOS, iPhone, iPad, and Android remains outstanding. The PR must remain a draft until all implementation phases and acceptance criteria are complete.
+P1, P2, and P3 are complete at the code/CI-foundation level. P4.1–P4.3 are implemented; P4.3 now checks the running Obsidian API version through the official `apiVersion` export. P4.4.1 provides a pure install-plan validation gate. P4.4.2 adds an isolated staging helper that writes only to a manager-owned staging directory and verifies exact read-back; it is not connected to UI/commands and never touches the live plugin directory. P4.4.2 CI is pending. Backup, replacement, rollback, public adapter contract tests, and physical-device validation remain outstanding. Redirect-host attestation is unavailable through the public API; the documented integrity model relies on canonical GitHub API metadata plus exact downloaded-byte SHA-256 verification. Adapter contract tests, fault injection, and physical-device validation remain outstanding. Physical-device testing on Windows, macOS, iPhone, iPad, and Android remains outstanding. The PR must remain a draft until all implementation phases and acceptance criteria are complete.
 
 
 ### P5.4 — explicit conflict-resolution preview UI
@@ -142,3 +142,13 @@ P1, P2, and P3 are complete at the code/CI-foundation level. P4.1–P4.3 are imp
 - Added `mobile-plugin/tests/install-transaction.test.mjs` for successful planning, digest mismatch, platform evidence, minimum API version, unsafe path/ID, unknown assets, and duplicate asset names.
 - This stage only returns a plan. It does not create directories, stage files, back up installations, replace files, roll back, or enable plugins.
 - Latest P4.4.1 CI result has not yet been reported; do not count this stage as CI-passing until the workflow completes.
+
+
+### P4.4.2 — isolated verified staging helper (not wired to installation UI)
+
+- Added `mobile-plugin/src/install-staging.ts`: requires an explicit confirmation flag, validates the plan target and transaction ID, refuses an existing transaction directory, and writes only allowlisted plan bytes beneath `<configDir>/plugins/.plugin-manager-staging/<plugin-id>/<transaction-id>/`.
+- Re-hashes plan bytes immediately before writing and reads every staged file back to verify exact byte length and SHA-256.
+- On a staging failure, attempts to remove only files and directories created by that staging attempt; reports any paths that could not be cleaned.
+- Added fake-adapter contract/fault-injection tests for success, missing confirmation, collision, unsafe paths/IDs, write failure cleanup, and corrupted read-back.
+- The live plugin directory is never changed by this helper. It does not create a backup, replace files, roll back an installation, enable a plugin, or provide real Obsidian/mobile adapter verification.
+- CI for this P4.4.2 batch is pending; do not count it as passed until the workflow completes.
