@@ -27,7 +27,7 @@ Extend ObsidianPluginManager to support a shared plugin-management workflow acro
 - [x] **P2 — Shared catalogue and compatibility model**: versioned schema, five-platform evidence model, validator, tests, and CI validation.
 - [x] **P3 — Mobile plugin foundation**: TypeScript plugin scaffold, platform detection, reproducible bundle/type-check workflow, and a read-only searchable catalogue view. Physical-device smoke testing remains a separate release-validation requirement.
 - [ ] **P4 — Safe installation workflow (in progress)**: P4.1 eligibility preflight, P4.2 latest-release metadata inspection, P4.3 downloaded-byte SHA-256/manifest verification, P4.4.1 install-plan validation, and P4.4.2 isolated verified staging are implemented. Run #342 passed all 10 jobs for commit `146a472`. Staging is not connected to a live installation transaction. Backup-before-replacement, safe replacement, rollback, recovery journal, public Obsidian Vault adapter contract tests, and device fault testing remain outstanding. No live plugin replacement or enablement is exposed.
-- [ ] **P5 — Cross-device policy sync (in progress)**: strict bounded parser, device-local compatibility display, conflict-copy hints, fingerprint, read-only comparison, explicit per-plugin resolution preview, guarded writer, backup envelope/persistence/inventory, restore preview, and isolated confirmed restore helper exist. Save and Restore helpers are not connected to UI/commands. No user-facing policy write or restore action is enabled. The fingerprint is not a lock; Vault.process is local stale-write protection, not a distributed lock. Real adapter and sync-provider behavior remain unverified.
+- [ ] **P5 — Cross-device policy sync (in progress)**: strict bounded parser, device-local compatibility display, conflict-copy hints, fingerprint, read-only comparison, explicit per-plugin resolution preview, guarded writer, backup envelope/persistence/inventory, restore preview, and confirmed restore helper exist. A new management modal now exposes explicit Save and Restore actions: Save validates the policy, creates and verifies a backup before changing an existing file, uses Vault.process baseline comparison, and checks exact read-back; Restore offers only validated backups, previews the selected recovery, backs up current bytes, and requires explicit confirmation. These operations affect only the desired-plugin policy, not plugin binaries/settings. Vault.process is local stale-write protection, not a distributed lock; sync-provider durability and real-device behavior remain unverified.
 - [ ] **P6 — CI and device validation (in progress)**: Python regression tests remain on Windows/macOS/Ubuntu. Mobile type-check, helper tests, bundle build, and ZIP packaging are now configured for Ubuntu, macOS, and Windows CI runners. A source scanner rejects Node.js/Electron-only APIs from mobile runtime source. The expanded CI matrix is pending. Simulator and physical-device tests are separate release-validation requirements.
 - [ ] **P7 — Documentation and release readiness (in progress)**: architecture and safety boundaries are documented. User-facing install/update/recovery instructions, release notes, compatibility evidence, and final review remain outstanding.
 
@@ -60,7 +60,7 @@ A manifest value such as `isDesktopOnly: false` is not proof of successful opera
 
 ## Current status
 
-P1, P2, and P3 are complete at the code/CI-foundation level. P4.1–P4.3 are implemented; P4.4.1 provides a pure install-plan validation gate and P4.4.2 provides an isolated staging helper with exact read-back verification. Run #342 passed all 10 jobs on the previous P4.4.2 head. P4.4 still lacks backup-before-replacement, live target replacement, rollback/recovery, and a verified Obsidian Vault install adapter. P5 has substantial read-only and isolated transaction primitives, but no Save/Restore UI integration. P6 now has an expanded three-OS mobile CI matrix and a source API guard; that expanded matrix has not yet run. No real-device testing has been completed on Windows, macOS, iPhone, iPad, or Android. The PR remains a draft and must not be merged until implementation and acceptance criteria are satisfied.
+P1, P2, and P3 are complete at the code/CI-foundation level. P4.1–P4.3 are implemented; P4.4.1 provides a pure install-plan validation gate and P4.4.2 provides an isolated staging helper with exact read-back verification. Run #342 passed all 10 jobs on the previous P4.4.2 head. P4.4 still lacks backup-before-replacement, live target replacement, rollback/recovery, and a verified Obsidian Vault install adapter. P5 now has an explicit Save/Restore management UI wired to backup-first guarded policy writes and confirmed recovery; automated CI and real-device/sync-provider validation are still required. P6 now has an expanded three-OS mobile CI matrix and a source API guard; that expanded matrix has not yet run. No real-device testing has been completed on Windows, macOS, iPhone, iPad, or Android. The PR remains a draft and must not be merged until implementation and acceptance criteria are satisfied.
 
 ## P4.4.2 — isolated verified staging helper
 
@@ -75,3 +75,18 @@ P1, P2, and P3 are complete at the code/CI-foundation level. P4.1–P4.3 are imp
 - Mobile build, type-check, helper tests, and package generation now run on Ubuntu, macOS, and Windows CI runners.
 - A source scanner rejects Node.js builtin imports, Electron imports, CommonJS require, selected Node process globals, Buffer APIs, and Node path globals in `mobile-plugin/src/**/*.ts`.
 - The expanded matrix must pass before this milestone is considered complete. CI is not physical-device validation.
+
+
+## P5.7 — explicit Save and Restore management UI
+
+- Added a dedicated management modal and command for editing, validating, saving, and restoring the shared desired-plugin policy.
+- Saving an existing policy validates the candidate, re-reads the reviewed baseline, persists and verifies an immutable backup, applies a guarded Vault.process update, and verifies exact post-write content.
+- Creating a previously absent policy uses a create-only path and exact read-back verification; if a file appears concurrently, the create is refused.
+- Restore lists only backups whose envelope digest and embedded policy validate, requires an existing policy file, previews the selected backup against the current bytes, requires explicit confirmation, persists a fresh backup of current content, and delegates to the guarded restore/conditional rollback helper.
+- The UI does not synchronize plugin binaries, settings, enabled state, credentials, or device-local compatibility results. It does not install plugins.
+- Mocked adapter tests cover the underlying helpers; the new UI wiring requires CI and real Obsidian runtime verification. This is not a distributed lock or proof of remote sync durability.
+
+## P6.1 — Windows test-runner portability fix
+
+- Changed mobile helper test invocation from shell-expanded `tests/*.test.mjs` to Node's built-in test discovery (`node --test`) so PowerShell/Windows does not pass an unexpanded wildcard path.
+- Run #343 exposed this Windows-only test-discovery failure; the Ubuntu and macOS mobile jobs and the Python matrix passed. A fresh CI run is required to verify the fix.
