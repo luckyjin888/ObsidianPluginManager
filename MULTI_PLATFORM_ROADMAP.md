@@ -23,13 +23,13 @@ Extend ObsidianPluginManager to support a shared plugin-management workflow acro
 
 ## Delivery phases
 
-- [x] **P1 — Baseline and regression protection**: inventory existing desktop behavior and tests. Baseline recorded in [P1 Desktop Regression Baseline](docs/multi-platform/P1_DESKTOP_BASELINE.md). Initial PR CI run passed all 9 OS/Python matrix jobs.
-- [x] **P2 — Shared catalogue and compatibility model**: versioned schema, nine-entry seed catalogue, compatibility evidence policy, dependency-free validator, seven unit tests, and CI validation step. Latest P2 commit `0790ce0bac7fcde2054b1017d12b912077cc274c` passed all 9 OS/Python matrix jobs.
-- [x] **P3 — Mobile plugin foundation**: TypeScript plugin scaffold, platform detection, reproducible bundle/type-check workflow, and a read-only searchable catalogue view. Commit `b43aaf01a250d7c75156ef935f4dae1d935779b4` passed all 10 CI jobs (mobile build + 9 OS/Python matrix jobs). Physical-device smoke testing remains a separate release-validation requirement.
-- [ ] **P4 — Safe installation workflow (in progress)**: P4.1 eligibility preflight, P4.2 latest-release metadata inspection, and P4.3 downloaded-byte SHA-256/manifest verification are implemented. Runtime minimum-version comparison now uses the official public `apiVersion` export. P4.4.1 adds an isolated pure install-plan gate that re-hashes the exact in-memory bytes, validates the allowlist, manifest, platform evidence, size limits, and target path; it performs no Vault writes. P4.4 staging, backup, replacement, rollback, adapter contract tests, and fault injection remain outstanding. Final CDN hostname is not exposed by `requestUrl`; the documented trust model instead binds downloaded bytes to GitHub API SHA-256 metadata.
-- [ ] **P5 — Cross-device policy sync**: design documented in [P5 Cross-device Sync Design](docs/multi-platform/P5_CROSS_DEVICE_SYNC_DESIGN.md). Read-only preview and P5.4 interactive conflict-resolution preview implemented. P5.5 isolated guarded-write helper and fake-Vault fault-injection tests are now added; the helper is not wired to any UI/command, so policy writes remain disabled. Strict bounded parser, device-local compatibility display, conflict-copy hints, fingerprint, read-only ID comparison, explicit per-plugin current/candidate/remove choices, and deterministic in-memory JSON preview remain the user-facing scope. Fingerprint is not a lock and conflict scanning is heuristic; real adapter contract and recovery tests remain outstanding. The documented future write guard uses `Vault.cachedRead()` plus `Vault.process()` with an exact baseline comparison; this is local stale-write protection, not a cross-device lock.
-- [ ] **P6 — CI and device validation**: keep Python CI; expand TypeScript build/type checks and static checks that prevent Node/Electron-only APIs from entering the mobile bundle. Record simulator and physical-device tests separately.
-- [ ] **P7 — Documentation and release readiness**: document setup, limitations, compatibility evidence, and upgrade/rollback steps.
+- [x] **P1 — Baseline and regression protection**: inventory existing desktop behavior and tests. Baseline recorded in [P1 Desktop Regression Baseline](docs/multi-platform/P1_DESKTOP_BASELINE.md). Existing desktop regression matrix remains in CI.
+- [x] **P2 — Shared catalogue and compatibility model**: versioned schema, five-platform evidence model, validator, tests, and CI validation.
+- [x] **P3 — Mobile plugin foundation**: TypeScript plugin scaffold, platform detection, reproducible bundle/type-check workflow, and a read-only searchable catalogue view. Physical-device smoke testing remains a separate release-validation requirement.
+- [ ] **P4 — Safe installation workflow (in progress)**: P4.1 eligibility preflight, P4.2 latest-release metadata inspection, P4.3 downloaded-byte SHA-256/manifest verification, P4.4.1 install-plan validation, and P4.4.2 isolated verified staging are implemented. Run #342 passed all 10 jobs for commit `146a472`. Staging is not connected to a live installation transaction. Backup-before-replacement, safe replacement, rollback, recovery journal, public Obsidian Vault adapter contract tests, and device fault testing remain outstanding. No live plugin replacement or enablement is exposed.
+- [ ] **P5 — Cross-device policy sync (in progress)**: strict bounded parser, device-local compatibility display, conflict-copy hints, fingerprint, read-only comparison, explicit per-plugin resolution preview, guarded writer, backup envelope/persistence/inventory, restore preview, and isolated confirmed restore helper exist. Save and Restore helpers are not connected to UI/commands. No user-facing policy write or restore action is enabled. The fingerprint is not a lock; Vault.process is local stale-write protection, not a distributed lock. Real adapter and sync-provider behavior remain unverified.
+- [ ] **P6 — CI and device validation (in progress)**: Python regression tests remain on Windows/macOS/Ubuntu. Mobile type-check, helper tests, bundle build, and ZIP packaging are now configured for Ubuntu, macOS, and Windows CI runners. A source scanner rejects Node.js/Electron-only APIs from mobile runtime source. The expanded CI matrix is pending. Simulator and physical-device tests are separate release-validation requirements.
+- [ ] **P7 — Documentation and release readiness (in progress)**: architecture and safety boundaries are documented. User-facing install/update/recovery instructions, release notes, compatibility evidence, and final review remain outstanding.
 
 ## Compatibility policy
 
@@ -53,102 +53,25 @@ A manifest value such as `isDesktopOnly: false` is not proof of successful opera
 
 - Existing Windows and macOS desktop workflows continue to pass regression tests.
 - The shared catalogue has schema validation and explicit evidence status per platform.
-- The mobile plugin builds and passes type/static checks.
+- The mobile plugin builds and passes type/static checks on supported CI operating systems.
 - Mobile installation logic is isolated from desktop-only dependencies.
 - Sync does not blindly copy desktop binaries or overwrite device-specific configuration.
 - CI results and real-device test evidence are documented before the PR is marked ready for review.
 
 ## Current status
 
-P1, P2, and P3 are complete at the code/CI-foundation level. P4.1–P4.3 are implemented; P4.3 now checks the running Obsidian API version through the official `apiVersion` export. P4.4.1 provides a pure install-plan validation gate. P4.4.2 adds an isolated staging helper that writes only to a manager-owned staging directory and verifies exact read-back; it is not connected to UI/commands and never touches the live plugin directory. P4.4.1 is covered by Run #337 (10/10 jobs passed). P4.4.2 CI is pending. Backup, replacement, rollback, public adapter contract tests, and physical-device validation remain outstanding. Redirect-host attestation is unavailable through the public API; the documented integrity model relies on canonical GitHub API metadata plus exact downloaded-byte SHA-256 verification. Adapter contract tests, fault injection, and physical-device validation remain outstanding. Physical-device testing on Windows, macOS, iPhone, iPad, and Android remains outstanding. The PR must remain a draft until all implementation phases and acceptance criteria are complete.
+P1, P2, and P3 are complete at the code/CI-foundation level. P4.1–P4.3 are implemented; P4.4.1 provides a pure install-plan validation gate and P4.4.2 provides an isolated staging helper with exact read-back verification. Run #342 passed all 10 jobs on the previous P4.4.2 head. P4.4 still lacks backup-before-replacement, live target replacement, rollback/recovery, and a verified Obsidian Vault install adapter. P5 has substantial read-only and isolated transaction primitives, but no Save/Restore UI integration. P6 now has an expanded three-OS mobile CI matrix and a source API guard; that expanded matrix has not yet run. No real-device testing has been completed on Windows, macOS, iPhone, iPad, or Android. The PR remains a draft and must not be merged until implementation and acceptance criteria are satisfied.
 
+## P4.4.2 — isolated verified staging helper
 
-### P5.4 — explicit conflict-resolution preview UI
+- Requires explicit confirmation, validates the target path and transaction ID, refuses an existing staging transaction, and writes only allowlisted verified bytes beneath a manager-owned staging directory.
+- Re-hashes bytes before writing and verifies exact read-back length and SHA-256.
+- On failure, attempts cleanup of only paths created by the current staging attempt and reports leftovers.
+- Does not modify the live plugin directory, back up or replace an installed plugin, roll back, or enable a plugin.
+- Fake-adapter fault-injection tests are included; this is not a real Obsidian/mobile adapter test.
 
-- Added a pure in-memory builder requiring an explicit per-plugin choice (keep current, keep candidate, or remove).
-- Added interactive controls for each plugin ID; current/candidate choices are offered only when that source contains the ID.
-- Added an editable revision field and a read-only JSON preview area.
-- Missing choices and invalid source selections are rejected; notes follow the explicitly selected source.
-- Produces deterministic preview JSON only; no Save action or Vault write is enabled.
-- Added tests for incomplete choices, invalid source selections, source/note selection, deterministic output, and input immutability.
-- CI Run #289 passed all 10 jobs, including mobile type-check/build/package and Windows/macOS/Ubuntu Python test jobs.
+## P6 — cross-platform build and runtime API guard
 
-
-### P5.5 — guarded write protocol foundation (not user-enabled)
-
-- Added isolated `writeSharedPolicyWithBaseline()` using a caller-supplied baseline, strict candidate validation, synchronous `Vault.process()` content comparison, and post-write exact-content verification.
-- The helper distinguishes invalid candidate, stale baseline, process/read failure, and post-write verification failure.
-- Added fake-Vault fault-injection tests for successful guarded update, concurrent/stale content, invalid candidate, process exception, post-write corruption, read exception, and missing process callback.
-- CI now runs all `tests/*.test.mjs` under `npm run test:policy`.
-- The helper is not connected to any command or UI. No Save button, confirmation flow, backup journal, rollback, or cross-device lock exists; policy writes remain disabled.
-
-
-### P5.5.1 — public Obsidian Vault adapter contract
-
-- Added a typed adapter over the public `Vault.process()` and `Vault.read()` methods.
-- Updated the adapter port to accept the asynchronous result returned by the public process API without coupling the policy helper to a concrete return type.
-- Added a delegation contract test proving the same file and synchronous callback are forwarded and that post-write verification uses Vault.read().
-- This is a mocked adapter contract test, not an Obsidian runtime, device filesystem, or multi-device sync test.
-- Policy writes remain disabled in the UI; real-device testing and backup/recovery design are still required.
-
-
-### P5.5.2 — stale-process side-effect caveat
-
-- Documented that returning the unchanged current string from a stale `Vault.process()` callback does not prove the adapter performs no write, timestamp update, sync notification, or file event.
-- The helper reports `stale` and does not report success, but this no-op side-effect behavior must be verified against real Obsidian adapters before any Save UX is enabled.
-
-
-### P5.6.1 — backup/recovery format foundation (not persisted)
-
-- Added a strict versioned backup envelope preserving the exact original policy bytes, target path, timestamp, and SHA-256 digest.
-- Added validation for envelope size, schema/fields/path, timestamp, digest format, and content integrity.
-- Added deterministic sanitized backup filename generation.
-- Added tests for exact-byte round trip, tamper detection, unsupported fields, malformed timestamps, and unsafe filename inputs.
-- This is in-memory only: no backup file is created, no durable read-back verification exists, and no restore/rollback path is enabled. Writes remain disabled.
-
-
-### P5.6.2 — Vault backup persistence helper (not wired to policy writes)
-
-- Added a public Vault adapter using `getAbstractFileByPath()`, `createFolder()`, `create()`, and `read()`.
-- Added a helper that creates a versioned backup file under `PluginManager/backups/`, refuses to overwrite a different existing file, and reads the new file back.
-- The helper reports `created` only after exact serialized-byte read-back and SHA-256 envelope validation; identical existing backups are reported as already present.
-- Added fake-Vault tests for successful creation, idempotent identical backup, path collision, corrupted read-back, folder failure, create failure, and read failure.
-- Immediate Vault read-back is not proof of remote sync durability or cross-device availability. No restore/rollback UI exists; the helper is not connected to the policy writer and Save remains disabled.
-
-
-### P5.6.2 test correction
-
-- The first persistence-test run failed because the fake Vault fixture implemented the helper port rather than the public Obsidian Vault API expected by the adapter.
-- Updated the fixture to model `getAbstractFileByPath()`, `createFolder()`, `create()`, and `read()`, including structural file/folder objects.
-- Awaiting a fresh CI run for the corrected fixture. Previous persistence test failures are not counted as passing.
-
-
-### P5.6.3 — read-only backup inventory and comparison
-
-- Added a Vault backup-directory scanner with size-before-read checks, envelope SHA-256 validation, and embedded policy validation.
-- Invalid, unreadable, oversized, and invalid-policy backups are reported as diagnostics; nothing is deleted or repaired.
-- Added the Obsidian command **Preview shared policy backups (read-only)**.
-- Valid entries show backup path, size, timestamp, digest, policy revision, desired-plugin count, and set-difference counts against the current valid policy.
-- No restore, overwrite, or delete action is exposed. Remote sync durability and device-loss recovery are not proven.
-- CI for this latest work is pending.
-
-
-### P4.4.1 — isolated install-plan validation gate (no Vault writes)
-
-- Added `mobile-plugin/src/install-transaction.ts` as a pure preflight module that accepts the exact in-memory asset bytes intended for installation.
-- Recomputes SHA-256 for each allowlisted asset and checks the published digest, per-file/aggregate size limits, required `manifest.json` and `main.js`, manifest ID/version/minimum API version, and explicit `isDesktopOnly: false`.
-- Requires verified evidence for the exact runtime platform; iOS runtime requires both iOS and iPadOS evidence.
-- Validates plugin ID and relative `configDir` path before deriving the target directory.
-- Added `mobile-plugin/tests/install-transaction.test.mjs` for successful planning, digest mismatch, platform evidence, minimum API version, unsafe path/ID, unknown assets, and duplicate asset names.
-- This stage only returns a plan. It does not create directories, stage files, back up installations, replace files, roll back, or enable plugins.
-- Run #337 completed successfully (10/10 jobs) for commit `153dc6d`, including the mobile type-check, all mobile tests, build, ZIP packaging, and the Windows/macOS/Ubuntu Python matrix.
-
-
-### P4.4.2 — isolated verified staging helper (not wired to installation UI)
-
-- Added `mobile-plugin/src/install-staging.ts`: requires an explicit confirmation flag, validates the plan target and transaction ID, refuses an existing transaction directory, and writes only allowlisted plan bytes beneath `<configDir>/plugins/.plugin-manager-staging/<plugin-id>/<transaction-id>/`.
-- Re-hashes plan bytes immediately before writing and reads every staged file back to verify exact byte length and SHA-256.
-- On a staging failure, attempts to remove only files and directories created by that staging attempt; reports any paths that could not be cleaned.
-- Added fake-adapter contract/fault-injection tests for success, missing confirmation, collision, unsafe paths/IDs, write failure cleanup, and corrupted read-back.
-- The live plugin directory is never changed by this helper. It does not create a backup, replace files, roll back an installation, enable a plugin, or provide real Obsidian/mobile adapter verification.
-- CI for this P4.4.2 batch is pending; do not count it as passed until the workflow completes.
+- Mobile build, type-check, helper tests, and package generation now run on Ubuntu, macOS, and Windows CI runners.
+- A source scanner rejects Node.js builtin imports, Electron imports, CommonJS require, selected Node process globals, Buffer APIs, and Node path globals in `mobile-plugin/src/**/*.ts`.
+- The expanded matrix must pass before this milestone is considered complete. CI is not physical-device validation.
