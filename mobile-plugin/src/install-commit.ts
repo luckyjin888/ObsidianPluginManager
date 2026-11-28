@@ -1,4 +1,4 @@
-import { TFile, TFolder, type Vault } from "obsidian";
+import type { Vault } from "obsidian";
 import type { InstallPlan } from "./install-transaction";
 import type { StagedInstallFile } from "./install-staging";
 
@@ -186,35 +186,15 @@ export async function commitStagedInstall(
   }
 }
 
-/** Public Obsidian Vault adapter; it writes only Vault-relative file paths. */
+/** Public Obsidian DataAdapter adapter; supports hidden configDir paths. */
 export function createObsidianInstallCommitAdapter(
-  vault: Pick<Vault, "getAbstractFileByPath" | "createFolder" | "readBinary" | "createBinary" | "modifyBinary" | "delete">,
+  adapter: Pick<Vault["adapter"], "exists" | "mkdir" | "readBinary" | "writeBinary" | "remove">,
 ): InstallCommitAdapter {
   return {
-    exists: async (path) => vault.getAbstractFileByPath(path) !== null,
-    mkdir: async (path) => {
-      const current = vault.getAbstractFileByPath(path);
-      if (current instanceof TFolder) return;
-      if (current) throw new Error(`Path exists and is not a folder: ${path}`);
-      await vault.createFolder(path);
-    },
-    readBinary: async (path) => {
-      const file = vault.getAbstractFileByPath(path);
-      if (!(file instanceof TFile)) throw new Error(`File does not exist: ${path}`);
-      return vault.readBinary(file);
-    },
-    writeBinary: async (path, data) => {
-      const existing = vault.getAbstractFileByPath(path);
-      if (existing instanceof TFile) {
-        await vault.modifyBinary(existing, data);
-        return;
-      }
-      if (existing) throw new Error(`Target exists and is not a file: ${path}`);
-      await vault.createBinary(path, data);
-    },
-    remove: async (path) => {
-      const file = vault.getAbstractFileByPath(path);
-      if (file instanceof TFile) await vault.delete(file);
-    },
+    exists: (path) => adapter.exists(path),
+    mkdir: (path) => adapter.mkdir(path),
+    readBinary: (path) => adapter.readBinary(path),
+    writeBinary: (path, data) => adapter.writeBinary(path, data),
+    remove: (path) => adapter.remove(path),
   };
 }
