@@ -166,3 +166,18 @@ The final CDN hostname is **not** attested. Instead, the security property relie
 Do not describe this as redirect-host verification. If future requirements demand host attestation, a supported transport exposing the final URL on every target platform must be introduced and separately tested. The current implementation must continue to fail closed on every content-integrity check.
 
 This decision removes final-hostname inspection as a blocker to the *design* of a guarded transaction, but it does not authorize vault writes by itself. Adapter contract tests, fault injection, explicit user confirmation, and device validation remain mandatory.
+
+
+## P4.4.2 implementation boundary — verified staging only
+
+The current branch adds an isolated `stageInstallPlan()` helper and a narrow adapter contract:
+
+- It requires an explicit confirmation flag before creating staging files.
+- It validates the plan target path, plugin ID, transaction ID, required asset names, and duplicate/unknown asset names.
+- It writes only beneath `<configDir>/plugins/.plugin-manager-staging/<plugin-id>/<transaction-id>/`; it does not write to the live plugin directory.
+- It re-hashes each in-memory asset immediately before writing, then reads the staged file back and verifies byte length and SHA-256.
+- A failed stage attempts to remove only the files/directories created by that attempt and reports any cleanup paths that remain.
+
+The fake-adapter tests cover successful staging, confirmation gating, transaction collision, unsafe identifiers/paths, write failure cleanup, and read-back corruption. These are unit/contract tests against a fake adapter only; they do not prove behavior on Obsidian's desktop, iOS, iPadOS, or Android adapters.
+
+**Still not implemented:** backup of an existing installation, replacement of live files, rollback, transaction journaling, public Obsidian adapter wiring, UI/command integration, or plugin enablement. The helper is not called by the application. No install action is exposed. The live plugin directory remains untouched.
