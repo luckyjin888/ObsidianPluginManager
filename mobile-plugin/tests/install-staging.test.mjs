@@ -66,6 +66,7 @@ class FakeAdapter {
     if (this.corruptReadBack && path.endsWith("main.js")) copy[0] ^= 1;
     return copy.buffer;
   }
+  async removeDirectory(path) { return this.remove(path); }
   async remove(path) {
     if (this.files.has(path)) { this.files.delete(path); return; }
     for (const item of [...this.files.keys(), ...this.directories]) {
