@@ -1,4 +1,4 @@
-import { App, Modal, Notice, TFile } from "obsidian";
+import { App, Modal, Notice, TFile, TFolder } from "obsidian";
 import {
   createObsidianVaultBackupAdapter,
   createObsidianVaultPolicyAdapter,
@@ -6,6 +6,7 @@ import {
   prepareSharedPolicyRestorePreview,
   restoreSharedPolicyWithBackup,
   scanSharedPolicyBackups,
+  writeSharedPolicyWithBaseline,
   type SharedPolicyBackupEnvelope,
 } from "./shared-policy-write";
 import { parseSharedPluginPolicy, SHARED_POLICY_PATH } from "./shared-policy";
@@ -99,7 +100,7 @@ export class SharedPolicyManagerModal extends Modal {
           }
           const folder = this.app.vault.getAbstractFileByPath("PluginManager");
           if (!folder) await this.app.vault.createFolder("PluginManager");
-          else if (!(folder instanceof (await import("obsidian")).TFolder)) {
+          else if (!(folder instanceof TFolder)) {
             new Notice("PluginManager exists but is not a folder. No changes made.", 8000);
             return;
           }
@@ -136,9 +137,7 @@ export class SharedPolicyManagerModal extends Modal {
         }
 
         const writer = createObsidianVaultPolicyAdapter(this.app.vault);
-        const result = await (await import("./shared-policy-write")).writeSharedPolicyWithBaseline(
-          writer, currentFile, fresh, candidate,
-        );
+        const result = await writeSharedPolicyWithBaseline(writer, currentFile, fresh, candidate);
         if (result.status === "written") {
           loadedBaseline = candidate;
           new Notice(`Shared policy saved. Recovery backup: ${backup.path}`, 8000);
