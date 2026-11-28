@@ -1,3 +1,4 @@
+import { TFile, TFolder, type Vault } from "obsidian";
 import type { InstallPlan, PlannedInstallAsset } from "./install-transaction";
 
 /**
@@ -134,4 +135,39 @@ export async function stageInstallPlan(input: StageInstallInput): Promise<StageI
       leftoverPaths,
     };
   }
+}
+
+
+/** Public Obsidian Vault adapter for manager-owned staging paths. */
+export function createObsidianInstallStagingAdapter(
+  vault: Pick<Vault, "getAbstractFileByPath" | "createFolder" | "createBinary" | "readBinary" | "delete">,
+): InstallStagingAdapter {
+  return {
+    exists: async (path) => vault.getAbstractFileByPath(path) !== null,
+    mkdir: async (path) => {
+      const existing = vault.getAbstractFileByPath(path);
+      if (existing instanceof TFolder) return;
+      if (existing) throw new Error(`Staging path exists and is not a folder: ${path}`);
+      await vault.createFolder(path);
+    },
+    writeBinary: async (path, data) => {
+      if (vault.getAbstractFileByPath(path)) throw new Error(`Refusing to overwrite staging file: ${path}`);
+      await vault.createBinary(path, data);
+    },
+    readBinary: async (path) => {
+      const file = vault.getAbstractFileByPath(path);
+      if (!(file instanceof TFile)) throw new Error(`Staged file does not exist: ${path}`);
+      return vault.readBinary(file);
+    },
+    remove: async (path) => {
+      const item = vault.getAbstractFileByPath(path);
+      if (item instanceof TFile) {
+        await vault.delete(item);
+        return;
+      }
+      // Never recursively remove a folder. Only remove a directory that is
+      // still empty after this transaction's own staged files were cleaned.
+      if (item instanceof TFolder && item.children.length === 0) await vault.delete(item);
+    },
+  };
 }
