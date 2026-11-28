@@ -60,7 +60,7 @@ A manifest value such as `isDesktopOnly: false` is not proof of successful opera
 
 ## Current status
 
-P1, P2, and P3 are complete at the code/CI-foundation level. P4.1–P4.3 are implemented; P4.3 now checks the running Obsidian API version through the official `apiVersion` export. P4.4.1 provides a pure install-plan validation gate. P4.4.2 adds an isolated staging helper that writes only to a manager-owned staging directory and verifies exact read-back; it is not connected to UI/commands and never touches the live plugin directory. P4.4.2 CI is pending. Backup, replacement, rollback, public adapter contract tests, and physical-device validation remain outstanding. Redirect-host attestation is unavailable through the public API; the documented integrity model relies on canonical GitHub API metadata plus exact downloaded-byte SHA-256 verification. Adapter contract tests, fault injection, and physical-device validation remain outstanding. Physical-device testing on Windows, macOS, iPhone, iPad, and Android remains outstanding. The PR must remain a draft until all implementation phases and acceptance criteria are complete.
+P1, P2, and P3 are complete at the code/CI-foundation level. P4.1–P4.3 are implemented; P4.3 now checks the running Obsidian API version through the official `apiVersion` export. P4.4.1 provides a pure install-plan validation gate. P4.4.2 adds an isolated staging helper that writes only to a manager-owned staging directory and verifies exact read-back; it is not connected to UI/commands and never touches the live plugin directory. P4.4.1 is covered by Run #337 (10/10 jobs passed). P4.4.2 CI is pending. Backup, replacement, rollback, public adapter contract tests, and physical-device validation remain outstanding. Redirect-host attestation is unavailable through the public API; the documented integrity model relies on canonical GitHub API metadata plus exact downloaded-byte SHA-256 verification. Adapter contract tests, fault injection, and physical-device validation remain outstanding. Physical-device testing on Windows, macOS, iPhone, iPad, and Android remains outstanding. The PR must remain a draft until all implementation phases and acceptance criteria are complete.
 
 
 ### P5.4 — explicit conflict-resolution preview UI
@@ -141,7 +141,7 @@ P1, P2, and P3 are complete at the code/CI-foundation level. P4.1–P4.3 are imp
 - Validates plugin ID and relative `configDir` path before deriving the target directory.
 - Added `mobile-plugin/tests/install-transaction.test.mjs` for successful planning, digest mismatch, platform evidence, minimum API version, unsafe path/ID, unknown assets, and duplicate asset names.
 - This stage only returns a plan. It does not create directories, stage files, back up installations, replace files, roll back, or enable plugins.
-- Latest P4.4.1 CI result has not yet been reported; do not count this stage as CI-passing until the workflow completes.
+- Run #337 completed successfully (10/10 jobs) for commit `153dc6d`, including the mobile type-check, all mobile tests, build, ZIP packaging, and the Windows/macOS/Ubuntu Python matrix.
 
 
 ### P4.4.2 — isolated verified staging helper (not wired to installation UI)
