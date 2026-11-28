@@ -203,7 +203,13 @@ export class PluginCatalogModal extends Modal {
             releaseVersion: latestReleaseReport.version ?? "",
             obsidianApiVersion: apiVersion,
             runtimePlatform: runtime,
-            platformEvidence: plugin.platforms,
+            platformEvidence: {
+              windows: plugin.platforms.windows.status,
+              macos: plugin.platforms.macos.status,
+              ios: plugin.platforms.ios.status,
+              ipados: plugin.platforms.ipados.status,
+              android: plugin.platforms.android.status,
+            },
             configDir: this.app.vault.configDir,
             assets: latestVerifiedAssets.verifiedAssets,
           });
