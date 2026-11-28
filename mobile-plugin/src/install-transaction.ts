@@ -66,7 +66,7 @@ const MAX_SIZES: Record<string, number> = {
   "styles.css": 2 * 1024 * 1024,
 };
 const MAX_TOTAL_SIZE = 25 * 1024 * 1024;
-const VERSION = /^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$/;
+const VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 const SAFE_PLUGIN_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 interface ParsedManifest {
@@ -93,7 +93,12 @@ function compareVersions(left: string, right: string): number | null {
 }
 
 function safeConfigDir(value: string): boolean {
-  if (!value || value.startsWith("/") || value.includes("\\\\") || value.includes("\\0")) return false;
+  if (
+    !value
+    || value.startsWith("/")
+    || value.includes(String.fromCharCode(92))
+    || value.includes(String.fromCharCode(0))
+  ) return false;
   const parts = value.split("/");
   return parts.every((part) => part.length > 0 && part !== "." && part !== "..");
 }
