@@ -2,7 +2,12 @@
   "catalog_version": 1,
   "generated_at": "2026-11-28",
   "compatibility_policy": {
-    "statuses": ["verified", "declared_unverified", "incompatible", "unknown"],
+    "statuses": [
+      "verified",
+      "declared_unverified",
+      "incompatible",
+      "unknown"
+    ],
     "manifest_warning": "isDesktopOnly=false only means the upstream manifest does not declare the plugin desktop-only. It is not proof that the plugin works on Windows, macOS, iOS, iPadOS, or Android. Do not mark a platform verified without recorded testing evidence."
   },
   "plugins": [
@@ -13,14 +18,31 @@
       "manifest_is_desktop_only": false,
       "manifest_checked_at": "2026-11-27",
       "platforms": {
-        "windows": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
-        "macos": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
-        "ios": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
-        "ipados": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
-        "android": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."}
+        "windows": {
+          "status": "unknown",
+          "evidence": "No platform-specific device test recorded in this catalogue."
+        },
+        "macos": {
+          "status": "unknown",
+          "evidence": "No platform-specific device test recorded in this catalogue."
+        },
+        "ios": {
+          "status": "unknown",
+          "evidence": "Manifest is not a mobile runtime test."
+        },
+        "ipados": {
+          "status": "unknown",
+          "evidence": "Manifest is not a mobile runtime test."
+        },
+        "android": {
+          "status": "unknown",
+          "evidence": "Manifest is not a mobile runtime test."
+        }
       },
       "risk_level": "high",
-      "risk_notes": ["Uses Git-related workflows; mobile filesystem and execution capabilities require dedicated validation."],
+      "risk_notes": [
+        "Uses Git-related workflows; mobile filesystem and execution capabilities require dedicated validation."
+      ],
       "license": null,
       "catalog_notes": "Upstream manifest was previously reviewed as not desktop-only; real platform behavior remains unverified."
     },
@@ -31,14 +53,31 @@
       "manifest_is_desktop_only": false,
       "manifest_checked_at": "2026-11-27",
       "platforms": {
-        "windows": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
-        "macos": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
-        "ios": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
-        "ipados": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
-        "android": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."}
+        "windows": {
+          "status": "unknown",
+          "evidence": "No platform-specific device test recorded in this catalogue."
+        },
+        "macos": {
+          "status": "unknown",
+          "evidence": "No platform-specific device test recorded in this catalogue."
+        },
+        "ios": {
+          "status": "unknown",
+          "evidence": "Manifest is not a mobile runtime test."
+        },
+        "ipados": {
+          "status": "unknown",
+          "evidence": "Manifest is not a mobile runtime test."
+        },
+        "android": {
+          "status": "unknown",
+          "evidence": "Manifest is not a mobile runtime test."
+        }
       },
       "risk_level": "medium",
-      "risk_notes": ["User-defined macros and scripts may have platform-specific dependencies; inspect each macro separately."],
+      "risk_notes": [
+        "User-defined macros and scripts may have platform-specific dependencies; inspect each macro separately."
+      ],
       "license": null,
       "catalog_notes": "Upstream manifest was previously reviewed as not desktop-only; real platform behavior remains unverified."
     },
@@ -49,11 +88,26 @@
       "manifest_is_desktop_only": false,
       "manifest_checked_at": "2026-11-27",
       "platforms": {
-        "windows": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
-        "macos": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
-        "ios": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
-        "ipados": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
-        "android": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."}
+        "windows": {
+          "status": "unknown",
+          "evidence": "No platform-specific device test recorded in this catalogue."
+        },
+        "macos": {
+          "status": "unknown",
+          "evidence": "No platform-specific device test recorded in this catalogue."
+        },
+        "ios": {
+          "status": "unknown",
+          "evidence": "Manifest is not a mobile runtime test."
+        },
+        "ipados": {
+          "status": "unknown",
+          "evidence": "Manifest is not a mobile runtime test."
+        },
+        "android": {
+          "status": "unknown",
+          "evidence": "Manifest is not a mobile runtime test."
+        }
       },
       "risk_level": "low",
       "risk_notes": [],
@@ -67,14 +121,31 @@
       "manifest_is_desktop_only": false,
       "manifest_checked_at": "2026-11-27",
       "platforms": {
-        "windows": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
-        "macos": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
-        "ios": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
-        "ipados": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
-        "android": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."}
+        "windows": {
+          "status": "unknown",
+          "evidence": "No platform-specific device test recorded in this catalogue."
+        },
+        "macos": {
+          "status": "unknown",
+          "evidence": "No platform-specific device test recorded in this catalogue."
+        },
+        "ios": {
+          "status": "unknown",
+          "evidence": "Manifest is not a mobile runtime test."
+        },
+        "ipados": {
+          "status": "unknown",
+          "evidence": "Manifest is not a mobile runtime test."
+        },
+        "android": {
+          "status": "unknown",
+          "evidence": "Manifest is not a mobile runtime test."
+        }
       },
       "risk_level": "medium",
-      "risk_notes": ["Canvas, touch input, and export behavior need separate validation on phones and tablets."],
+      "risk_notes": [
+        "Canvas, touch input, and export behavior need separate validation on phones and tablets."
+      ],
       "license": null,
       "catalog_notes": "Upstream manifest was previously reviewed as not desktop-only; real platform behavior remains unverified."
     },
@@ -85,14 +156,31 @@
       "manifest_is_desktop_only": false,
       "manifest_checked_at": "2026-11-27",
       "platforms": {
-        "windows": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
-        "macos": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
-        "ios": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
-        "ipados": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
-        "android": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."}
+        "windows": {
+          "status": "unknown",
+          "evidence": "No platform-specific device test recorded in this catalogue."
+        },
+        "macos": {
+          "status": "unknown",
+          "evidence": "No platform-specific device test recorded in this catalogue."
+        },
+        "ios": {
+          "status": "unknown",
+          "evidence": "Manifest is not a mobile runtime test."
+        },
+        "ipados": {
+          "status": "unknown",
+          "evidence": "Manifest is not a mobile runtime test."
+        },
+        "android": {
+          "status": "unknown",
+          "evidence": "Manifest is not a mobile runtime test."
+        }
       },
       "risk_level": "medium",
-      "risk_notes": ["File operations and formatting behavior should be tested against mobile Vault adapters."],
+      "risk_notes": [
+        "File operations and formatting behavior should be tested against mobile Vault adapters."
+      ],
       "license": null,
       "catalog_notes": "Upstream manifest was previously reviewed as not desktop-only; real platform behavior remains unverified."
     },
@@ -103,14 +191,31 @@
       "manifest_is_desktop_only": false,
       "manifest_checked_at": "2026-11-27",
       "platforms": {
-        "windows": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
-        "macos": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
-        "ios": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
-        "ipados": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
-        "android": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."}
+        "windows": {
+          "status": "unknown",
+          "evidence": "No platform-specific device test recorded in this catalogue."
+        },
+        "macos": {
+          "status": "unknown",
+          "evidence": "No platform-specific device test recorded in this catalogue."
+        },
+        "ios": {
+          "status": "unknown",
+          "evidence": "Manifest is not a mobile runtime test."
+        },
+        "ipados": {
+          "status": "unknown",
+          "evidence": "Manifest is not a mobile runtime test."
+        },
+        "android": {
+          "status": "unknown",
+          "evidence": "Manifest is not a mobile runtime test."
+        }
       },
       "risk_level": "low",
-      "risk_notes": ["Keyboard shortcuts and table editing UX need touch-device validation."],
+      "risk_notes": [
+        "Keyboard shortcuts and table editing UX need touch-device validation."
+      ],
       "license": null,
       "catalog_notes": "Upstream manifest was previously reviewed as not desktop-only; real platform behavior remains unverified."
     },
@@ -121,14 +226,31 @@
       "manifest_is_desktop_only": false,
       "manifest_checked_at": "2026-11-27",
       "platforms": {
-        "windows": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
-        "macos": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
-        "ios": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
-        "ipados": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
-        "android": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."}
+        "windows": {
+          "status": "unknown",
+          "evidence": "No platform-specific device test recorded in this catalogue."
+        },
+        "macos": {
+          "status": "unknown",
+          "evidence": "No platform-specific device test recorded in this catalogue."
+        },
+        "ios": {
+          "status": "unknown",
+          "evidence": "Manifest is not a mobile runtime test."
+        },
+        "ipados": {
+          "status": "unknown",
+          "evidence": "Manifest is not a mobile runtime test."
+        },
+        "android": {
+          "status": "unknown",
+          "evidence": "Manifest is not a mobile runtime test."
+        }
       },
       "risk_level": "high",
-      "risk_notes": ["User templates can execute JavaScript and may rely on Node.js APIs; review scripts and mobile compatibility before enabling."],
+      "risk_notes": [
+        "User templates can execute JavaScript and may rely on Node.js APIs; review scripts and mobile compatibility before enabling."
+      ],
       "license": null,
       "catalog_notes": "Upstream manifest was previously reviewed as not desktop-only; real platform behavior remains unverified."
     },
@@ -139,14 +261,31 @@
       "manifest_is_desktop_only": false,
       "manifest_checked_at": "2026-11-27",
       "platforms": {
-        "windows": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
-        "macos": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
-        "ios": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
-        "ipados": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
-        "android": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."}
+        "windows": {
+          "status": "unknown",
+          "evidence": "No platform-specific device test recorded in this catalogue."
+        },
+        "macos": {
+          "status": "unknown",
+          "evidence": "No platform-specific device test recorded in this catalogue."
+        },
+        "ios": {
+          "status": "unknown",
+          "evidence": "Manifest is not a mobile runtime test."
+        },
+        "ipados": {
+          "status": "unknown",
+          "evidence": "Manifest is not a mobile runtime test."
+        },
+        "android": {
+          "status": "unknown",
+          "evidence": "Manifest is not a mobile runtime test."
+        }
       },
       "risk_level": "unknown",
-      "risk_notes": ["Upstream repository and release provenance still need confirmation."],
+      "risk_notes": [
+        "Upstream repository and release provenance still need confirmation."
+      ],
       "license": null,
       "catalog_notes": "Plugin ID and manifest flag are carried forward from the previous review; upstream URL and license are intentionally unresolved."
     },
@@ -157,14 +296,31 @@
       "manifest_is_desktop_only": false,
       "manifest_checked_at": "2026-11-27",
       "platforms": {
-        "windows": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
-        "macos": {"status": "unknown", "evidence": "No platform-specific device test recorded in this catalogue."},
-        "ios": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
-        "ipados": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."},
-        "android": {"status": "unknown", "evidence": "Manifest is not a mobile runtime test."}
+        "windows": {
+          "status": "unknown",
+          "evidence": "No platform-specific device test recorded in this catalogue."
+        },
+        "macos": {
+          "status": "unknown",
+          "evidence": "No platform-specific device test recorded in this catalogue."
+        },
+        "ios": {
+          "status": "unknown",
+          "evidence": "Manifest is not a mobile runtime test."
+        },
+        "ipados": {
+          "status": "unknown",
+          "evidence": "Manifest is not a mobile runtime test."
+        },
+        "android": {
+          "status": "unknown",
+          "evidence": "Manifest is not a mobile runtime test."
+        }
       },
       "risk_level": "high",
-      "risk_notes": ["Previously identified reliance on Obsidian internal APIs; must be reviewed against supported mobile APIs before claiming compatibility."],
+      "risk_notes": [
+        "Previously identified reliance on Obsidian internal APIs; must be reviewed against supported mobile APIs before claiming compatibility."
+      ],
       "license": null,
       "catalog_notes": "Upstream manifest was previously reviewed as not desktop-only; internal API dependencies and real platform behavior remain unverified."
     },
@@ -204,6 +360,81 @@
       ],
       "license": "MIT",
       "catalog_notes": "Curated first-choice recorder/transcription candidate. Upstream latest release checked: 2.6.1 (2026-11-25); Obsidian community listing showed about 2k downloads. Supports recording, transcription, optional LLM cleanup/summary and speaker labels where supported. Upstream declares desktop and mobile (iOS/Android), but all five manager platform statuses remain declared_unverified; installation stays blocked in the mobile manager until real device evidence is recorded. Minimum Obsidian version in upstream manifest: 1.14.4."
+    },
+    {
+      "id": "large-language-models",
+      "name": "Large Language Models",
+      "upstream_url": "https://github.com/eharris128/Obsidian-LLM-Plugin",
+      "manifest_is_desktop_only": false,
+      "manifest_checked_at": "2026-11-28",
+      "platforms": {
+        "windows": {
+          "status": "declared_unverified",
+          "evidence": "Upstream declares Desktop and Mobile support; this manager has not recorded a device-specific test for this platform."
+        },
+        "macos": {
+          "status": "declared_unverified",
+          "evidence": "Upstream declares Desktop and Mobile support; this manager has not recorded a device-specific test for this platform."
+        },
+        "ios": {
+          "status": "declared_unverified",
+          "evidence": "Upstream declares Desktop and Mobile support; this manager has not recorded a device-specific test for this platform."
+        },
+        "ipados": {
+          "status": "declared_unverified",
+          "evidence": "Upstream declares Desktop and Mobile support; this manager has not recorded a device-specific test for this platform."
+        },
+        "android": {
+          "status": "declared_unverified",
+          "evidence": "Upstream declares Desktop and Mobile support; this manager has not recorded a device-specific test for this platform."
+        }
+      },
+      "risk_level": "medium",
+      "risk_notes": [
+        "Cloud providers receive prompts and any note context the user includes; API usage may incur provider charges.",
+        "Local Ollama and GPT4All options require a separately running local model service.",
+        "The optional MCP server is desktop-only, disabled by default, and can expose vault read/write tools on loopback; keep its bearer token private."
+      ],
+      "license": "MIT",
+      "catalog_notes": "Multi-provider chat plugin. Official community listing checked 2026-11-28: about 26k downloads, 108 releases, updated two weeks earlier, Desktop and Mobile, MIT. Supports OpenAI, Anthropic, Google Gemini, Mistral, GPT4All and Ollama. Upstream manifest declares isDesktopOnly=false; all five manager platform statuses remain declared_unverified pending device tests."
+    },
+    {
+      "id": "copilot",
+      "name": "Copilot",
+      "upstream_url": "https://github.com/logancyang/obsidian-copilot",
+      "manifest_is_desktop_only": false,
+      "manifest_checked_at": "2026-11-28",
+      "platforms": {
+        "windows": {
+          "status": "declared_unverified",
+          "evidence": "Upstream declares Desktop and Mobile support; this manager has not recorded a device-specific test for this platform."
+        },
+        "macos": {
+          "status": "declared_unverified",
+          "evidence": "Upstream declares Desktop and Mobile support; this manager has not recorded a device-specific test for this platform."
+        },
+        "ios": {
+          "status": "declared_unverified",
+          "evidence": "Upstream declares Desktop and Mobile support; this manager has not recorded a device-specific test for this platform."
+        },
+        "ipados": {
+          "status": "declared_unverified",
+          "evidence": "Upstream declares Desktop and Mobile support; this manager has not recorded a device-specific test for this platform."
+        },
+        "android": {
+          "status": "declared_unverified",
+          "evidence": "Upstream declares Desktop and Mobile support; this manager has not recorded a device-specific test for this platform."
+        }
+      },
+      "risk_level": "high",
+      "risk_notes": [
+        "Agent mode can inspect, create and modify vault files; review tool permissions and backups before enabling write-capable workflows.",
+        "Prompts and included note context are processed by the selected provider; hosted Copilot features send required input to its service.",
+        "Agent backends are desktop-only; upstream says Quick Chat, custom Commands and Quick Ask remain available on mobile.",
+        "License is AGPL-3.0; this manager installs the upstream plugin and does not copy or repackage its source."
+      ],
+      "license": "AGPL-3.0",
+      "catalog_notes": "AI agent and chat integration. Official community listing checked 2026-11-28: about 2.4M downloads, 130 releases, updated within hours, Desktop and Mobile, AGPL-3.0. Supports OpenCode, Claude Code, Codex, BYOK providers and local/OpenAI-compatible models. Agent backends are desktop-only while Quick Chat, Commands and Quick Ask are available on mobile. All five manager platform statuses remain declared_unverified pending device tests."
     }
   ]
 }

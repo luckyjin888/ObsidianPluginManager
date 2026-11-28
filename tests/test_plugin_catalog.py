@@ -31,6 +31,18 @@ class PluginCatalogTests(unittest.TestCase):
         self.assertEqual(plugin["license"], "MIT")
         self.assertTrue(all(record["status"] == "declared_unverified" for record in plugin["platforms"].values()))
 
+    def test_large_language_models_is_catalogued_without_claiming_verified_platforms(self):
+        plugin = next(p for p in self.catalog["plugins"] if p["id"] == "large-language-models")
+        self.assertEqual(plugin["upstream_url"], "https://github.com/eharris128/Obsidian-LLM-Plugin")
+        self.assertEqual(plugin["license"], "MIT")
+        self.assertTrue(all(record["status"] == "declared_unverified" for record in plugin["platforms"].values()))
+
+    def test_copilot_is_catalogued_with_agpl_license_and_unverified_platforms(self):
+        plugin = next(p for p in self.catalog["plugins"] if p["id"] == "copilot")
+        self.assertEqual(plugin["upstream_url"], "https://github.com/logancyang/obsidian-copilot")
+        self.assertEqual(plugin["license"], "AGPL-3.0")
+        self.assertTrue(all(record["status"] == "declared_unverified" for record in plugin["platforms"].values()))
+
     def test_manifest_false_does_not_mark_mobile_as_verified(self):
         for plugin in self.catalog["plugins"]:
             if plugin["manifest_is_desktop_only"] is False:
