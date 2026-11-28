@@ -118,14 +118,14 @@ export async function stageInstallPlan(input: StageInstallInput): Promise<StageI
     const leftoverPaths: string[] = [];
     for (const path of [...writtenFiles].reverse()) {
       try {
-        if (await input.adapter.exists(path)) await input.adapter.removeDirectory(path);
+        if (await input.adapter.exists(path)) await input.adapter.remove(path);
       } catch {
         leftoverPaths.push(path);
       }
     }
     for (const path of [...createdDirectories].reverse()) {
       try {
-        if (await input.adapter.exists(path)) await input.adapter.remove(path);
+        if (await input.adapter.exists(path)) await input.adapter.removeDirectory(path);
       } catch {
         leftoverPaths.push(path);
       }
@@ -141,14 +141,12 @@ export async function stageInstallPlan(input: StageInstallInput): Promise<StageI
 
 /** Public Obsidian DataAdapter adapter; supports configDir paths on each OS. */
 export function createObsidianInstallStagingAdapter(
-  adapter: Pick<Vault["adapter"], "exists" | "mkdir" | "readBinary" | "remove" | "rmdir">,
+  adapter: Pick<Vault["adapter"], "exists" | "mkdir" | "writeBinary" | "readBinary" | "remove" | "rmdir">,
 ): InstallStagingAdapter {
   return {
     exists: (path) => adapter.exists(path),
     mkdir: (path) => adapter.mkdir(path),
-    writeBinary: (path, data) => adapter.createBinary
-      ? adapter.writeBinary(path, data)
-      : Promise.reject(new Error("DataAdapter.writeBinary is unavailable.")),
+    writeBinary: (path, data) => adapter.writeBinary(path, data),
     readBinary: (path) => adapter.readBinary(path),
     remove: (path) => adapter.remove(path),
     removeDirectory: (path) => adapter.rmdir(path, false),
