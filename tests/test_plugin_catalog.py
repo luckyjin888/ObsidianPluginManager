@@ -25,6 +25,12 @@ class PluginCatalogTests(unittest.TestCase):
         for plugin in self.catalog["plugins"]:
             self.assertEqual(set(plugin["platforms"]), expected)
 
+    def test_advanced_audio_recorder_is_catalogued_without_claiming_verified_platforms(self):
+        plugin = next(p for p in self.catalog["plugins"] if p["id"] == "advanced-audio-recorder")
+        self.assertEqual(plugin["upstream_url"], "https://github.com/akhmialeuski/advanced-audio-recorder")
+        self.assertEqual(plugin["license"], "MIT")
+        self.assertTrue(all(record["status"] == "declared_unverified" for record in plugin["platforms"].values()))
+
     def test_manifest_false_does_not_mark_mobile_as_verified(self):
         for plugin in self.catalog["plugins"]:
             if plugin["manifest_is_desktop_only"] is False:

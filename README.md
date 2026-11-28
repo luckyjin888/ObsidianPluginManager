@@ -23,7 +23,7 @@
 - 输出发现的线索与无法确认项；不把“没有命中规则”说成“安全”。
 - CLI 未注册时，可尝试创建当前用户级命令入口；执行前展示双版本说明并要求输入完整的 `YES`。
 - 程序先启动或聚焦 Obsidian，等待应用就绪后再执行无修改的 `obsidian help` 检查；如果 CLI 未启用，立即显示中文设置示意图并安全停止。
-- 将 Obsidian Git 与 8 个推荐社区插件纳入同一张 9 项管理清单。
+- 将 Obsidian Git 与 9 个推荐社区插件纳入同一张 10 项管理清单。
 - 新增优质开源插件推荐库：QuickAdd、Tasks、Excalidraw、Linter、Advanced Tables、Templater、Codeblock Customizer、PDF++；可按 ID 多选或选择全部。
 - 安装前实时核对 Obsidian 官方社区目录、GitHub 源码仓库、SPDX 开源许可证和仓库归档状态；未通过核验的插件跳过。
 - 安装与启用合并为一次批次授权：未安装的插件安装后启用，已安装但未启用的只启用，已启用的自动跳过。
@@ -57,7 +57,7 @@ python3 plugin_update_subscription.py
 
 插件目录支持检查 GitHub Release、下载并校验文件 SHA-256 与 manifest，并在当前设备具有明确的 `verified` 兼容性证据时，执行备份优先的安装/更新事务。事务只修改 `manifest.json`、`main.js` 和可选的 `styles.css`，保留 `data.json`、设置和未知文件；失败时尝试条件回滚。插件不会自动启用，用户可能需要手动重新加载并启用。
 
-**当前兼容性状态：** 现有目录中的 9 个插件，在 Windows、macOS、iOS、iPadOS、Android 五个平台的状态目前全部为 `unknown`，因此自动安装入口会对这些目录条目全部阻止安装，直到补齐对应平台的真实设备验证记录。`isDesktopOnly: false` 不等于移动端已验证；没有对应设备实测证据时，安装流程会主动阻止安装。移动端构建与测试已纳入 Ubuntu、macOS、Windows CI，但 CI 和模拟适配器测试不等于 iPhone、iPad、Android 或桌面真机验证。原有 Windows/macOS Python 桌面程序仍保留。安装、更新和恢复步骤见 [多端安装与恢复指南](docs/multi-platform/P7_INSTALL_UPDATE_RECOVERY.md)。
+**当前兼容性状态：** 现有目录中的 10 个插件尚无任何平台被标记为 `verified`，因此移动端管理器会阻止这些目录条目的自动安装，直到补齐对应平台的真实设备验证记录。原有 9 个插件的五平台状态为 `unknown`；Advanced Audio Recorder 的上游明确声明桌面和移动端支持，因此记录为 `declared_unverified`，但这仍不是本项目的真机验证。`isDesktopOnly: false` 不等于移动端已验证；没有对应设备实测证据时，安装流程会主动阻止安装。移动端构建与测试已纳入 Ubuntu、macOS、Windows CI，但 CI 和模拟适配器测试不等于 iPhone、iPad、Android 或桌面真机验证。原有 Windows/macOS Python 桌面程序仍保留。安装、更新和恢复步骤见 [多端安装与恢复指南](docs/multi-platform/P7_INSTALL_UPDATE_RECOVERY.md)。
 
 ## 环境要求
 
@@ -171,7 +171,7 @@ conda install ca-certificates certifi openssl
 
 ## 社区插件统一安装与启用
 
-程序将 Obsidian Git 与 8 个推荐插件放在同一张清单中，共 9 个插件。每次运行先检查所选 Vault 中的安装状态（插件目录内的 `manifest.json`）和启用状态（`.obsidian/community-plugins.json`）。
+程序将 Obsidian Git 与 9 个推荐插件放在同一张清单中，共 10 个插件。每次运行先检查所选 Vault 中的安装状态（插件目录内的 `manifest.json`）和启用状态（`.obsidian/community-plugins.json`）。
 
 | 插件 | ID | 用途 | 特别风险 |
 |---|---|---|---|
@@ -184,6 +184,7 @@ conda install ca-certificates certifi openssl
 | Templater | `templater-obsidian` | 动态模板 | 高风险：可执行 JavaScript 和系统命令 |
 | Codeblock Customizer | `codeblock-customizer` | 增强代码块显示与自定义样式 | 可修改代码块的显示方式；安装前核对来源与许可证 |
 | PDF++ | `pdf-plus` | 增强 PDF 阅读、高亮批注、PDF 链接与 Markdown 笔记联动 | 依赖 Obsidian 私有 API，版本更新可能影响兼容性；PDF 直接编辑属实验功能，可能损坏文件，默认不要启用，先备份 |
+| Advanced Audio Recorder | `advanced-audio-recorder` | Obsidian 内录音、暂停/续录、音频转写、可选 AI 总结与说话人标签 | 当前上游要求 Obsidian 1.14.4+；云端转写/AI 后处理会向用户选择的服务商发送音频/文本；上游声明支持桌面和移动端，但管理器五端状态尚未实机验证 |
 
 ### 统一操作规则
 

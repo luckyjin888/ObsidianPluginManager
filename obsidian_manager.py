@@ -1197,7 +1197,7 @@ def offer_obsidian_plugins(vault):
 
     say("\n" + "=" * 58)
     say("Obsidian 社区插件统一管理")
-    say("本清单包含 Obsidian Git 和 8 个推荐插件，共 9 个。")
+    say("本清单包含 Obsidian Git 和 9 个推荐插件，共 10 个。")
     say("安装与启用采用同一次授权；已安装且启用的插件自动跳过。")
     say("-" * 58)
     for index, item in enumerate(catalog, 1):
@@ -1213,7 +1213,7 @@ def offer_obsidian_plugins(vault):
     actionable = [item for item in catalog
                   if plugin_action(item["id"], installed_ids, enabled_ids) != "skip"]
     if not actionable:
-        say("\n9 个插件均已安装并启用，无需操作。")
+        say("\n10 个插件均已安装并启用，无需操作。")
         return
 
     say("\n请选择本次希望安装并启用的插件；已完成的插件不会重复操作。")
@@ -1316,6 +1316,8 @@ RECOMMENDED_PLUGINS = [
      "repo":"mugiwara85/CodeblockCustomizer", "risk":"第三方插件；会调整代码块显示与交互，先在独立测试 Vault 验证阅读/编辑视图、复制、滚动和移动端兼容性"},
     {"id":"pdf-plus", "name":"PDF++", "purpose":"增强 PDF 阅读、文本高亮、批注、PDF 链接与 Markdown 笔记联动",
      "repo":"RyotaUshio/obsidian-pdf-plus", "risk":"依赖 Obsidian 私有 API，Obsidian 更新可能导致兼容性问题；PDF 直接编辑为实验功能，可能损坏文件，默认不要启用直接编辑，使用前备份 PDF"},
+    {"id":"advanced-audio-recorder", "name":"Advanced Audio Recorder", "purpose":"在 Obsidian 内录音、暂停/续录、转写音频，并可调用大模型整理或总结转写内容",
+     "repo":"akhmialeuski/advanced-audio-recorder", "risk":"MIT 开源；当前上游要求 Obsidian 1.14.4+。云端转写会把音频发送到用户选择的服务商，AI 后处理会发送转写文本；需授予麦克风权限。上游声明支持桌面和移动端，但管理器尚无五端真机验证记录"},
     {"id":"templater-obsidian", "name":"Templater", "purpose":"动态模板，可运行 JavaScript 和系统命令",
      "repo":"SilentVoid13/Templater", "risk":"高风险：可执行任意 JavaScript 和系统命令；仅建议高级用户使用"}
 ]
